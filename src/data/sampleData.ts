@@ -8,10 +8,10 @@ const getDate = (dayOffset: number) => {
 
 // Sample categories
 export const sampleCategories: Category[] = [
-  { id: 'cat-1', name: 'Electronics', description: 'Electronic devices and accessories' },
-  { id: 'cat-2', name: 'Tools', description: 'Hand and power tools' },
-  { id: 'cat-3', name: 'Office Equipment', description: 'Office furniture and equipment' },
-  { id: 'cat-4', name: 'Safety Equipment', description: 'Personal protective equipment' },
+  { id: 'cat-1', name: 'Électronique', description: 'Appareils électroniques et accessoires' },
+  { id: 'cat-2', name: 'Outils', description: 'Outils manuels et électriques' },
+  { id: 'cat-3', name: 'Équipement de bureau', description: 'Mobilier et équipement de bureau' },
+  { id: 'cat-4', name: 'Équipement de sécurité', description: 'Équipement de protection individuelle' },
 ];
 
 // Sample suppliers

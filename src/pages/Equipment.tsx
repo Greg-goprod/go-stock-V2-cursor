@@ -7,6 +7,8 @@ import { Plus, Filter, Import, QrCode, LayoutGrid, List, ArrowUpDown } from 'luc
 import QRCodeGenerator from '../components/QRCode/QRCodeGenerator';
 import Modal from '../components/common/Modal';
 import FilterPanel, { FilterOption } from '../components/common/FilterPanel';
+import AddEquipmentModal from '../components/equipment/AddEquipmentModal';
+import { useLanguage } from '../contexts/LanguageContext';
 
 type ViewMode = 'grid' | 'list';
 type SortField = 'name' | 'status' | 'serialNumber' | 'category';
@@ -21,6 +23,7 @@ const Equipment: React.FC = () => {
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const [showFilters, setShowFilters] = useState(false);
   const [activeFilters, setActiveFilters] = useState<Record<string, string>>({});
+  const [showAddModal, setShowAddModal] = useState(false);
 
   const filterOptions: FilterOption[] = [
     {
@@ -288,7 +291,11 @@ const Equipment: React.FC = () => {
           <Button variant="outline" icon={<Import size={18} />}>
             Import
           </Button>
-          <Button variant="primary" icon={<Plus size={18} />}>
+          <Button 
+            variant="primary" 
+            icon={<Plus size={18} />}
+            onClick={() => setShowAddModal(true)}
+          >
             Add Equipment
           </Button>
         </div>
@@ -319,6 +326,11 @@ const Equipment: React.FC = () => {
         onClose={() => setShowFilters(false)}
         options={filterOptions}
         onApplyFilters={setActiveFilters}
+      />
+
+      <AddEquipmentModal
+        isOpen={showAddModal}
+        onClose={() => setShowAddModal(false)}
       />
     </div>
   );

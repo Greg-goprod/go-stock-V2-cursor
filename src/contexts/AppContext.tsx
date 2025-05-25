@@ -13,6 +13,8 @@ interface AppContextType {
   suppliers: Supplier[];
   equipmentStatuses: string[];
   userRoles: string[];
+  statusConfigs: StatusConfig[];
+  roleConfigs: RoleConfig[];
   addEquipment: (equipment: Omit<Equipment, 'id'>) => void;
   updateEquipment: (id: string, updates: Partial<Equipment>) => void;
   deleteEquipment: (id: string) => void;
@@ -35,6 +37,8 @@ interface AppContextType {
   importEquipment: (equipment: Omit<Equipment, 'id'>[]) => void;
   updateEquipmentStatuses: (statuses: string[]) => void;
   updateUserRoles: (roles: string[]) => void;
+  updateStatusConfigs: (configs: StatusConfig[]) => void;
+  updateRoleConfigs: (configs: RoleConfig[]) => void;
 }
 
 export const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -67,6 +71,17 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
   const [userRoles, setUserRoles] = useState<string[]>([
     'admin',
     'user'
+  ]);
+  const [statusConfigs, setStatusConfigs] = useState<StatusConfig[]>([
+    { id: 'available', name: 'available', color: '#10b981' },
+    { id: 'checked-out', name: 'checked-out', color: '#f59e0b' },
+    { id: 'maintenance', name: 'maintenance', color: '#3b82f6' },
+    { id: 'retired', name: 'retired', color: '#64748b' },
+  ]);
+
+  const [roleConfigs, setRoleConfigs] = useState<RoleConfig[]>([
+    { id: 'admin', name: 'admin', color: '#8b5cf6' },
+    { id: 'user', name: 'user', color: '#06b6d4' },
   ]);
 
   useEffect(() => {
@@ -339,6 +354,16 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     toast.success('User roles updated successfully');
   };
 
+  const updateStatusConfigs = (configs: StatusConfig[]) => {
+    setStatusConfigs(configs);
+    toast.success('Status configurations updated successfully');
+  };
+
+  const updateRoleConfigs = (configs: RoleConfig[]) => {
+    setRoleConfigs(configs);
+    toast.success('Role configurations updated successfully');
+  };
+
   return (
     <AppContext.Provider
       value={{
@@ -350,6 +375,8 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
         suppliers,
         equipmentStatuses,
         userRoles,
+        statusConfigs,
+        roleConfigs,
         addEquipment,
         updateEquipment,
         deleteEquipment,
@@ -371,7 +398,9 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
         deleteSupplier,
         importEquipment,
         updateEquipmentStatuses,
-        updateUserRoles
+        updateUserRoles,
+        updateStatusConfigs,
+        updateRoleConfigs
       }}
     >
       {children}

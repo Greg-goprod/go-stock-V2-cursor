@@ -5,6 +5,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useApp } from '../contexts/AppContext';
 import { Sun, Moon, Languages, Plus, Pencil, Trash2, Tag, UserCheck } from 'lucide-react';
+import ColorPicker from '../components/common/ColorPicker';
 
 const Settings: React.FC = () => {
   const { theme, toggleTheme } = useTheme();
@@ -17,7 +18,11 @@ const Settings: React.FC = () => {
     equipmentStatuses,
     userRoles,
     updateEquipmentStatuses,
-    updateUserRoles
+    updateUserRoles,
+    statusConfigs,
+    roleConfigs,
+    updateStatusConfigs,
+    updateRoleConfigs,
   } = useApp();
 
   const [newStatus, setNewStatus] = useState('');
@@ -43,6 +48,20 @@ const Settings: React.FC = () => {
 
   const handleRemoveRole = (role: string) => {
     updateUserRoles(userRoles.filter(r => r !== role));
+  };
+
+  const handleStatusColorChange = (statusId: string, color: string) => {
+    const newConfigs = statusConfigs.map(config =>
+      config.id === statusId ? { ...config, color } : config
+    );
+    updateStatusConfigs(newConfigs);
+  };
+
+  const handleRoleColorChange = (roleId: string, color: string) => {
+    const newConfigs = roleConfigs.map(config =>
+      config.id === roleId ? { ...config, color } : config
+    );
+    updateRoleConfigs(newConfigs);
   };
 
   return (
@@ -148,15 +167,21 @@ const Settings: React.FC = () => {
                   Ajouter
                 </Button>
               </div>
-              <div className="flex flex-wrap gap-2">
-                {equipmentStatuses.map((status) => (
+              <div className="space-y-2">
+                {statusConfigs.map((status) => (
                   <div
-                    key={status}
-                    className="flex items-center gap-2 px-3 py-1 bg-gray-100 dark:bg-gray-700 rounded-full"
+                    key={status.id}
+                    className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg"
                   >
-                    <span className="text-sm">{status}</span>
+                    <div className="flex items-center gap-3">
+                      <ColorPicker
+                        color={status.color}
+                        onChange={(color) => handleStatusColorChange(status.id, color)}
+                      />
+                      <span className="text-sm font-medium">{status.name}</span>
+                    </div>
                     <button
-                      onClick={() => handleRemoveStatus(status)}
+                      onClick={() => handleRemoveStatus(status.id)}
                       className="text-gray-500 hover:text-danger-500"
                     >
                       <Trash2 size={14} />
@@ -197,15 +222,21 @@ const Settings: React.FC = () => {
                   Ajouter
                 </Button>
               </div>
-              <div className="flex flex-wrap gap-2">
-                {userRoles.map((role) => (
+              <div className="space-y-2">
+                {roleConfigs.map((role) => (
                   <div
-                    key={role}
-                    className="flex items-center gap-2 px-3 py-1 bg-gray-100 dark:bg-gray-700 rounded-full"
+                    key={role.id}
+                    className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg"
                   >
-                    <span className="text-sm">{role}</span>
+                    <div className="flex items-center gap-3">
+                      <ColorPicker
+                        color={role.color}
+                        onChange={(color) => handleRoleColorChange(role.id, color)}
+                      />
+                      <span className="text-sm font-medium">{role.name}</span>
+                    </div>
                     <button
-                      onClick={() => handleRemoveRole(role)}
+                      onClick={() => handleRemoveRole(role.id)}
                       className="text-gray-500 hover:text-danger-500"
                     >
                       <Trash2 size={14} />

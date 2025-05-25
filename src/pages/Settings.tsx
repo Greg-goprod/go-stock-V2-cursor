@@ -187,7 +187,7 @@ const Settings: React.FC = () => {
                   value={newStatus}
                   onChange={(e) => setNewStatus(e.target.value)}
                   placeholder={t('newStatus')}
-                  className="flex-1 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm"
+                  className="flex-1 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
                 />
                 <Button
                   variant="primary"
@@ -215,7 +215,7 @@ const Settings: React.FC = () => {
                             type="text"
                             value={editedStatusName}
                             onChange={(e) => setEditedStatusName(e.target.value)}
-                            className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-2 py-1 text-sm"
+                            className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-2 py-1 text-sm text-gray-900 dark:text-gray-100"
                             autoFocus
                           />
                           <Button
@@ -233,7 +233,7 @@ const Settings: React.FC = () => {
                         </div>
                       ) : (
                         <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium">{status.name}</span>
+                          <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{status.name}</span>
                           <button
                             onClick={() => handleEditStatus(status.id)}
                             className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
@@ -245,7 +245,7 @@ const Settings: React.FC = () => {
                     </div>
                     <button
                       onClick={() => handleRemoveStatus(status.id)}
-                      className="text-gray-500 hover:text-danger-500"
+                      className="text-gray-500 hover:text-danger-500 dark:hover:text-danger-400"
                     >
                       <Trash2 size={14} />
                     </button>

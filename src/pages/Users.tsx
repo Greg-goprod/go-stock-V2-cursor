@@ -1,5 +1,4 @@
-import React, { useState } from 'react';
-import { useApp } from '../contexts/AppContext';
+import React, { useState, useEffect } from 'react';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import { Plus, QrCode, Mail, Building2, Phone, LayoutGrid, List, ArrowUpDown, Filter, Pencil, Trash2 } from 'lucide-react';
@@ -8,13 +7,16 @@ import Modal from '../components/common/Modal';
 import FilterPanel, { FilterOption } from '../components/common/FilterPanel';
 import UserModal from '../components/users/UserModal';
 import { User } from '../types';
+import { supabase } from '../lib/supabase';
+import toast from 'react-hot-toast';
 
 type ViewMode = 'grid' | 'list';
 type SortField = 'name' | 'email' | 'phone' | 'department' | 'role';
 type SortDirection = 'asc' | 'desc';
 
 const Users: React.FC = () => {
-  const { users, deleteUser } = useApp();
+  const [users, setUsers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [selectedUser, setSelectedUser] = useState<string | null>(null);
   const [showQRModal, setShowQRModal] = useState(false);
@@ -24,6 +26,48 @@ const Users: React.FC = () => {
   const [activeFilters, setActiveFilters] = useState<Record<string, string>>({});
   const [showUserModal, setShowUserModal] = useState(false);
   const [editingUser, setEditingUser] = useState<User | undefined>();
+
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+
+  const fetchUsers = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .order('name', { ascending: true });
+
+      if (error) {
+        throw error;
+      }
+
+      setUsers(data || []);
+    } catch (error: any) {
+      console.error('Error fetching users:', error);
+      toast.error('Failed to load users');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteUser = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('users')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      setUsers(prev => prev.filter(user => user.id !== id));
+      toast.success('User deleted successfully');
+    } catch (error: any) {
+      console.error('Error deleting user:', error);
+      toast.error(error.message || 'Failed to delete user');
+    }
+  };
 
   const handleShowQR = (id: string) => {
     setSelectedUser(id);
@@ -52,6 +96,7 @@ const Users: React.FC = () => {
   const handleCloseUserModal = () => {
     setShowUserModal(false);
     setEditingUser(undefined);
+    fetchUsers(); // Refresh the list after modal closes
   };
 
   const filterOptions: FilterOption[] = [
@@ -119,6 +164,14 @@ const Users: React.FC = () => {
       }
     });
   });
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-gray-500 dark:text-gray-400">Loading users...</div>
+      </div>
+    );
+  }
 
   const renderListView = () => (
     <Card>
@@ -224,7 +277,7 @@ const Users: React.FC = () => {
                     variant="danger"
                     size="sm"
                     icon={<Trash2 size={16} />}
-                    onClick={() => deleteUser(user.id)}
+                    onClick={() => handleDeleteUser(user.id)}
                   />
                 </td>
               </tr>
@@ -286,7 +339,7 @@ const Users: React.FC = () => {
                 variant="danger"
                 size="sm"
                 icon={<Trash2 size={16} />}
-                onClick={() => deleteUser(user.id)}
+                onClick={() => handleDeleteUser(user.id)}
               />
             </div>
           </div>

@@ -31,18 +31,20 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ isOpen, onClose }
     setIsLoading(true);
 
     try {
-      // Create a new object with null values for empty category_id and supplier_id
+      // Explicitly handle empty strings as null values for UUID fields
       const dataToSubmit = {
         ...formData,
         category_id: formData.category_id || null,
-        supplier_id: formData.supplier_id || null
+        supplier_id: formData.supplier_id || null,
+        // Ensure other fields are properly formatted
+        image_url: formData.image_url || null,
+        description: formData.description || null,
+        location: formData.location || null
       };
 
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('equipment')
-        .insert([dataToSubmit])
-        .select()
-        .single();
+        .insert([dataToSubmit]);
 
       if (error) throw error;
 
@@ -58,9 +60,9 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ isOpen, onClose }
         location: '',
         image_url: ''
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error adding equipment:', error);
-      toast.error(t('errorAddingEquipment'));
+      toast.error(error.message || t('errorAddingEquipment'));
     } finally {
       setIsLoading(false);
     }

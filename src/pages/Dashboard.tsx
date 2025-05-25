@@ -4,7 +4,6 @@ import { Link } from 'react-router-dom';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import Badge from '../components/common/Badge';
-import { useLanguage } from '../contexts/LanguageContext';
 import { 
   AlertTriangle, 
   Package, 
@@ -12,10 +11,10 @@ import {
   CheckSquare, 
   Bell, 
   ArrowUpRight,
-  QrCode,
   LogOut,
   LogIn
 } from 'lucide-react';
+import { useLanguage } from '../contexts/LanguageContext';
 
 const Dashboard: React.FC = () => {
   const { equipment, users, checkouts, notifications, getOverdueCheckouts } = useApp();
@@ -36,20 +35,6 @@ const Dashboard: React.FC = () => {
       <div className="flex flex-col gap-4">
         <div className="flex justify-between items-center">
           <h2 className="text-2xl font-bold text-gray-800 dark:text-white">{t('dashboard')}</h2>
-          
-          <div className="flex gap-3">
-            <Link to="/scan">
-              <Button variant="primary" icon={<QrCode size={18} />}>
-                {t('scan')}
-              </Button>
-            </Link>
-            
-            <Link to="/equipment/add">
-              <Button variant="outline" icon={<Package size={18} />}>
-                {t('addEquipment')}
-              </Button>
-            </Link>
-          </div>
         </div>
 
         <div className="flex gap-3">

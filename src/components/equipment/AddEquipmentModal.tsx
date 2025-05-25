@@ -18,10 +18,10 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ isOpen, onClose }
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    category_id: null as string | null,
+    category_id: '',
     serial_number: '',
     status: 'available',
-    supplier_id: null as string | null,
+    supplier_id: '',
     location: '',
     image_url: ''
   });
@@ -31,9 +31,16 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ isOpen, onClose }
     setIsLoading(true);
 
     try {
+      // Create a new object with null values for empty category_id and supplier_id
+      const dataToSubmit = {
+        ...formData,
+        category_id: formData.category_id || null,
+        supplier_id: formData.supplier_id || null
+      };
+
       const { data, error } = await supabase
         .from('equipment')
-        .insert([formData])
+        .insert([dataToSubmit])
         .select()
         .single();
 
@@ -44,10 +51,10 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ isOpen, onClose }
       setFormData({
         name: '',
         description: '',
-        category_id: null,
+        category_id: '',
         serial_number: '',
         status: 'available',
-        supplier_id: null,
+        supplier_id: '',
         location: '',
         image_url: ''
       });
@@ -61,19 +68,10 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ isOpen, onClose }
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    
-    // Handle UUID fields specially - convert empty strings to null
-    if (name === 'category_id' || name === 'supplier_id') {
-      setFormData(prev => ({
-        ...prev,
-        [name]: value === '' ? null : value
-      }));
-    } else {
-      setFormData(prev => ({
-        ...prev,
-        [name]: value
-      }));
-    }
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
   };
 
   return (
@@ -119,7 +117,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ isOpen, onClose }
             </label>
             <select
               name="category_id"
-              value={formData.category_id || ''}
+              value={formData.category_id}
               onChange={handleChange}
               className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
             >
@@ -138,7 +136,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ isOpen, onClose }
             </label>
             <select
               name="supplier_id"
-              value={formData.supplier_id || ''}
+              value={formData.supplier_id}
               onChange={handleChange}
               className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
             >

@@ -56,3 +56,15 @@ export interface Category {
   name: string;
   description?: string;
 }
+
+export interface StatusConfig {
+  id: string;
+  name: string;
+  color: string;
+}
+
+export interface RoleConfig {
+  id: string;
+  name: string;
+  color: string;
+}

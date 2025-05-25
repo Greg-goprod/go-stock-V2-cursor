@@ -2,13 +2,13 @@ import React, { useState } from 'react';
 import { useApp } from '../contexts/AppContext';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
-import { Plus, QrCode, Mail, Building2, LayoutGrid, List, ArrowUpDown, Filter } from 'lucide-react';
+import { Plus, QrCode, Mail, Building2, Phone, LayoutGrid, List, ArrowUpDown, Filter } from 'lucide-react';
 import QRCodeGenerator from '../components/QRCode/QRCodeGenerator';
 import Modal from '../components/common/Modal';
 import FilterPanel, { FilterOption } from '../components/common/FilterPanel';
 
 type ViewMode = 'grid' | 'list';
-type SortField = 'name' | 'email' | 'department' | 'role';
+type SortField = 'name' | 'email' | 'phone' | 'department' | 'role';
 type SortDirection = 'asc' | 'desc';
 
 const Users: React.FC = () => {
@@ -68,6 +68,8 @@ const Users: React.FC = () => {
         return a.name.localeCompare(b.name) * direction;
       case 'email':
         return a.email.localeCompare(b.email) * direction;
+      case 'phone':
+        return a.phone.localeCompare(b.phone) * direction;
       case 'department':
         return a.department.localeCompare(b.department) * direction;
       case 'role':
@@ -86,7 +88,8 @@ const Users: React.FC = () => {
           const searchTerm = value.toLowerCase();
           return (
             user.name.toLowerCase().includes(searchTerm) ||
-            user.email.toLowerCase().includes(searchTerm)
+            user.email.toLowerCase().includes(searchTerm) ||
+            user.phone.toLowerCase().includes(searchTerm)
           );
         case 'role':
           return user.role === value;
@@ -109,7 +112,7 @@ const Users: React.FC = () => {
                 onClick={() => handleSort('name')}
               >
                 <div className="flex items-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Name
+                  Nom
                   <ArrowUpDown size={14} className="ml-1 opacity-0 group-hover:opacity-100" />
                 </div>
               </th>
@@ -124,10 +127,19 @@ const Users: React.FC = () => {
               </th>
               <th 
                 className="px-6 py-3 text-left cursor-pointer group"
+                onClick={() => handleSort('phone')}
+              >
+                <div className="flex items-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  Téléphone
+                  <ArrowUpDown size={14} className="ml-1 opacity-0 group-hover:opacity-100" />
+                </div>
+              </th>
+              <th 
+                className="px-6 py-3 text-left cursor-pointer group"
                 onClick={() => handleSort('department')}
               >
                 <div className="flex items-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Department
+                  Département
                   <ArrowUpDown size={14} className="ml-1 opacity-0 group-hover:opacity-100" />
                 </div>
               </th>
@@ -136,7 +148,7 @@ const Users: React.FC = () => {
                 onClick={() => handleSort('role')}
               >
                 <div className="flex items-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Role
+                  Rôle
                   <ArrowUpDown size={14} className="ml-1 opacity-0 group-hover:opacity-100" />
                 </div>
               </th>
@@ -164,6 +176,9 @@ const Users: React.FC = () => {
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                   {user.email}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                  {user.phone}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                   {user.department}
@@ -212,6 +227,10 @@ const Users: React.FC = () => {
                 <span className="text-sm">{user.email}</span>
               </div>
               <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+                <Phone size={16} />
+                <span className="text-sm">{user.phone}</span>
+              </div>
+              <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
                 <Building2 size={16} />
                 <span className="text-sm">{user.department}</span>
               </div>
@@ -236,7 +255,7 @@ const Users: React.FC = () => {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Users</h1>
+        <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Utilisateurs</h1>
         
         <div className="flex gap-3">
           <div className="flex rounded-lg border border-gray-200 dark:border-gray-700">
@@ -247,7 +266,7 @@ const Users: React.FC = () => {
               onClick={() => setViewMode('grid')}
               className="rounded-r-none"
             >
-              Grid
+              Grille
             </Button>
             <Button
               variant={viewMode === 'list' ? 'primary' : 'outline'}
@@ -256,7 +275,7 @@ const Users: React.FC = () => {
               onClick={() => setViewMode('list')}
               className="rounded-l-none"
             >
-              List
+              Liste
             </Button>
           </div>
           <Button 
@@ -282,7 +301,7 @@ const Users: React.FC = () => {
       <Modal
         isOpen={showQRModal}
         onClose={() => setShowQRModal(false)}
-        title="User QR Code"
+        title="QR Code Utilisateur"
         size="sm"
       >
         {selectedUser && (

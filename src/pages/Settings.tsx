@@ -7,6 +7,8 @@ import { useApp } from '../contexts/AppContext';
 import { Sun, Moon, Languages, Plus, Pencil, Trash2, Tag, UserCheck, Save, X } from 'lucide-react';
 import ColorPicker from '../components/common/ColorPicker';
 import CategoryModal from '../components/categories/CategoryModal';
+import SupplierModal from '../components/suppliers/SupplierModal';
+import { Category, Supplier } from '../types';
 
 const Settings: React.FC = () => {
   const { theme, toggleTheme } = useTheme();
@@ -26,12 +28,48 @@ const Settings: React.FC = () => {
     updateRoleConfigs,
   } = useApp();
 
+  // Category Modal State
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<Category | undefined>();
+
+  // Supplier Modal State
+  const [showSupplierModal, setShowSupplierModal] = useState(false);
+  const [selectedSupplier, setSelectedSupplier] = useState<Supplier | undefined>();
+
   const [newStatus, setNewStatus] = useState('');
   const [newRole, setNewRole] = useState('');
   const [editingStatusId, setEditingStatusId] = useState<string | null>(null);
   const [editedStatusName, setEditedStatusName] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<Category | undefined>(undefined);
-  const [showCategoryModal, setShowCategoryModal] = useState(false);
+
+  const handleEditCategory = (category: Category) => {
+    setSelectedCategory(category);
+    setShowCategoryModal(true);
+  };
+
+  const handleAddCategory = () => {
+    setSelectedCategory(undefined);
+    setShowCategoryModal(true);
+  };
+
+  const handleEditSupplier = (supplier: Supplier) => {
+    setSelectedSupplier(supplier);
+    setShowSupplierModal(true);
+  };
+
+  const handleAddSupplier = () => {
+    setSelectedSupplier(undefined);
+    setShowSupplierModal(true);
+  };
+
+  const handleCloseCategoryModal = () => {
+    setShowCategoryModal(false);
+    setSelectedCategory(undefined);
+  };
+
+  const handleCloseSupplierModal = () => {
+    setShowSupplierModal(false);
+    setSelectedSupplier(undefined);
+  };
 
   const handleAddStatus = () => {
     if (newStatus && !equipmentStatuses.includes(newStatus)) {
@@ -325,10 +363,7 @@ const Settings: React.FC = () => {
                 variant="primary" 
                 size="sm" 
                 icon={<Plus size={16} />}
-                onClick={() => {
-                  setSelectedCategory(undefined);
-                  setShowCategoryModal(true);
-                }}
+                onClick={handleAddCategory}
               >
                 {t('addCategory')}
               </Button>
@@ -354,10 +389,7 @@ const Settings: React.FC = () => {
                       variant="outline"
                       size="sm"
                       icon={<Pencil size={16} />}
-                      onClick={() => {
-                        setSelectedCategory(category);
-                        setShowCategoryModal(true);
-                      }}
+                      onClick={() => handleEditCategory(category)}
                     />
                     <Button
                       variant="danger"
@@ -377,7 +409,12 @@ const Settings: React.FC = () => {
               <h3 className="text-lg font-medium text-gray-800 dark:text-white">
                 {t('suppliers')}
               </h3>
-              <Button variant="primary" size="sm" icon={<Plus size={16} />}>
+              <Button 
+                variant="primary" 
+                size="sm" 
+                icon={<Plus size={16} />}
+                onClick={handleAddSupplier}
+              >
                 {t('addSupplier')}
               </Button>
             </div>
@@ -403,6 +440,7 @@ const Settings: React.FC = () => {
                       variant="outline"
                       size="sm"
                       icon={<Pencil size={16} />}
+                      onClick={() => handleEditSupplier(supplier)}
                     />
                     <Button
                       variant="danger"
@@ -418,13 +456,17 @@ const Settings: React.FC = () => {
         </div>
       </div>
 
+      {/* Add the modals at the end */}
       <CategoryModal
         isOpen={showCategoryModal}
-        onClose={() => {
-          setShowCategoryModal(false);
-          setSelectedCategory(undefined);
-        }}
+        onClose={handleCloseCategoryModal}
         category={selectedCategory}
+      />
+
+      <SupplierModal
+        isOpen={showSupplierModal}
+        onClose={handleCloseSupplierModal}
+        supplier={selectedSupplier}
       />
     </div>
   );

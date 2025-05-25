@@ -2,17 +2,19 @@ import React, { useState } from 'react';
 import { useApp } from '../contexts/AppContext';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
-import { Plus, QrCode, Mail, Building2, Phone, LayoutGrid, List, ArrowUpDown, Filter } from 'lucide-react';
+import { Plus, QrCode, Mail, Building2, Phone, LayoutGrid, List, ArrowUpDown, Filter, Pencil, Trash2 } from 'lucide-react';
 import QRCodeGenerator from '../components/QRCode/QRCodeGenerator';
 import Modal from '../components/common/Modal';
 import FilterPanel, { FilterOption } from '../components/common/FilterPanel';
+import UserModal from '../components/users/UserModal';
+import { User } from '../types';
 
 type ViewMode = 'grid' | 'list';
 type SortField = 'name' | 'email' | 'phone' | 'department' | 'role';
 type SortDirection = 'asc' | 'desc';
 
 const Users: React.FC = () => {
-  const { users } = useApp();
+  const { users, deleteUser } = useApp();
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [selectedUser, setSelectedUser] = useState<string | null>(null);
   const [showQRModal, setShowQRModal] = useState(false);
@@ -20,6 +22,8 @@ const Users: React.FC = () => {
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const [showFilters, setShowFilters] = useState(false);
   const [activeFilters, setActiveFilters] = useState<Record<string, string>>({});
+  const [showUserModal, setShowUserModal] = useState(false);
+  const [editingUser, setEditingUser] = useState<User | undefined>();
 
   const handleShowQR = (id: string) => {
     setSelectedUser(id);
@@ -33,6 +37,21 @@ const Users: React.FC = () => {
       setSortField(field);
       setSortDirection('asc');
     }
+  };
+
+  const handleAddUser = () => {
+    setEditingUser(undefined);
+    setShowUserModal(true);
+  };
+
+  const handleEditUser = (user: User) => {
+    setEditingUser(user);
+    setShowUserModal(true);
+  };
+
+  const handleCloseUserModal = () => {
+    setShowUserModal(false);
+    setEditingUser(undefined);
   };
 
   const filterOptions: FilterOption[] = [
@@ -69,7 +88,7 @@ const Users: React.FC = () => {
       case 'email':
         return a.email.localeCompare(b.email) * direction;
       case 'phone':
-        return a.phone.localeCompare(b.phone) * direction;
+        return (a.phone || '').localeCompare(b.phone || '') * direction;
       case 'department':
         return a.department.localeCompare(b.department) * direction;
       case 'role':
@@ -89,7 +108,7 @@ const Users: React.FC = () => {
           return (
             user.name.toLowerCase().includes(searchTerm) ||
             user.email.toLowerCase().includes(searchTerm) ||
-            user.phone.toLowerCase().includes(searchTerm)
+            (user.phone || '').toLowerCase().includes(searchTerm)
           );
         case 'role':
           return user.role === value;
@@ -186,7 +205,7 @@ const Users: React.FC = () => {
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
                   {user.role}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-right">
+                <td className="px-6 py-4 whitespace-nowrap text-right space-x-2">
                   <Button
                     variant="outline"
                     size="sm"
@@ -195,6 +214,18 @@ const Users: React.FC = () => {
                   >
                     QR Code
                   </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    icon={<Pencil size={16} />}
+                    onClick={() => handleEditUser(user)}
+                  />
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    icon={<Trash2 size={16} />}
+                    onClick={() => deleteUser(user.id)}
+                  />
                 </td>
               </tr>
             ))}
@@ -236,7 +267,7 @@ const Users: React.FC = () => {
               </div>
             </div>
             
-            <div className="mt-4 flex justify-end">
+            <div className="mt-4 flex justify-end gap-2">
               <Button
                 variant="outline"
                 size="sm"
@@ -245,6 +276,18 @@ const Users: React.FC = () => {
               >
                 QR Code
               </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                icon={<Pencil size={16} />}
+                onClick={() => handleEditUser(user)}
+              />
+              <Button
+                variant="danger"
+                size="sm"
+                icon={<Trash2 size={16} />}
+                onClick={() => deleteUser(user.id)}
+              />
             </div>
           </div>
         </Card>
@@ -290,7 +333,11 @@ const Users: React.FC = () => {
               </span>
             )}
           </Button>
-          <Button variant="primary" icon={<Plus size={18} />}>
+          <Button 
+            variant="primary" 
+            icon={<Plus size={18} />}
+            onClick={handleAddUser}
+          >
             Ajouter un utilisateur
           </Button>
         </div>
@@ -321,6 +368,12 @@ const Users: React.FC = () => {
         onClose={() => setShowFilters(false)}
         options={filterOptions}
         onApplyFilters={setActiveFilters}
+      />
+
+      <UserModal
+        isOpen={showUserModal}
+        onClose={handleCloseUserModal}
+        user={editingUser}
       />
     </div>
   );

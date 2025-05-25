@@ -168,22 +168,22 @@ const Users: React.FC = () => {
                       </span>
                     </div>
                     <div className="ml-4">
-                      <div className="text-sm font-medium text-gray-900 dark:text-white">
+                      <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
                         {user.name}
                       </div>
                     </div>
                   </div>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
                   {user.email}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
                   {user.phone}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
                   {user.department}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
                   {user.role}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-right">
@@ -205,7 +205,7 @@ const Users: React.FC = () => {
   );
 
   const renderGridView = () => (
-    <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6">
+    <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
       {filteredUsers.map((user) => (
         <Card key={user.id} className="hover:shadow-lg transition-shadow">
           <div className="p-4">
@@ -216,21 +216,21 @@ const Users: React.FC = () => {
                 </span>
               </div>
               <div>
-                <h3 className="text-lg font-semibold text-gray-800 dark:text-white">{user.name}</h3>
-                <p className="text-sm text-gray-600 dark:text-gray-400">{user.role}</p>
+                <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100">{user.name}</h3>
+                <p className="text-sm text-gray-600 dark:text-gray-300">{user.role}</p>
               </div>
             </div>
             
             <div className="space-y-2">
-              <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+              <div className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
                 <Mail size={16} />
                 <span className="text-sm">{user.email}</span>
               </div>
-              <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+              <div className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
                 <Phone size={16} />
                 <span className="text-sm">{user.phone}</span>
               </div>
-              <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+              <div className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
                 <Building2 size={16} />
                 <span className="text-sm">{user.department}</span>
               </div>

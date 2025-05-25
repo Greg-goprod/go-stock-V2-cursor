@@ -6,6 +6,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { useApp } from '../contexts/AppContext';
 import { Sun, Moon, Languages, Plus, Pencil, Trash2, Tag, UserCheck, Save, X } from 'lucide-react';
 import ColorPicker from '../components/common/ColorPicker';
+import CategoryModal from '../components/categories/CategoryModal';
 
 const Settings: React.FC = () => {
   const { theme, toggleTheme } = useTheme();
@@ -29,6 +30,8 @@ const Settings: React.FC = () => {
   const [newRole, setNewRole] = useState('');
   const [editingStatusId, setEditingStatusId] = useState<string | null>(null);
   const [editedStatusName, setEditedStatusName] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<Category | undefined>(undefined);
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
 
   const handleAddStatus = () => {
     if (newStatus && !equipmentStatuses.includes(newStatus)) {
@@ -318,7 +321,15 @@ const Settings: React.FC = () => {
               <h3 className="text-lg font-medium text-gray-800 dark:text-white">
                 {t('categories')}
               </h3>
-              <Button variant="primary" size="sm" icon={<Plus size={16} />}>
+              <Button 
+                variant="primary" 
+                size="sm" 
+                icon={<Plus size={16} />}
+                onClick={() => {
+                  setSelectedCategory(undefined);
+                  setShowCategoryModal(true);
+                }}
+              >
                 {t('addCategory')}
               </Button>
             </div>
@@ -343,6 +354,10 @@ const Settings: React.FC = () => {
                       variant="outline"
                       size="sm"
                       icon={<Pencil size={16} />}
+                      onClick={() => {
+                        setSelectedCategory(category);
+                        setShowCategoryModal(true);
+                      }}
                     />
                     <Button
                       variant="danger"
@@ -402,6 +417,15 @@ const Settings: React.FC = () => {
           </Card>
         </div>
       </div>
+
+      <CategoryModal
+        isOpen={showCategoryModal}
+        onClose={() => {
+          setShowCategoryModal(false);
+          setSelectedCategory(undefined);
+        }}
+        category={selectedCategory}
+      />
     </div>
   );
 };

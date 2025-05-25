@@ -12,7 +12,9 @@ import {
   CheckSquare, 
   Bell, 
   ArrowUpRight,
-  QrCode
+  QrCode,
+  LogOut,
+  LogIn
 } from 'lucide-react';
 
 const Dashboard: React.FC = () => {
@@ -31,21 +33,42 @@ const Dashboard: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-gray-800 dark:text-white">{t('dashboard')}</h2>
-        
-        <div className="flex gap-3">
-          <Link to="/scan">
-            <Button variant="primary" icon={<QrCode size={18} />}>
-              {t('scan')}
-            </Button>
-          </Link>
+      <div className="flex flex-col gap-4">
+        <div className="flex justify-between items-center">
+          <h2 className="text-2xl font-bold text-gray-800 dark:text-white">{t('dashboard')}</h2>
           
-          <Link to="/equipment/add">
-            <Button variant="outline" icon={<Package size={18} />}>
-              {t('addEquipment')}
-            </Button>
-          </Link>
+          <div className="flex gap-3">
+            <Link to="/scan">
+              <Button variant="primary" icon={<QrCode size={18} />}>
+                {t('scan')}
+              </Button>
+            </Link>
+            
+            <Link to="/equipment/add">
+              <Button variant="outline" icon={<Package size={18} />}>
+                {t('addEquipment')}
+              </Button>
+            </Link>
+          </div>
+        </div>
+
+        <div className="flex gap-3">
+          <Button
+            variant="success"
+            size="lg"
+            icon={<LogOut size={20} />}
+            className="flex-1"
+          >
+            SORTIE MATERIEL
+          </Button>
+          <Button
+            variant="warning"
+            size="lg"
+            icon={<LogIn size={20} />}
+            className="flex-1"
+          >
+            RETOUR MATERIEL
+          </Button>
         </div>
       </div>
       

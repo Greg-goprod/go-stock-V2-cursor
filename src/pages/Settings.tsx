@@ -4,7 +4,7 @@ import Button from '../components/common/Button';
 import { useTheme } from '../contexts/ThemeContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useApp } from '../contexts/AppContext';
-import { Sun, Moon, Languages, Plus, Pencil, Trash2, Tag, UserCheck } from 'lucide-react';
+import { Sun, Moon, Languages, Plus, Pencil, Trash2, Tag, UserCheck, Save, X } from 'lucide-react';
 import ColorPicker from '../components/common/ColorPicker';
 
 const Settings: React.FC = () => {
@@ -27,27 +27,42 @@ const Settings: React.FC = () => {
 
   const [newStatus, setNewStatus] = useState('');
   const [newRole, setNewRole] = useState('');
+  const [editingStatusId, setEditingStatusId] = useState<string | null>(null);
+  const [editedStatusName, setEditedStatusName] = useState('');
 
   const handleAddStatus = () => {
     if (newStatus && !equipmentStatuses.includes(newStatus)) {
-      updateEquipmentStatuses([...equipmentStatuses, newStatus]);
+      const newStatusConfig = {
+        id: newStatus.toLowerCase().replace(/\s+/g, '-'),
+        name: newStatus,
+        color: '#64748b' // default color
+      };
+      updateStatusConfigs([...statusConfigs, newStatusConfig]);
       setNewStatus('');
     }
   };
 
-  const handleRemoveStatus = (status: string) => {
-    updateEquipmentStatuses(equipmentStatuses.filter(s => s !== status));
+  const handleRemoveStatus = (statusId: string) => {
+    updateStatusConfigs(statusConfigs.filter(s => s.id !== statusId));
   };
 
-  const handleAddRole = () => {
-    if (newRole && !userRoles.includes(newRole)) {
-      updateUserRoles([...userRoles, newRole]);
-      setNewRole('');
+  const handleEditStatus = (statusId: string) => {
+    const status = statusConfigs.find(s => s.id === statusId);
+    if (status) {
+      setEditingStatusId(statusId);
+      setEditedStatusName(status.name);
     }
   };
 
-  const handleRemoveRole = (role: string) => {
-    updateUserRoles(userRoles.filter(r => r !== role));
+  const handleSaveStatusName = (statusId: string) => {
+    if (editedStatusName.trim()) {
+      const newConfigs = statusConfigs.map(config =>
+        config.id === statusId ? { ...config, name: editedStatusName.trim() } : config
+      );
+      updateStatusConfigs(newConfigs);
+      setEditingStatusId(null);
+      setEditedStatusName('');
+    }
   };
 
   const handleStatusColorChange = (statusId: string, color: string) => {
@@ -55,6 +70,22 @@ const Settings: React.FC = () => {
       config.id === statusId ? { ...config, color } : config
     );
     updateStatusConfigs(newConfigs);
+  };
+
+  const handleAddRole = () => {
+    if (newRole && !userRoles.includes(newRole)) {
+      const newRoleConfig = {
+        id: newRole.toLowerCase().replace(/\s+/g, '-'),
+        name: newRole,
+        color: '#64748b' // default color
+      };
+      updateRoleConfigs([...roleConfigs, newRoleConfig]);
+      setNewRole('');
+    }
+  };
+
+  const handleRemoveRole = (roleId: string) => {
+    updateRoleConfigs(roleConfigs.filter(r => r.id !== roleId));
   };
 
   const handleRoleColorChange = (roleId: string, color: string) => {
@@ -145,7 +176,7 @@ const Settings: React.FC = () => {
                   <Tag className="w-5 h-5 text-primary-600 dark:text-primary-400" />
                 </div>
                 <h3 className="text-lg font-medium text-gray-800 dark:text-white">
-                  Statuts des équipements
+                  {t('statusManagement')}
                 </h3>
               </div>
             </div>
@@ -155,7 +186,7 @@ const Settings: React.FC = () => {
                   type="text"
                   value={newStatus}
                   onChange={(e) => setNewStatus(e.target.value)}
-                  placeholder="Nouveau statut"
+                  placeholder={t('newStatus')}
                   className="flex-1 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm"
                 />
                 <Button
@@ -164,7 +195,7 @@ const Settings: React.FC = () => {
                   icon={<Plus size={16} />}
                   onClick={handleAddStatus}
                 >
-                  Ajouter
+                  {t('add')}
                 </Button>
               </div>
               <div className="space-y-2">
@@ -178,7 +209,39 @@ const Settings: React.FC = () => {
                         color={status.color}
                         onChange={(color) => handleStatusColorChange(status.id, color)}
                       />
-                      <span className="text-sm font-medium">{status.name}</span>
+                      {editingStatusId === status.id ? (
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            value={editedStatusName}
+                            onChange={(e) => setEditedStatusName(e.target.value)}
+                            className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-2 py-1 text-sm"
+                            autoFocus
+                          />
+                          <Button
+                            variant="success"
+                            size="sm"
+                            icon={<Save size={14} />}
+                            onClick={() => handleSaveStatusName(status.id)}
+                          />
+                          <Button
+                            variant="danger"
+                            size="sm"
+                            icon={<X size={14} />}
+                            onClick={() => setEditingStatusId(null)}
+                          />
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium">{status.name}</span>
+                          <button
+                            onClick={() => handleEditStatus(status.id)}
+                            className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+                          >
+                            <Pencil size={14} />
+                          </button>
+                        </div>
+                      )}
                     </div>
                     <button
                       onClick={() => handleRemoveStatus(status.id)}
@@ -200,7 +263,7 @@ const Settings: React.FC = () => {
                   <UserCheck className="w-5 h-5 text-primary-600 dark:text-primary-400" />
                 </div>
                 <h3 className="text-lg font-medium text-gray-800 dark:text-white">
-                  Rôles des utilisateurs
+                  {t('userRoles')}
                 </h3>
               </div>
             </div>
@@ -210,7 +273,7 @@ const Settings: React.FC = () => {
                   type="text"
                   value={newRole}
                   onChange={(e) => setNewRole(e.target.value)}
-                  placeholder="Nouveau rôle"
+                  placeholder={t('newRole')}
                   className="flex-1 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm"
                 />
                 <Button
@@ -219,7 +282,7 @@ const Settings: React.FC = () => {
                   icon={<Plus size={16} />}
                   onClick={handleAddRole}
                 >
-                  Ajouter
+                  {t('add')}
                 </Button>
               </div>
               <div className="space-y-2">

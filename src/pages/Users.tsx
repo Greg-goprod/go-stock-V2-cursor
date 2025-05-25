@@ -6,6 +6,7 @@ import QRCodeGenerator from '../components/QRCode/QRCodeGenerator';
 import Modal from '../components/common/Modal';
 import FilterPanel, { FilterOption } from '../components/common/FilterPanel';
 import UserModal from '../components/users/UserModal';
+import ConfirmModal from '../components/common/ConfirmModal';
 import { User } from '../types';
 import { supabase } from '../lib/supabase';
 import toast from 'react-hot-toast';
@@ -26,6 +27,8 @@ const Users: React.FC = () => {
   const [activeFilters, setActiveFilters] = useState<Record<string, string>>({});
   const [showUserModal, setShowUserModal] = useState(false);
   const [editingUser, setEditingUser] = useState<User | undefined>();
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<User | null>(null);
 
   useEffect(() => {
     fetchUsers();
@@ -52,16 +55,23 @@ const Users: React.FC = () => {
     }
   };
 
-  const handleDeleteUser = async (id: string) => {
+  const handleDeleteClick = (user: User) => {
+    setUserToDelete(user);
+    setShowDeleteConfirm(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!userToDelete) return;
+
     try {
       const { error } = await supabase
         .from('users')
         .delete()
-        .eq('id', id);
+        .eq('id', userToDelete.id);
 
       if (error) throw error;
 
-      setUsers(prev => prev.filter(user => user.id !== id));
+      setUsers(prev => prev.filter(user => user.id !== userToDelete.id));
       toast.success('User deleted successfully');
     } catch (error: any) {
       console.error('Error deleting user:', error);
@@ -277,7 +287,7 @@ const Users: React.FC = () => {
                     variant="danger"
                     size="sm"
                     icon={<Trash2 size={16} />}
-                    onClick={() => handleDeleteUser(user.id)}
+                    onClick={() => handleDeleteClick(user)}
                   />
                 </td>
               </tr>
@@ -339,7 +349,7 @@ const Users: React.FC = () => {
                 variant="danger"
                 size="sm"
                 icon={<Trash2 size={16} />}
-                onClick={() => handleDeleteUser(user.id)}
+                onClick={() => handleDeleteClick(user)}
               />
             </div>
           </div>
@@ -427,6 +437,16 @@ const Users: React.FC = () => {
         isOpen={showUserModal}
         onClose={handleCloseUserModal}
         user={editingUser}
+      />
+
+      <ConfirmModal
+        isOpen={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        onConfirm={handleDeleteConfirm}
+        title="Confirmer la suppression"
+        message={`Êtes-vous sûr de vouloir supprimer l'utilisateur ${userToDelete?.name} ? Cette action est irréversible.`}
+        confirmLabel="Supprimer"
+        cancelLabel="Annuler"
       />
     </div>
   );

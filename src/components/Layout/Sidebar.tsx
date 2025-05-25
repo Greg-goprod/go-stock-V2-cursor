@@ -1,0 +1,107 @@
+import React, { useState } from 'react';
+import { NavLink } from 'react-router-dom';
+import { 
+  LayoutDashboard, 
+  Package, 
+  Users, 
+  CalendarClock, 
+  Bell, 
+  Settings, 
+  Menu, 
+  X,
+  QrCode
+} from 'lucide-react';
+import { useApp } from '../../contexts/AppContext';
+
+const Sidebar: React.FC = () => {
+  const { notifications } = useApp();
+  const [isOpen, setIsOpen] = useState(false);
+  
+  const unreadNotifications = notifications.filter(notif => !notif.read).length;
+  
+  const toggleSidebar = () => {
+    setIsOpen(!isOpen);
+  };
+
+  const navLinkClass = ({ isActive }: { isActive: boolean }) =>
+    `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+      isActive 
+        ? 'bg-primary-100 dark:bg-primary-900/50 text-primary-800 dark:text-primary-200 font-medium' 
+        : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+    }`;
+
+  return (
+    <>
+      {/* Mobile menu button */}
+      <button
+        className="lg:hidden fixed top-4 left-4 z-50 p-2 rounded-md bg-white dark:bg-gray-800 shadow-md"
+        onClick={toggleSidebar}
+      >
+        {isOpen ? <X size={20} className="dark:text-white" /> : <Menu size={20} className="dark:text-white" />}
+      </button>
+      
+      {/* Sidebar backdrop for mobile */}
+      {isOpen && (
+        <div 
+          className="lg:hidden fixed inset-0 bg-black bg-opacity-50 z-40"
+          onClick={() => setIsOpen(false)}
+        />
+      )}
+      
+      {/* Sidebar */}
+      <aside 
+        className={`fixed top-0 left-0 h-full w-64 bg-white dark:bg-gray-800 shadow-md z-40 transition-transform transform lg:translate-x-0 ${
+          isOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
+        <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+          <div className="flex items-center gap-2 font-bold text-primary-700 dark:text-primary-300 text-xl">
+            <QrCode size={24} />
+            <span>Inventory Pro</span>
+          </div>
+        </div>
+        
+        <nav className="py-4 px-2 flex flex-col gap-1">
+          <NavLink to="/" className={navLinkClass} onClick={() => setIsOpen(false)}>
+            <LayoutDashboard size={20} />
+            <span>Dashboard</span>
+          </NavLink>
+          
+          <NavLink to="/equipment" className={navLinkClass} onClick={() => setIsOpen(false)}>
+            <Package size={20} />
+            <span>Equipment</span>
+          </NavLink>
+          
+          <NavLink to="/users" className={navLinkClass} onClick={() => setIsOpen(false)}>
+            <Users size={20} />
+            <span>Users</span>
+          </NavLink>
+          
+          <NavLink to="/checkouts" className={navLinkClass} onClick={() => setIsOpen(false)}>
+            <CalendarClock size={20} />
+            <span>Checkouts</span>
+          </NavLink>
+          
+          <NavLink to="/notifications" className={navLinkClass} onClick={() => setIsOpen(false)}>
+            <div className="relative">
+              <Bell size={20} />
+              {unreadNotifications > 0 && (
+                <span className="absolute -top-1 -right-1 bg-danger-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">
+                  {unreadNotifications}
+                </span>
+              )}
+            </div>
+            <span>Notifications</span>
+          </NavLink>
+          
+          <NavLink to="/settings" className={navLinkClass} onClick={() => setIsOpen(false)}>
+            <Settings size={20} />
+            <span>Settings</span>
+          </NavLink>
+        </nav>
+      </aside>
+    </>
+  );
+};
+
+export default Sidebar;

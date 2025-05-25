@@ -1,83 +1,181 @@
 import React from 'react';
 import Card from '../components/common/Card';
+import Button from '../components/common/Button';
 import { useTheme } from '../contexts/ThemeContext';
 import { useLanguage } from '../contexts/LanguageContext';
-import { Sun, Moon, Languages } from 'lucide-react';
+import { useApp } from '../contexts/AppContext';
+import { Sun, Moon, Languages, Plus, Pencil, Trash2 } from 'lucide-react';
 
 const Settings: React.FC = () => {
   const { theme, toggleTheme } = useTheme();
   const { language, setLanguage, t } = useLanguage();
+  const { categories, suppliers, deleteCategory, deleteSupplier } = useApp();
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
+    <div className="max-w-4xl mx-auto space-y-6">
       <h1 className="text-2xl font-bold text-gray-800 dark:text-white">
         {t('settings')}
       </h1>
 
-      <Card>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="space-y-6">
           {/* Language Settings */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-primary-100 dark:bg-primary-900/50">
-                <Languages className="w-5 h-5 text-primary-600 dark:text-primary-400" />
+          <Card>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-primary-100 dark:bg-primary-900/50">
+                  <Languages className="w-5 h-5 text-primary-600 dark:text-primary-400" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-medium text-gray-800 dark:text-white">
+                    {t('language')}
+                  </h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    {language === 'fr' ? 'Français' : 'English'}
+                  </p>
+                </div>
               </div>
               <div>
-                <h3 className="text-lg font-medium text-gray-800 dark:text-white">
-                  {t('language')}
-                </h3>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  {language === 'fr' ? 'Français' : 'English'}
-                </p>
+                <select
+                  value={language}
+                  onChange={(e) => setLanguage(e.target.value as 'fr' | 'en')}
+                  className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-700 dark:text-gray-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                >
+                  <option value="fr">Français</option>
+                  <option value="en">English</option>
+                </select>
               </div>
             </div>
-            <div>
-              <select
-                value={language}
-                onChange={(e) => setLanguage(e.target.value as 'fr' | 'en')}
-                className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-700 dark:text-gray-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-              >
-                <option value="fr">Français</option>
-                <option value="en">English</option>
-              </select>
-            </div>
-          </div>
+          </Card>
 
           {/* Theme Settings */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-primary-100 dark:bg-primary-900/50">
-                {theme === 'dark' ? (
-                  <Moon className="w-5 h-5 text-primary-600 dark:text-primary-400" />
-                ) : (
-                  <Sun className="w-5 h-5 text-primary-600 dark:text-primary-400" />
-                )}
+          <Card>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-primary-100 dark:bg-primary-900/50">
+                  {theme === 'dark' ? (
+                    <Moon className="w-5 h-5 text-primary-600 dark:text-primary-400" />
+                  ) : (
+                    <Sun className="w-5 h-5 text-primary-600 dark:text-primary-400" />
+                  )}
+                </div>
+                <div>
+                  <h3 className="text-lg font-medium text-gray-800 dark:text-white">
+                    {t('theme')}
+                  </h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    {theme === 'dark' ? t('dark') : t('light')}
+                  </p>
+                </div>
               </div>
               <div>
-                <h3 className="text-lg font-medium text-gray-800 dark:text-white">
-                  {t('theme')}
-                </h3>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  {theme === 'dark' ? t('dark') : t('light')}
-                </p>
+                <button
+                  onClick={toggleTheme}
+                  className="inline-flex items-center justify-center rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                >
+                  {theme === 'dark' ? (
+                    <Sun className="w-4 h-4 mr-2" />
+                  ) : (
+                    <Moon className="w-4 h-4 mr-2" />
+                  )}
+                  {theme === 'dark' ? t('light') : t('dark')}
+                </button>
               </div>
             </div>
-            <div>
-              <button
-                onClick={toggleTheme}
-                className="inline-flex items-center justify-center rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-primary-500"
-              >
-                {theme === 'dark' ? (
-                  <Sun className="w-4 h-4 mr-2" />
-                ) : (
-                  <Moon className="w-4 h-4 mr-2" />
-                )}
-                {theme === 'dark' ? t('light') : t('dark')}
-              </button>
-            </div>
-          </div>
+          </Card>
         </div>
-      </Card>
+
+        <div className="space-y-6">
+          {/* Categories */}
+          <Card>
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-medium text-gray-800 dark:text-white">
+                {t('categories')}
+              </h3>
+              <Button variant="primary" size="sm" icon={<Plus size={16} />}>
+                {t('addCategory')}
+              </Button>
+            </div>
+            <div className="space-y-2">
+              {categories.map((category) => (
+                <div
+                  key={category.id}
+                  className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg"
+                >
+                  <div>
+                    <h4 className="font-medium text-gray-800 dark:text-white">
+                      {category.name}
+                    </h4>
+                    {category.description && (
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        {category.description}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      icon={<Pencil size={16} />}
+                    />
+                    <Button
+                      variant="danger"
+                      size="sm"
+                      icon={<Trash2 size={16} />}
+                      onClick={() => deleteCategory(category.id)}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Card>
+
+          {/* Suppliers */}
+          <Card>
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-medium text-gray-800 dark:text-white">
+                {t('suppliers')}
+              </h3>
+              <Button variant="primary" size="sm" icon={<Plus size={16} />}>
+                {t('addSupplier')}
+              </Button>
+            </div>
+            <div className="space-y-2">
+              {suppliers.map((supplier) => (
+                <div
+                  key={supplier.id}
+                  className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg"
+                >
+                  <div>
+                    <h4 className="font-medium text-gray-800 dark:text-white">
+                      {supplier.name}
+                    </h4>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      {supplier.contactPerson} • {supplier.phone}
+                    </p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      {supplier.email}
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      icon={<Pencil size={16} />}
+                    />
+                    <Button
+                      variant="danger"
+                      size="sm"
+                      icon={<Trash2 size={16} />}
+                      onClick={() => deleteSupplier(supplier.id)}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Card>
+        </div>
+      </div>
     </div>
   );
 };

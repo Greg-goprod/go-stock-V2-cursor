@@ -1,15 +1,49 @@
-import React from 'react';
+import React, { useState } from 'react';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import { useTheme } from '../contexts/ThemeContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useApp } from '../contexts/AppContext';
-import { Sun, Moon, Languages, Plus, Pencil, Trash2 } from 'lucide-react';
+import { Sun, Moon, Languages, Plus, Pencil, Trash2, Tag, UserCheck } from 'lucide-react';
 
 const Settings: React.FC = () => {
   const { theme, toggleTheme } = useTheme();
   const { language, setLanguage, t } = useLanguage();
-  const { categories, suppliers, deleteCategory, deleteSupplier } = useApp();
+  const { 
+    categories, 
+    suppliers, 
+    deleteCategory, 
+    deleteSupplier,
+    equipmentStatuses,
+    userRoles,
+    updateEquipmentStatuses,
+    updateUserRoles
+  } = useApp();
+
+  const [newStatus, setNewStatus] = useState('');
+  const [newRole, setNewRole] = useState('');
+
+  const handleAddStatus = () => {
+    if (newStatus && !equipmentStatuses.includes(newStatus)) {
+      updateEquipmentStatuses([...equipmentStatuses, newStatus]);
+      setNewStatus('');
+    }
+  };
+
+  const handleRemoveStatus = (status: string) => {
+    updateEquipmentStatuses(equipmentStatuses.filter(s => s !== status));
+  };
+
+  const handleAddRole = () => {
+    if (newRole && !userRoles.includes(newRole)) {
+      updateUserRoles([...userRoles, newRole]);
+      setNewRole('');
+    }
+  };
+
+  const handleRemoveRole = (role: string) => {
+    updateUserRoles(userRoles.filter(r => r !== role));
+  };
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -80,6 +114,104 @@ const Settings: React.FC = () => {
                   )}
                   {theme === 'dark' ? t('light') : t('dark')}
                 </button>
+              </div>
+            </div>
+          </Card>
+
+          {/* Equipment Statuses */}
+          <Card>
+            <div className="flex justify-between items-center mb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-primary-100 dark:bg-primary-900/50">
+                  <Tag className="w-5 h-5 text-primary-600 dark:text-primary-400" />
+                </div>
+                <h3 className="text-lg font-medium text-gray-800 dark:text-white">
+                  Statuts des équipements
+                </h3>
+              </div>
+            </div>
+            <div className="space-y-4">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={newStatus}
+                  onChange={(e) => setNewStatus(e.target.value)}
+                  placeholder="Nouveau statut"
+                  className="flex-1 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm"
+                />
+                <Button
+                  variant="primary"
+                  size="sm"
+                  icon={<Plus size={16} />}
+                  onClick={handleAddStatus}
+                >
+                  Ajouter
+                </Button>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {equipmentStatuses.map((status) => (
+                  <div
+                    key={status}
+                    className="flex items-center gap-2 px-3 py-1 bg-gray-100 dark:bg-gray-700 rounded-full"
+                  >
+                    <span className="text-sm">{status}</span>
+                    <button
+                      onClick={() => handleRemoveStatus(status)}
+                      className="text-gray-500 hover:text-danger-500"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </Card>
+
+          {/* User Roles */}
+          <Card>
+            <div className="flex justify-between items-center mb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-primary-100 dark:bg-primary-900/50">
+                  <UserCheck className="w-5 h-5 text-primary-600 dark:text-primary-400" />
+                </div>
+                <h3 className="text-lg font-medium text-gray-800 dark:text-white">
+                  Rôles des utilisateurs
+                </h3>
+              </div>
+            </div>
+            <div className="space-y-4">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={newRole}
+                  onChange={(e) => setNewRole(e.target.value)}
+                  placeholder="Nouveau rôle"
+                  className="flex-1 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm"
+                />
+                <Button
+                  variant="primary"
+                  size="sm"
+                  icon={<Plus size={16} />}
+                  onClick={handleAddRole}
+                >
+                  Ajouter
+                </Button>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {userRoles.map((role) => (
+                  <div
+                    key={role}
+                    className="flex items-center gap-2 px-3 py-1 bg-gray-100 dark:bg-gray-700 rounded-full"
+                  >
+                    <span className="text-sm">{role}</span>
+                    <button
+                      onClick={() => handleRemoveRole(role)}
+                      className="text-gray-500 hover:text-danger-500"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                ))}
               </div>
             </div>
           </Card>

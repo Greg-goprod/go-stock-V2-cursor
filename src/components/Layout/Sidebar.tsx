@@ -12,9 +12,11 @@ import {
   QrCode
 } from 'lucide-react';
 import { useApp } from '../../contexts/AppContext';
+import { useLanguage } from '../../contexts/LanguageContext';
 
 const Sidebar: React.FC = () => {
   const { notifications } = useApp();
+  const { t } = useLanguage();
   const [isOpen, setIsOpen] = useState(false);
   
   const unreadNotifications = notifications.filter(notif => !notif.read).length;
@@ -32,7 +34,6 @@ const Sidebar: React.FC = () => {
 
   return (
     <>
-      {/* Mobile menu button */}
       <button
         className="lg:hidden fixed top-4 left-4 z-50 p-2 rounded-md bg-white dark:bg-gray-800 shadow-md"
         onClick={toggleSidebar}
@@ -40,7 +41,6 @@ const Sidebar: React.FC = () => {
         {isOpen ? <X size={20} className="dark:text-white" /> : <Menu size={20} className="dark:text-white" />}
       </button>
       
-      {/* Sidebar backdrop for mobile */}
       {isOpen && (
         <div 
           className="lg:hidden fixed inset-0 bg-black bg-opacity-50 z-40"
@@ -48,7 +48,6 @@ const Sidebar: React.FC = () => {
         />
       )}
       
-      {/* Sidebar */}
       <aside 
         className={`fixed top-0 left-0 h-full w-64 bg-white dark:bg-gray-800 shadow-md z-40 transition-transform transform lg:translate-x-0 ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
@@ -64,22 +63,22 @@ const Sidebar: React.FC = () => {
         <nav className="py-4 px-2 flex flex-col gap-1">
           <NavLink to="/" className={navLinkClass} onClick={() => setIsOpen(false)}>
             <LayoutDashboard size={20} />
-            <span>Dashboard</span>
+            <span>{t('dashboard')}</span>
           </NavLink>
           
           <NavLink to="/equipment" className={navLinkClass} onClick={() => setIsOpen(false)}>
             <Package size={20} />
-            <span>Equipment</span>
+            <span>{t('equipment')}</span>
           </NavLink>
           
           <NavLink to="/users" className={navLinkClass} onClick={() => setIsOpen(false)}>
             <Users size={20} />
-            <span>Users</span>
+            <span>{t('users')}</span>
           </NavLink>
           
           <NavLink to="/checkouts" className={navLinkClass} onClick={() => setIsOpen(false)}>
             <CalendarClock size={20} />
-            <span>Checkouts</span>
+            <span>{t('checkouts')}</span>
           </NavLink>
           
           <NavLink to="/notifications" className={navLinkClass} onClick={() => setIsOpen(false)}>
@@ -91,12 +90,12 @@ const Sidebar: React.FC = () => {
                 </span>
               )}
             </div>
-            <span>Notifications</span>
+            <span>{t('notifications')}</span>
           </NavLink>
           
           <NavLink to="/settings" className={navLinkClass} onClick={() => setIsOpen(false)}>
             <Settings size={20} />
-            <span>Settings</span>
+            <span>{t('settings')}</span>
           </NavLink>
         </nav>
       </aside>

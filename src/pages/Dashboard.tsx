@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Card from '../components/common/Card';
-import Button from '../common/Button';
+import Button from '../components/common/Button';
 import Badge from '../components/common/Badge';
 import CheckoutModal from '../components/checkout/CheckoutModal';
 import ReturnModal from '../components/checkout/ReturnModal';

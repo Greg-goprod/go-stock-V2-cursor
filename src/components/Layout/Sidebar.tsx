@@ -56,8 +56,9 @@ const Sidebar: React.FC = () => {
         <div className="p-4 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center gap-2 font-bold text-primary-700 dark:text-primary-300 text-xl">
             <QrCode size={24} />
-            <span>Inventory Pro</span>
+            <span>GO-Mat</span>
           </div>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Gestion de Matériel</p>
         </div>
         
         <nav className="py-4 px-2 flex flex-col gap-1">

@@ -24,7 +24,7 @@ const Header: React.FC = () => {
     if (path.startsWith('/settings')) return t('settings');
     if (path.startsWith('/scan')) return t('scan');
     
-    return 'Inventory Pro';
+    return 'GO-Mat';
   };
 
   return (
@@ -54,7 +54,7 @@ const Header: React.FC = () => {
         </div>
         
         <div className="h-8 w-8 rounded-full bg-primary-600 text-white flex items-center justify-center">
-          <span className="font-medium text-sm">AS</span>
+          <span className="font-medium text-sm">GM</span>
         </div>
       </div>
     </header>

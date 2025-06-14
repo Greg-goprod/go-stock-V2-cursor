@@ -4,7 +4,7 @@ import Button from '../common/Button';
 import QRCodeScanner from '../QRCode/QRCodeScanner';
 import { User, CheckoutRecord, Equipment } from '../../types';
 import { supabase } from '../../lib/supabase';
-import { Search, Package, Calendar, Printer, AlertTriangle, List } from 'lucide-react';
+import { Search, Package, Calendar, Printer, AlertTriangle, List, Filter } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface ReturnModalProps {
@@ -35,46 +35,43 @@ interface PendingReturn {
 }
 
 const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose }) => {
-  const [step, setStep] = useState<'user' | 'items' | 'summary'>('user');
-  const [selectedUser, setSelectedUser] = useState<User | null>(null);
-  const [userCheckouts, setUserCheckouts] = useState<CheckoutWithDetails[]>([]);
+  const [pendingReturns, setPendingReturns] = useState<PendingReturn[]>([]);
+  const [filteredReturns, setFilteredReturns] = useState<PendingReturn[]>([]);
   const [returnItems, setReturnItems] = useState<ReturnItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  
-  // User selection states
-  const [selectionMode, setSelectionMode] = useState<'scan' | 'search' | 'list'>('scan');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterOverdue, setFilterOverdue] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
-  const [users, setUsers] = useState<User[]>([]);
-  const [userSearch, setUserSearch] = useState('');
-  const [pendingReturns, setPendingReturns] = useState<PendingReturn[]>([]);
 
   useEffect(() => {
     if (isOpen) {
-      fetchUsersWithCheckouts();
       fetchPendingReturns();
     }
   }, [isOpen]);
 
-  const fetchUsersWithCheckouts = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('users')
-        .select(`
-          *,
-          checkouts!inner(*)
-        `)
-        .eq('checkouts.status', 'active')
-        .order('first_name');
-      
-      if (error) throw error;
-      setUsers(data || []);
-    } catch (error) {
-      console.error('Error fetching users with checkouts:', error);
+  useEffect(() => {
+    // Filter returns based on search and overdue filter
+    let filtered = pendingReturns;
+    
+    if (searchTerm) {
+      const search = searchTerm.toLowerCase();
+      filtered = filtered.filter(ret =>
+        ret.equipment_name.toLowerCase().includes(search) ||
+        ret.user_name.toLowerCase().includes(search)
+      );
     }
-  };
+    
+    if (filterOverdue) {
+      filtered = filtered.filter(ret => ret.is_overdue);
+    }
+    
+    setFilteredReturns(filtered);
+  }, [pendingReturns, searchTerm, filterOverdue]);
 
   const fetchPendingReturns = async () => {
     try {
+      setIsLoading(true);
+      
       const { data, error } = await supabase
         .from('checkouts')
         .select(`
@@ -96,83 +93,68 @@ const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose }) => {
         is_overdue: new Date(checkout.due_date) < new Date(),
         checkout: {
           ...checkout,
-          equipment: checkout.equipment,
-          user: checkout.users
+          equipment: {
+            id: checkout.equipment.id,
+            name: checkout.equipment.name,
+            description: checkout.equipment.description || '',
+            category: '',
+            serialNumber: checkout.equipment.serial_number,
+            status: checkout.equipment.status as Equipment['status'],
+            addedDate: checkout.equipment.created_at,
+            lastMaintenance: checkout.equipment.last_maintenance,
+            imageUrl: checkout.equipment.image_url,
+            supplier: '',
+            location: checkout.equipment.location || '',
+            articleNumber: checkout.equipment.article_number,
+            qrType: checkout.equipment.qr_type || 'individual',
+            totalQuantity: checkout.equipment.total_quantity || 1,
+            availableQuantity: checkout.equipment.available_quantity || 1
+          },
+          user: {
+            id: checkout.users.id,
+            first_name: checkout.users.first_name,
+            last_name: checkout.users.last_name,
+            email: checkout.users.email,
+            phone: checkout.users.phone,
+            department: checkout.users.department,
+            role: checkout.users.role,
+            dateCreated: checkout.users.created_at
+          }
         }
       })) || [];
       
       setPendingReturns(returns);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching pending returns:', error);
+      toast.error('Erreur lors du chargement des emprunts');
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const fetchUserCheckouts = async (userId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('checkouts')
-        .select(`
-          *,
-          equipment(*),
-          users(*)
-        `)
-        .eq('user_id', userId)
-        .eq('status', 'active');
-      
-      if (error) throw error;
-      
-      const checkoutsWithDetails = data?.map(checkout => ({
-        ...checkout,
-        equipment: checkout.equipment,
-        user: checkout.users
-      })) || [];
-      
-      setUserCheckouts(checkoutsWithDetails);
-      setReturnItems(checkoutsWithDetails.map(checkout => ({
-        checkout,
-        action: 'return' as const
-      })));
-    } catch (error) {
-      console.error('Error fetching user checkouts:', error);
+  const handleSelectReturn = (pendingReturn: PendingReturn) => {
+    // Check if already selected
+    const existingReturn = returnItems.find(item => item.checkout.id === pendingReturn.checkout.id);
+    if (existingReturn) {
+      toast.info('Cet emprunt est déjà sélectionné');
+      return;
     }
-  };
 
-  const handleUserScan = (scannedId: string) => {
-    const user = users.find(u => u.id === scannedId);
-    if (user) {
-      setSelectedUser(user);
-      fetchUserCheckouts(user.id);
-      setStep('items');
-      toast.success(`Utilisateur sélectionné: ${user.first_name} ${user.last_name}`);
-    } else {
-      toast.error('Utilisateur non trouvé ou sans matériel emprunté');
-    }
-  };
-
-  const handleSelectFromList = (pendingReturn: PendingReturn) => {
-    setSelectedUser(pendingReturn.checkout.user);
-    setUserCheckouts([pendingReturn.checkout]);
-    setReturnItems([{
+    setReturnItems(prev => [...prev, {
       checkout: pendingReturn.checkout,
       action: 'return'
     }]);
-    setStep('items');
-    toast.success(`Retour sélectionné: ${pendingReturn.equipment_name}`);
+    
+    toast.success(`${pendingReturn.equipment_name} ajouté aux retours`);
   };
 
   const handleEquipmentScan = (scannedId: string) => {
     // Find checkout by equipment ID
-    const checkout = userCheckouts.find(c => c.equipment.id === scannedId);
-    if (checkout) {
-      const existingReturn = returnItems.find(item => item.checkout.id === checkout.id);
-      if (existingReturn) {
-        toast.info('Équipement déjà scanné');
-      } else {
-        setReturnItems(prev => [...prev, { checkout, action: 'return' }]);
-        toast.success(`${checkout.equipment.name} scanné pour retour`);
-      }
+    const pendingReturn = pendingReturns.find(ret => ret.checkout.equipment.id === scannedId);
+    if (pendingReturn) {
+      handleSelectReturn(pendingReturn);
     } else {
-      toast.error('Équipement non trouvé dans les emprunts de cet utilisateur');
+      toast.error('Équipement non trouvé dans les emprunts actifs');
     }
   };
 
@@ -184,6 +166,10 @@ const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose }) => {
           : item
       )
     );
+  };
+
+  const removeReturnItem = (checkoutId: string) => {
+    setReturnItems(prev => prev.filter(item => item.checkout.id !== checkoutId));
   };
 
   const handleReturn = async () => {
@@ -275,7 +261,6 @@ const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose }) => {
           <style>
             body { font-family: Arial, sans-serif; margin: 20px; }
             .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 10px; }
-            .info { margin-bottom: 20px; }
             .section { margin-bottom: 20px; }
             .items { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
             .items th, .items td { border: 1px solid #ddd; padding: 8px; text-align: left; }
@@ -292,12 +277,6 @@ const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose }) => {
             <h1>GO-Mat - Quittance de Retour</h1>
             <p>Date: ${new Date().toLocaleDateString('fr-FR')}</p>
           </div>
-          
-          <div class="info">
-            <p><strong>Utilisateur:</strong> ${selectedUser?.first_name} ${selectedUser?.last_name}</p>
-            <p><strong>Téléphone:</strong> ${selectedUser?.phone}</p>
-            <p><strong>Département:</strong> ${selectedUser?.department}</p>
-          </div>
 
           ${returnedItems.length > 0 ? `
             <div class="section">
@@ -306,7 +285,7 @@ const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose }) => {
                 <thead>
                   <tr>
                     <th>Équipement</th>
-                    <th>Numéro de série</th>
+                    <th>Utilisateur</th>
                     <th>Date d'emprunt</th>
                     <th>Notes</th>
                   </tr>
@@ -315,7 +294,7 @@ const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose }) => {
                   ${returnedItems.map(item => `
                     <tr class="returned">
                       <td>${item.checkout.equipment.name}</td>
-                      <td>${item.checkout.equipment.serialNumber}</td>
+                      <td>${item.checkout.user.first_name} ${item.checkout.user.last_name}</td>
                       <td>${new Date(item.checkout.checkout_date).toLocaleDateString('fr-FR')}</td>
                       <td>${item.notes || '-'}</td>
                     </tr>
@@ -332,7 +311,7 @@ const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose }) => {
                 <thead>
                   <tr>
                     <th>Équipement</th>
-                    <th>Numéro de série</th>
+                    <th>Utilisateur</th>
                     <th>Nouvelle date de retour</th>
                     <th>Notes</th>
                   </tr>
@@ -341,7 +320,7 @@ const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose }) => {
                   ${extendedItems.map(item => `
                     <tr class="extended">
                       <td>${item.checkout.equipment.name}</td>
-                      <td>${item.checkout.equipment.serialNumber}</td>
+                      <td>${item.checkout.user.first_name} ${item.checkout.user.last_name}</td>
                       <td>${item.newDueDate ? new Date(item.newDueDate).toLocaleDateString('fr-FR') : '-'}</td>
                       <td>${item.notes || '-'}</td>
                     </tr>
@@ -358,7 +337,7 @@ const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose }) => {
                 <thead>
                   <tr>
                     <th>Équipement</th>
-                    <th>Numéro de série</th>
+                    <th>Utilisateur</th>
                     <th>Date d'emprunt</th>
                     <th>Notes</th>
                   </tr>
@@ -367,7 +346,7 @@ const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose }) => {
                   ${lostItems.map(item => `
                     <tr class="lost">
                       <td>${item.checkout.equipment.name}</td>
-                      <td>${item.checkout.equipment.serialNumber}</td>
+                      <td>${item.checkout.user.first_name} ${item.checkout.user.last_name}</td>
                       <td>${new Date(item.checkout.checkout_date).toLocaleDateString('fr-FR')}</td>
                       <td>${item.notes || '-'}</td>
                     </tr>
@@ -392,26 +371,14 @@ const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose }) => {
   };
 
   const handleClose = () => {
-    setStep('user');
-    setSelectedUser(null);
-    setUserCheckouts([]);
     setReturnItems([]);
-    setSelectionMode('scan');
+    setSearchTerm('');
+    setFilterOverdue(false);
     setShowScanner(false);
-    setUserSearch('');
     onClose();
   };
 
-  const filteredUsers = users.filter(user =>
-    `${user.first_name} ${user.last_name}`.toLowerCase().includes(userSearch.toLowerCase()) ||
-    user.email.toLowerCase().includes(userSearch.toLowerCase()) ||
-    (user.phone || '').includes(userSearch)
-  );
-
-  const filteredPendingReturns = pendingReturns.filter(ret =>
-    ret.equipment_name.toLowerCase().includes(userSearch.toLowerCase()) ||
-    ret.user_name.toLowerCase().includes(userSearch.toLowerCase())
-  );
+  const overdueCount = pendingReturns.filter(ret => ret.is_overdue).length;
 
   return (
     <Modal
@@ -421,338 +388,214 @@ const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose }) => {
       size="xl"
     >
       <div className="space-y-6">
-        {/* Progress indicator */}
-        <div className="flex items-center justify-center space-x-4">
-          <div className={`flex items-center ${step === 'user' ? 'text-primary-600' : 'text-gray-400'}`}>
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step === 'user' ? 'bg-primary-600 text-white' : 'bg-gray-200'}`}>1</div>
-            <span className="ml-2">Sélection</span>
-          </div>
-          <div className="w-8 h-px bg-gray-300"></div>
-          <div className={`flex items-center ${step === 'items' ? 'text-primary-600' : 'text-gray-400'}`}>
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step === 'items' ? 'bg-primary-600 text-white' : 'bg-gray-200'}`}>2</div>
-            <span className="ml-2">Équipements</span>
-          </div>
-          <div className="w-8 h-px bg-gray-300"></div>
-          <div className={`flex items-center ${step === 'summary' ? 'text-primary-600' : 'text-gray-400'}`}>
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step === 'summary' ? 'bg-primary-600 text-white' : 'bg-gray-200'}`}>3</div>
-            <span className="ml-2">Validation</span>
+        {/* Header avec statistiques */}
+        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-medium text-blue-800 dark:text-blue-200">
+                Emprunts en cours
+              </h3>
+              <p className="text-blue-700 dark:text-blue-300 text-sm">
+                {pendingReturns.length} emprunt(s) actif(s)
+                {overdueCount > 0 && (
+                  <span className="ml-2 text-red-600 dark:text-red-400 font-medium">
+                    • {overdueCount} en retard
+                  </span>
+                )}
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                icon={<Package size={16} />}
+                onClick={() => setShowScanner(!showScanner)}
+              >
+                {showScanner ? 'Masquer Scanner' : 'Scanner QR'}
+              </Button>
+            </div>
           </div>
         </div>
 
-        {/* Step 1: User/Return Selection */}
-        {step === 'user' && (
-          <div className="space-y-4">
-            <div className="flex gap-3">
-              <Button
-                variant={selectionMode === 'scan' ? 'primary' : 'outline'}
-                icon={<Search size={18} />}
-                onClick={() => {
-                  setSelectionMode('scan');
-                  setShowScanner(true);
-                }}
-              >
-                Scanner Badge
-              </Button>
-              <Button
-                variant={selectionMode === 'search' ? 'primary' : 'outline'}
-                icon={<Search size={18} />}
-                onClick={() => {
-                  setSelectionMode('search');
-                  setShowScanner(false);
-                }}
-              >
-                Rechercher Utilisateur
-              </Button>
-              <Button
-                variant={selectionMode === 'list' ? 'primary' : 'outline'}
-                icon={<List size={18} />}
-                onClick={() => {
-                  setSelectionMode('list');
-                  setShowScanner(false);
-                }}
-              >
-                Liste Retours
-              </Button>
-            </div>
-
-            {selectionMode === 'scan' && showScanner && (
-              <div className="border rounded-lg p-4">
-                <QRCodeScanner onScan={handleUserScan} />
-                <Button
-                  variant="outline"
-                  onClick={() => setShowScanner(false)}
-                  className="mt-2"
-                >
-                  Annuler
-                </Button>
-              </div>
-            )}
-
-            {selectionMode === 'search' && (
-              <div>
-                <input
-                  type="text"
-                  placeholder="Rechercher un utilisateur avec du matériel emprunté..."
-                  value={userSearch}
-                  onChange={(e) => setUserSearch(e.target.value)}
-                  className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm mb-3"
-                />
-                
-                {userSearch && (
-                  <div className="max-h-60 overflow-y-auto border rounded-md">
-                    {filteredUsers.map(user => (
-                      <div
-                        key={user.id}
-                        className="p-3 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer border-b last:border-b-0"
-                        onClick={() => {
-                          setSelectedUser(user);
-                          fetchUserCheckouts(user.id);
-                          setStep('items');
-                        }}
-                      >
-                        <div className="font-medium">{user.first_name} {user.last_name}</div>
-                        <div className="text-sm text-gray-500">{user.phone} • {user.department}</div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {selectionMode === 'list' && (
-              <div>
-                <input
-                  type="text"
-                  placeholder="Rechercher par équipement ou utilisateur..."
-                  value={userSearch}
-                  onChange={(e) => setUserSearch(e.target.value)}
-                  className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm mb-3"
-                />
-                
-                <div className="max-h-80 overflow-y-auto border rounded-md">
-                  <div className="bg-gray-50 dark:bg-gray-800 p-2 border-b font-medium text-sm">
-                    Matériel à retourner ({filteredPendingReturns.length})
-                  </div>
-                  {filteredPendingReturns.map(ret => (
-                    <div
-                      key={ret.id}
-                      className={`p-3 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer border-b last:border-b-0 ${ret.is_overdue ? 'bg-red-50 dark:bg-red-900/20' : ''}`}
-                      onClick={() => handleSelectFromList(ret)}
-                    >
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <div className="font-medium flex items-center">
-                            {ret.equipment_name}
-                            {ret.is_overdue && (
-                              <AlertTriangle size={16} className="text-red-500 ml-2" />
-                            )}
-                          </div>
-                          <div className="text-sm text-gray-500">
-                            Emprunté par: {ret.user_name}
-                          </div>
-                          <div className="text-sm text-gray-500">
-                            Emprunté le: {new Date(ret.checkout_date).toLocaleDateString('fr-FR')}
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <div className={`text-sm font-medium ${ret.is_overdue ? 'text-red-600' : 'text-gray-600'}`}>
-                            Retour prévu: {new Date(ret.due_date).toLocaleDateString('fr-FR')}
-                          </div>
-                          {ret.is_overdue && (
-                            <div className="text-xs text-red-500">EN RETARD</div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {selectedUser && (
-              <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
-                <h3 className="font-medium text-green-800 dark:text-green-200">Utilisateur sélectionné</h3>
-                <p className="text-green-700 dark:text-green-300">{selectedUser.first_name} {selectedUser.last_name} - {selectedUser.phone}</p>
-                <Button
-                  variant="primary"
-                  onClick={() => setStep('items')}
-                  className="mt-2"
-                >
-                  Voir les emprunts
-                </Button>
-              </div>
-            )}
+        {/* Scanner QR (optionnel) */}
+        {showScanner && (
+          <div className="border rounded-lg p-4">
+            <h4 className="font-medium mb-3">Scanner le QR code de l'équipement</h4>
+            <QRCodeScanner onScan={handleEquipmentScan} />
           </div>
         )}
 
-        {/* Step 2: Equipment Return */}
-        {step === 'items' && (
-          <div className="space-y-4">
-            <div className="flex gap-3">
-              <Button
-                variant="primary"
-                icon={<Package size={18} />}
-                onClick={() => setShowScanner(true)}
-                disabled={showScanner}
+        {/* Filtres et recherche */}
+        <div className="flex gap-3">
+          <div className="flex-1">
+            <input
+              type="text"
+              placeholder="Rechercher par équipement ou utilisateur..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
+            />
+          </div>
+          <Button
+            variant={filterOverdue ? 'danger' : 'outline'}
+            size="sm"
+            icon={<AlertTriangle size={16} />}
+            onClick={() => setFilterOverdue(!filterOverdue)}
+          >
+            En retard ({overdueCount})
+          </Button>
+        </div>
+
+        {/* Liste des emprunts */}
+        <div className="border rounded-lg overflow-hidden">
+          <div className="bg-gray-50 dark:bg-gray-800 p-3 border-b font-medium text-sm">
+            Emprunts disponibles pour retour ({filteredReturns.length})
+          </div>
+          <div className="max-h-80 overflow-y-auto">
+            {filteredReturns.map(ret => (
+              <div
+                key={ret.id}
+                className={`p-4 border-b last:border-b-0 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors ${
+                  ret.is_overdue ? 'bg-red-50 dark:bg-red-900/20' : ''
+                }`}
+                onClick={() => handleSelectReturn(ret)}
               >
-                Scanner QR Code
-              </Button>
-            </div>
-
-            {showScanner && (
-              <div className="border rounded-lg p-4">
-                <QRCodeScanner onScan={handleEquipmentScan} />
-                <Button
-                  variant="outline"
-                  onClick={() => setShowScanner(false)}
-                  className="mt-2"
-                >
-                  Arrêter Scanner
-                </Button>
-              </div>
-            )}
-
-            {/* User's Checkouts */}
-            <div className="border rounded-lg p-4">
-              <h3 className="font-medium mb-3">Matériel emprunté par {selectedUser?.first_name} {selectedUser?.last_name}</h3>
-              <div className="space-y-3">
-                {userCheckouts.map((checkout) => {
-                  const returnItem = returnItems.find(item => item.checkout.id === checkout.id);
-                  const isOverdue = new Date(checkout.due_date) < new Date();
-                  
-                  return (
-                    <div key={checkout.id} className="border rounded-lg p-3">
-                      <div className="flex justify-between items-start mb-2">
-                        <div>
-                          <h4 className="font-medium">{checkout.equipment.name}</h4>
-                          <p className="text-sm text-gray-500">{checkout.equipment.serialNumber}</p>
-                          <p className="text-sm text-gray-500">
-                            Emprunté le: {new Date(checkout.checkout_date).toLocaleDateString('fr-FR')}
-                          </p>
-                          <p className={`text-sm ${isOverdue ? 'text-red-600' : 'text-gray-500'}`}>
-                            {isOverdue && <AlertTriangle size={14} className="inline mr-1" />}
-                            Retour prévu: {new Date(checkout.due_date).toLocaleDateString('fr-FR')}
-                          </p>
-                        </div>
-                        
-                        <div className="space-y-2">
-                          <select
-                            value={returnItem?.action || 'return'}
-                            onChange={(e) => updateReturnAction(checkout.id, e.target.value as any)}
-                            className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-2 py-1 text-sm"
-                          >
-                            <option value="return">Retour complet</option>
-                            <option value="extend">Prolonger l'emprunt</option>
-                            <option value="lost">Matériel perdu</option>
-                          </select>
-                        </div>
-                      </div>
-
-                      {returnItem?.action === 'extend' && (
-                        <div className="mt-2 space-y-2">
-                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                            Nouvelle date de retour
-                          </label>
-                          <input
-                            type="date"
-                            value={returnItem.newDueDate || ''}
-                            onChange={(e) => updateReturnAction(checkout.id, 'extend', e.target.value, returnItem.notes)}
-                            className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-2 py-1 text-sm"
-                            min={new Date().toISOString().split('T')[0]}
-                          />
-                        </div>
+                <div className="flex justify-between items-start">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <h4 className="font-medium text-gray-900 dark:text-gray-100">
+                        {ret.equipment_name}
+                      </h4>
+                      {ret.is_overdue && (
+                        <AlertTriangle size={16} className="text-red-500" />
                       )}
+                    </div>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      Emprunté par: <span className="font-medium">{ret.user_name}</span>
+                    </p>
+                    <p className="text-sm text-gray-500 dark:text-gray-500">
+                      Emprunté le: {new Date(ret.checkout_date).toLocaleDateString('fr-FR')}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <div className={`text-sm font-medium ${
+                      ret.is_overdue ? 'text-red-600 dark:text-red-400' : 'text-gray-600 dark:text-gray-400'
+                    }`}>
+                      Retour prévu: {new Date(ret.due_date).toLocaleDateString('fr-FR')}
+                    </div>
+                    {ret.is_overdue && (
+                      <div className="text-xs text-red-500 font-medium">
+                        EN RETARD
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
 
+        {/* Équipements sélectionnés pour retour */}
+        {returnItems.length > 0 && (
+          <div className="border rounded-lg p-4">
+            <h3 className="font-medium mb-3">Équipements sélectionnés ({returnItems.length})</h3>
+            <div className="space-y-3">
+              {returnItems.map((item) => {
+                const isOverdue = new Date(item.checkout.due_date) < new Date();
+                
+                return (
+                  <div key={item.checkout.id} className="border rounded-lg p-3">
+                    <div className="flex justify-between items-start mb-2">
+                      <div>
+                        <h4 className="font-medium">{item.checkout.equipment.name}</h4>
+                        <p className="text-sm text-gray-500">
+                          {item.checkout.user.first_name} {item.checkout.user.last_name}
+                        </p>
+                        <p className={`text-sm ${isOverdue ? 'text-red-600' : 'text-gray-500'}`}>
+                          {isOverdue && <AlertTriangle size={14} className="inline mr-1" />}
+                          Retour prévu: {new Date(item.checkout.due_date).toLocaleDateString('fr-FR')}
+                        </p>
+                      </div>
+                      
+                      <div className="flex items-center gap-2">
+                        <select
+                          value={item.action}
+                          onChange={(e) => updateReturnAction(item.checkout.id, e.target.value as any)}
+                          className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-2 py-1 text-sm"
+                        >
+                          <option value="return">Retour complet</option>
+                          <option value="extend">Prolonger l'emprunt</option>
+                          <option value="lost">Matériel perdu</option>
+                        </select>
+                        
+                        <Button
+                          variant="danger"
+                          size="sm"
+                          onClick={() => removeReturnItem(item.checkout.id)}
+                        >
+                          ✕
+                        </Button>
+                      </div>
+                    </div>
+
+                    {item.action === 'extend' && (
                       <div className="mt-2">
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                          Notes
+                          Nouvelle date de retour
                         </label>
-                        <textarea
-                          value={returnItem?.notes || ''}
-                          onChange={(e) => updateReturnAction(checkout.id, returnItem?.action || 'return', returnItem?.newDueDate, e.target.value)}
-                          placeholder={
-                            returnItem?.action === 'return' ? 'Notes sur le retour...' :
-                            returnItem?.action === 'extend' ? 'Raison de la prolongation...' :
-                            'Circonstances de la perte...'
-                          }
+                        <input
+                          type="date"
+                          value={item.newDueDate || ''}
+                          onChange={(e) => updateReturnAction(item.checkout.id, 'extend', e.target.value, item.notes)}
                           className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-2 py-1 text-sm"
-                          rows={2}
+                          min={new Date().toISOString().split('T')[0]}
                         />
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
+                    )}
 
+                    <div className="mt-2">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Notes
+                      </label>
+                      <textarea
+                        value={item.notes || ''}
+                        onChange={(e) => updateReturnAction(item.checkout.id, item.action, item.newDueDate, e.target.value)}
+                        placeholder={
+                          item.action === 'return' ? 'Notes sur le retour...' :
+                          item.action === 'extend' ? 'Raison de la prolongation...' :
+                          'Circonstances de la perte...'
+                        }
+                        className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-2 py-1 text-sm"
+                        rows={2}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Actions */}
+        <div className="flex justify-between">
+          <Button
+            variant="outline"
+            onClick={handleClose}
+          >
+            Annuler
+          </Button>
+          
+          {returnItems.length > 0 && (
             <Button
               variant="primary"
-              onClick={() => setStep('summary')}
-              disabled={returnItems.length === 0}
+              icon={<Printer size={18} />}
+              onClick={handleReturn}
+              disabled={isLoading}
             >
-              Valider les opérations
+              {isLoading ? 'Traitement en cours...' : 'Valider et Imprimer Quittance'}
             </Button>
-          </div>
-        )}
-
-        {/* Step 3: Summary */}
-        {step === 'summary' && (
-          <div className="space-y-4">
-            <div className="border rounded-lg p-4">
-              <h3 className="font-medium mb-3">Résumé des opérations</h3>
-              
-              {returnItems.filter(item => item.action === 'return').length > 0 && (
-                <div className="mb-4">
-                  <h4 className="text-green-600 font-medium">✓ Retours complets ({returnItems.filter(item => item.action === 'return').length})</h4>
-                  {returnItems.filter(item => item.action === 'return').map(item => (
-                    <p key={item.checkout.id} className="text-sm text-gray-600 ml-4">
-                      • {item.checkout.equipment.name}
-                    </p>
-                  ))}
-                </div>
-              )}
-
-              {returnItems.filter(item => item.action === 'extend').length > 0 && (
-                <div className="mb-4">
-                  <h4 className="text-blue-600 font-medium">📅 Prolongations ({returnItems.filter(item => item.action === 'extend').length})</h4>
-                  {returnItems.filter(item => item.action === 'extend').map(item => (
-                    <p key={item.checkout.id} className="text-sm text-gray-600 ml-4">
-                      • {item.checkout.equipment.name} - Nouveau retour: {item.newDueDate ? new Date(item.newDueDate).toLocaleDateString('fr-FR') : 'Non défini'}
-                    </p>
-                  ))}
-                </div>
-              )}
-
-              {returnItems.filter(item => item.action === 'lost').length > 0 && (
-                <div className="mb-4">
-                  <h4 className="text-red-600 font-medium">✗ Matériel perdu ({returnItems.filter(item => item.action === 'lost').length})</h4>
-                  {returnItems.filter(item => item.action === 'lost').map(item => (
-                    <p key={item.checkout.id} className="text-sm text-gray-600 ml-4">
-                      • {item.checkout.equipment.name}
-                    </p>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="flex gap-3">
-              <Button
-                variant="primary"
-                icon={<Printer size={18} />}
-                onClick={handleReturn}
-                disabled={isLoading}
-              >
-                {isLoading ? 'Traitement en cours...' : 'Valider et Imprimer Quittance'}
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => setStep('items')}
-              >
-                Retour
-              </Button>
-            </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </Modal>
   );

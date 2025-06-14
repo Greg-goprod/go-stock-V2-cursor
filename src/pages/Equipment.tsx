@@ -9,7 +9,7 @@ import FilterPanel, { FilterOption } from '../components/common/FilterPanel';
 import AddEquipmentModal from '../components/equipment/AddEquipmentModal';
 import ConfirmModal from '../components/common/ConfirmModal';
 import { useLanguage } from '../contexts/LanguageContext';
-import { Equipment, Category, Supplier } from '../types';
+import { Equipment, Category, Supplier, EquipmentInstance } from '../types';
 import { supabase } from '../lib/supabase';
 import toast from 'react-hot-toast';
 
@@ -22,9 +22,11 @@ const EquipmentPage: React.FC = () => {
   const [equipment, setEquipment] = useState<Equipment[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [instances, setInstances] = useState<EquipmentInstance[]>([]);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [selectedEquipment, setSelectedEquipment] = useState<string | null>(null);
+  const [selectedInstance, setSelectedInstance] = useState<EquipmentInstance | null>(null);
   const [showQRModal, setShowQRModal] = useState(false);
   const [sortField, setSortField] = useState<SortField>('name');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
@@ -70,6 +72,14 @@ const EquipmentPage: React.FC = () => {
 
       if (suppliersError) throw suppliersError;
 
+      // Fetch equipment instances
+      const { data: instancesData, error: instancesError } = await supabase
+        .from('equipment_instances')
+        .select('*')
+        .order('instance_number');
+
+      if (instancesError) throw instancesError;
+
       // Transform equipment data to match our interface
       const transformedEquipment: Equipment[] = equipmentData?.map(eq => ({
         id: eq.id,
@@ -82,12 +92,17 @@ const EquipmentPage: React.FC = () => {
         lastMaintenance: eq.last_maintenance,
         imageUrl: eq.image_url,
         supplier: eq.suppliers?.name || '',
-        location: eq.location || ''
+        location: eq.location || '',
+        articleNumber: eq.article_number,
+        qrType: eq.qr_type || 'individual',
+        totalQuantity: eq.total_quantity || 1,
+        availableQuantity: eq.available_quantity || 1
       })) || [];
 
       setEquipment(transformedEquipment);
       setCategories(categoriesData || []);
       setSuppliers(suppliersData || []);
+      setInstances(instancesData || []);
     } catch (error: any) {
       console.error('Error fetching data:', error);
       toast.error('Erreur lors du chargement des données');
@@ -134,8 +149,9 @@ const EquipmentPage: React.FC = () => {
     }
   };
 
-  const handleShowQR = (id: string) => {
-    setSelectedEquipment(id);
+  const handleShowQR = (equipmentId: string, instance?: EquipmentInstance) => {
+    setSelectedEquipment(equipmentId);
+    setSelectedInstance(instance || null);
     setShowQRModal(true);
   };
 
@@ -151,6 +167,15 @@ const EquipmentPage: React.FC = () => {
   const handleCloseAddModal = () => {
     setShowAddModal(false);
     fetchData(); // Refresh data after adding equipment
+  };
+
+  const getEquipmentInstances = (equipmentId: string) => {
+    return instances.filter(instance => instance.equipmentId === equipmentId);
+  };
+
+  const getAvailableInstancesCount = (equipmentId: string) => {
+    const equipmentInstances = getEquipmentInstances(equipmentId);
+    return equipmentInstances.filter(instance => instance.status === 'available').length;
   };
 
   const filterOptions: FilterOption[] = [
@@ -207,7 +232,8 @@ const EquipmentPage: React.FC = () => {
           return (
             item.name.toLowerCase().includes(searchTerm) ||
             item.serialNumber.toLowerCase().includes(searchTerm) ||
-            item.description.toLowerCase().includes(searchTerm)
+            item.description.toLowerCase().includes(searchTerm) ||
+            (item.articleNumber || '').toLowerCase().includes(searchTerm)
           );
         case 'status':
           return item.status === value;
@@ -242,6 +268,9 @@ const EquipmentPage: React.FC = () => {
                   <ArrowUpDown size={14} className="ml-1 opacity-0 group-hover:opacity-100" />
                 </div>
               </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                N° Article
+              </th>
               <th 
                 className="px-6 py-3 text-left cursor-pointer group"
                 onClick={() => handleSort('serial_number')}
@@ -260,6 +289,9 @@ const EquipmentPage: React.FC = () => {
                   <ArrowUpDown size={14} className="ml-1 opacity-0 group-hover:opacity-100" />
                 </div>
               </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                Stock
+              </th>
               <th 
                 className="px-6 py-3 text-left cursor-pointer group"
                 onClick={() => handleSort('status')}
@@ -275,66 +307,90 @@ const EquipmentPage: React.FC = () => {
             </tr>
           </thead>
           <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
-            {filteredEquipment.map((item) => (
-              <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="flex items-center">
-                    {item.imageUrl && (
-                      <img
-                        src={item.imageUrl}
-                        alt={item.name}
-                        className="h-10 w-10 rounded-lg object-cover mr-3"
-                      />
-                    )}
-                    <div className="text-sm font-medium text-gray-900 dark:text-white">
-                      {item.name}
+            {filteredEquipment.map((item) => {
+              const availableCount = item.qrType === 'individual' && (item.totalQuantity || 1) > 1 
+                ? getAvailableInstancesCount(item.id)
+                : item.availableQuantity || 1;
+              const totalCount = item.totalQuantity || 1;
+
+              return (
+                <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex items-center">
+                      {item.imageUrl && (
+                        <img
+                          src={item.imageUrl}
+                          alt={item.name}
+                          className="h-10 w-10 rounded-lg object-cover mr-3 bg-white"
+                        />
+                      )}
+                      <div className="text-sm font-medium text-gray-900 dark:text-white">
+                        {item.name}
+                      </div>
                     </div>
-                  </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                  {item.serialNumber}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                  {item.category}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <Badge
-                    variant={
-                      item.status === 'available' ? 'success' :
-                      item.status === 'checked-out' ? 'warning' :
-                      item.status === 'maintenance' ? 'info' : 'neutral'
-                    }
-                  >
-                    {item.status}
-                  </Badge>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-right space-x-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    icon={<QrCode size={16} />}
-                    onClick={() => handleShowQR(item.id)}
-                  >
-                    QR Code
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    icon={<Pencil size={16} />}
-                    onClick={() => {
-                      // TODO: Implement edit functionality
-                      toast.info('Fonction d\'édition à venir');
-                    }}
-                  />
-                  <Button
-                    variant="danger"
-                    size="sm"
-                    icon={<Trash2 size={16} />}
-                    onClick={() => handleDeleteClick(item)}
-                  />
-                </td>
-              </tr>
-            ))}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 font-mono">
+                    {item.articleNumber}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                    {item.serialNumber}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                    {item.category}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex items-center gap-2">
+                      <span className={`text-sm font-medium ${
+                        availableCount === 0 ? 'text-red-600 dark:text-red-400' :
+                        availableCount < totalCount ? 'text-yellow-600 dark:text-yellow-400' :
+                        'text-green-600 dark:text-green-400'
+                      }`}>
+                        {availableCount}/{totalCount}
+                      </span>
+                      {item.qrType === 'batch' && totalCount > 1 && (
+                        <span className="text-xs text-gray-500 dark:text-gray-400">(lot)</span>
+                      )}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <Badge
+                      variant={
+                        item.status === 'available' ? 'success' :
+                        item.status === 'checked-out' ? 'warning' :
+                        item.status === 'maintenance' ? 'info' : 'neutral'
+                      }
+                    >
+                      {item.status}
+                    </Badge>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-right space-x-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      icon={<QrCode size={16} />}
+                      onClick={() => handleShowQR(item.id)}
+                    >
+                      QR Code
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      icon={<Pencil size={16} />}
+                      onClick={() => {
+                        // TODO: Implement edit functionality
+                        toast.info('Fonction d\'édition à venir');
+                      }}
+                    />
+                    <Button
+                      variant="danger"
+                      size="sm"
+                      icon={<Trash2 size={16} />}
+                      onClick={() => handleDeleteClick(item)}
+                    />
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -343,102 +399,161 @@ const EquipmentPage: React.FC = () => {
 
   const renderGridView = () => (
     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-7 gap-4">
-      {filteredEquipment.map((item) => (
-        <div key={item.id} className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border-2 border-gray-200 dark:border-gray-700 hover:shadow-lg hover:border-gray-300 dark:hover:border-gray-600 transition-all duration-200 overflow-hidden">
-          <div className="p-3">
-            {/* Image avec fond blanc en mode sombre */}
-            <div className="relative mb-3">
-              {item.imageUrl ? (
-                <img
-                  src={item.imageUrl}
-                  alt={item.name}
-                  className="w-full h-32 object-contain rounded-md bg-white"
-                />
-              ) : (
-                <div className="w-full h-32 bg-gray-100 dark:bg-gray-700 rounded-md flex items-center justify-center">
-                  <Package size={32} className="text-gray-400" />
+      {filteredEquipment.map((item) => {
+        const availableCount = item.qrType === 'individual' && (item.totalQuantity || 1) > 1 
+          ? getAvailableInstancesCount(item.id)
+          : item.availableQuantity || 1;
+        const totalCount = item.totalQuantity || 1;
+
+        return (
+          <div key={item.id} className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border-2 border-gray-200 dark:border-gray-700 hover:shadow-lg hover:border-gray-300 dark:hover:border-gray-600 transition-all duration-200 overflow-hidden">
+            <div className="p-3">
+              {/* Image avec fond blanc en mode sombre */}
+              <div className="relative mb-3">
+                {item.imageUrl ? (
+                  <img
+                    src={item.imageUrl}
+                    alt={item.name}
+                    className="w-full h-32 object-contain rounded-md bg-white"
+                  />
+                ) : (
+                  <div className="w-full h-32 bg-gray-100 dark:bg-gray-700 rounded-md flex items-center justify-center">
+                    <Package size={32} className="text-gray-400" />
+                  </div>
+                )}
+                
+                {/* Badge de stock en overlay */}
+                <div className="absolute top-1 right-1">
+                  <Badge
+                    variant={
+                      availableCount === 0 ? 'danger' :
+                      availableCount < totalCount ? 'warning' : 'success'
+                    }
+                  >
+                    {totalCount > 1 ? `${availableCount}/${totalCount}` : 
+                     item.status === 'available' ? 'Dispo' :
+                     item.status === 'checked-out' ? 'Emprunté' :
+                     item.status === 'maintenance' ? 'Maint.' : 'Retiré'}
+                  </Badge>
                 </div>
+              </div>
+
+              {/* Informations principales */}
+              <div className="space-y-1 mb-3">
+                <h3 className="text-sm font-semibold text-gray-800 dark:text-white line-clamp-2 leading-tight">
+                  {item.name}
+                </h3>
+                <p className="text-xs text-gray-600 dark:text-gray-400 font-mono">
+                  {item.articleNumber}
+                </p>
+                <p className="text-xs text-gray-600 dark:text-gray-400 font-mono">
+                  {item.serialNumber}
+                </p>
+                {item.category && (
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    {item.category}
+                  </p>
+                )}
+                {item.location && (
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    📍 {item.location}
+                  </p>
+                )}
+                {totalCount > 1 && (
+                  <div className="flex items-center gap-1">
+                    <Package size={12} className="text-gray-400" />
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                      {item.qrType === 'batch' ? `${totalCount} pcs (lot)` : `${totalCount} pcs`}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Description tronquée */}
+              {item.description && (
+                <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-2 mb-3">
+                  {item.description}
+                </p>
               )}
               
-              {/* Badge de statut en overlay */}
-              <div className="absolute top-1 right-1">
-                <Badge
-                  variant={
-                    item.status === 'available' ? 'success' :
-                    item.status === 'checked-out' ? 'warning' :
-                    item.status === 'maintenance' ? 'info' : 'neutral'
-                  }
-                >
-                  {item.status === 'available' ? 'Dispo' :
-                   item.status === 'checked-out' ? 'Emprunté' :
-                   item.status === 'maintenance' ? 'Maint.' : 'Retiré'}
-                </Badge>
-              </div>
-            </div>
-
-            {/* Informations principales */}
-            <div className="space-y-1 mb-3">
-              <h3 className="text-sm font-semibold text-gray-800 dark:text-white line-clamp-2 leading-tight">
-                {item.name}
-              </h3>
-              <p className="text-xs text-gray-600 dark:text-gray-400 font-mono">
-                {item.serialNumber}
-              </p>
-              {item.category && (
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  {item.category}
-                </p>
-              )}
-              {item.location && (
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  📍 {item.location}
-                </p>
-              )}
-            </div>
-
-            {/* Description tronquée */}
-            {item.description && (
-              <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-2 mb-3">
-                {item.description}
-              </p>
-            )}
-            
-            {/* Actions */}
-            <div className="flex justify-between items-center gap-1">
-              <Button
-                variant="outline"
-                size="sm"
-                icon={<QrCode size={14} />}
-                onClick={() => handleShowQR(item.id)}
-                className="text-xs px-2 py-1"
-              >
-                QR
-              </Button>
-              <div className="flex gap-1">
+              {/* Actions */}
+              <div className="flex justify-between items-center gap-1">
                 <Button
                   variant="outline"
                   size="sm"
-                  icon={<Pencil size={14} />}
-                  onClick={() => {
-                    // TODO: Implement edit functionality
-                    toast.info('Fonction d\'édition à venir');
-                  }}
-                  className="px-2 py-1"
-                />
-                <Button
-                  variant="danger"
-                  size="sm"
-                  icon={<Trash2 size={14} />}
-                  onClick={() => handleDeleteClick(item)}
-                  className="px-2 py-1"
-                />
+                  icon={<QrCode size={14} />}
+                  onClick={() => handleShowQR(item.id)}
+                  className="text-xs px-2 py-1"
+                >
+                  QR
+                </Button>
+                <div className="flex gap-1">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    icon={<Pencil size={14} />}
+                    onClick={() => {
+                      // TODO: Implement edit functionality
+                      toast.info('Fonction d\'édition à venir');
+                    }}
+                    className="px-2 py-1"
+                  />
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    icon={<Trash2 size={14} />}
+                    onClick={() => handleDeleteClick(item)}
+                    className="px-2 py-1"
+                  />
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
+
+  const getQRCodeValue = () => {
+    if (!selectedEquipment) return '';
+    
+    if (selectedInstance) {
+      return selectedInstance.qrCode;
+    }
+    
+    const equipment = filteredEquipment.find(eq => eq.id === selectedEquipment);
+    if (equipment?.qrType === 'batch') {
+      return selectedEquipment;
+    }
+    
+    return selectedEquipment;
+  };
+
+  const getQRCodeTitle = () => {
+    if (!selectedEquipment) return '';
+    
+    const equipment = filteredEquipment.find(eq => eq.id === selectedEquipment);
+    if (!equipment) return '';
+    
+    if (selectedInstance) {
+      return `${equipment.name} #${selectedInstance.instanceNumber}`;
+    }
+    
+    return equipment.name;
+  };
+
+  const getQRCodeSubtitle = () => {
+    if (!selectedEquipment) return '';
+    
+    const equipment = filteredEquipment.find(eq => eq.id === selectedEquipment);
+    if (!equipment) return '';
+    
+    if (selectedInstance) {
+      return `${equipment.articleNumber} - Instance ${selectedInstance.instanceNumber}`;
+    }
+    
+    return equipment.articleNumber || equipment.serialNumber;
+  };
 
   return (
     <div className="space-y-6">
@@ -532,9 +647,9 @@ const EquipmentPage: React.FC = () => {
         {selectedEquipment && (
           <div className="flex justify-center">
             <QRCodeGenerator
-              value={selectedEquipment}
-              title={equipment.find(e => e.id === selectedEquipment)?.name || ''}
-              subtitle={equipment.find(e => e.id === selectedEquipment)?.serialNumber}
+              value={getQRCodeValue()}
+              title={getQRCodeTitle()}
+              subtitle={getQRCodeSubtitle()}
               size={200}
             />
           </div>

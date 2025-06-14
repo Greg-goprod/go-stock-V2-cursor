@@ -10,6 +10,19 @@ export interface Equipment {
   imageUrl?: string;
   supplier?: string;
   location?: string;
+  articleNumber?: string;
+  qrType?: 'individual' | 'batch';
+  totalQuantity?: number;
+  availableQuantity?: number;
+}
+
+export interface EquipmentInstance {
+  id: string;
+  equipmentId: string;
+  instanceNumber: number;
+  qrCode: string;
+  status: 'available' | 'checked-out' | 'maintenance' | 'retired';
+  createdAt: string;
 }
 
 export interface User {
@@ -32,6 +45,7 @@ export interface CheckoutRecord {
   returnDate?: string;
   status: 'active' | 'returned' | 'overdue';
   notes?: string;
+  instanceId?: string; // Pour les équipements individuels
 }
 
 export interface Notification {

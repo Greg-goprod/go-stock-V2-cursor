@@ -4,7 +4,7 @@ import Badge from '../components/common/Badge';
 import Button from '../components/common/Button';
 import { useLanguage } from '../contexts/LanguageContext';
 import { supabase } from '../lib/supabase';
-import { AlertTriangle, Clock, CheckCircle, Bell, Calendar, Package, User, Trash2, MarkAsRead } from 'lucide-react';
+import { AlertTriangle, Clock, CheckCircle, Bell, Calendar, Package, User, Trash2, BookMarked as MarkAsRead } from 'lucide-react';
 import { format, differenceInDays, isPast } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import toast from 'react-hot-toast';

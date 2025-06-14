@@ -241,7 +241,20 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
     try {
       setIsLoading(true);
 
-      // First, add new equipment to database if any
+      // 1. Créer le bon de sortie
+      const { data: deliveryNote, error: deliveryNoteError } = await supabase
+        .from('delivery_notes')
+        .insert([{
+          user_id: selectedUser.id,
+          due_date: dueDate,
+          notes: notes
+        }])
+        .select()
+        .single();
+
+      if (deliveryNoteError) throw deliveryNoteError;
+
+      // 2. Ajouter les nouveaux équipements à la base de données
       const addedEquipment: Equipment[] = [];
       for (const newEq of newEquipment) {
         const { data, error } = await supabase
@@ -282,13 +295,14 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
         addedEquipment.push(transformedEquipment);
       }
 
-      // Create checkout records for existing equipment
+      // 3. Créer les enregistrements de checkout pour les équipements existants
       const checkoutRecords = [];
       for (const item of checkoutItems) {
         for (let i = 0; i < item.quantity; i++) {
           checkoutRecords.push({
             equipment_id: item.equipment.id,
             user_id: selectedUser.id,
+            delivery_note_id: deliveryNote.id,
             due_date: dueDate,
             status: 'active',
             notes: notes
@@ -296,11 +310,12 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
         }
       }
 
-      // Create checkout records for new equipment
+      // 4. Créer les enregistrements de checkout pour les nouveaux équipements
       for (const eq of addedEquipment) {
         checkoutRecords.push({
           equipment_id: eq.id,
           user_id: selectedUser.id,
+          delivery_note_id: deliveryNote.id,
           due_date: dueDate,
           status: 'active',
           notes: notes
@@ -314,7 +329,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
 
         if (checkoutError) throw checkoutError;
 
-        // Update equipment status and available quantity
+        // 5. Mettre à jour le statut et les quantités des équipements
         for (const item of checkoutItems) {
           const newAvailableQuantity = Math.max(0, (item.equipment.availableQuantity || 1) - item.quantity);
           const newStatus = newAvailableQuantity === 0 ? 'checked-out' : 'available';
@@ -329,8 +344,8 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
         }
       }
 
-      toast.success('Sortie de matériel enregistrée avec succès');
-      handlePrintCheckout();
+      toast.success(`Bon de sortie ${deliveryNote.note_number} créé avec succès`);
+      handlePrintCheckout(deliveryNote.note_number);
       handleClose();
     } catch (error: any) {
       console.error('Error during checkout:', error);
@@ -340,7 +355,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
     }
   };
 
-  const handlePrintCheckout = () => {
+  const handlePrintCheckout = (noteNumber: string) => {
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
@@ -352,22 +367,25 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
     printWindow.document.write(`
       <html>
         <head>
-          <title>Bon de Sortie - GO-Mat</title>
+          <title>Bon de Sortie ${noteNumber} - GO-Mat</title>
           <style>
             body { font-family: Arial, sans-serif; margin: 20px; }
             .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 10px; }
+            .note-number { font-size: 24px; font-weight: bold; color: #2563eb; margin-bottom: 10px; }
             .info { margin-bottom: 20px; }
             .items { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
             .items th, .items td { border: 1px solid #ddd; padding: 8px; text-align: left; }
             .items th { background-color: #f2f2f2; }
             .signature { margin-top: 50px; }
             .signature-line { border-bottom: 1px solid #333; width: 200px; margin-top: 30px; }
+            .footer { margin-top: 30px; text-align: center; font-size: 12px; color: #666; }
           </style>
         </head>
         <body>
           <div class="header">
             <h1>GO-Mat - Bon de Sortie</h1>
-            <p>Date: ${new Date().toLocaleDateString('fr-FR')}</p>
+            <div class="note-number">N° ${noteNumber}</div>
+            <p>Date d'émission: ${new Date().toLocaleDateString('fr-FR')}</p>
           </div>
           
           <div class="info">
@@ -402,6 +420,11 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
             <p>Signature de l'utilisateur:</p>
             <div class="signature-line"></div>
             <p style="margin-top: 5px;">Date: _______________</p>
+          </div>
+
+          <div class="footer">
+            <p>Ce bon de sortie doit être conservé jusqu'au retour complet du matériel.</p>
+            <p>Pour tout retour, présentez ce bon ou indiquez le numéro: <strong>${noteNumber}</strong></p>
           </div>
         </body>
       </html>
@@ -797,6 +820,15 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
         {/* Step 3: Summary */}
         {step === 'summary' && (
           <div className="space-y-4">
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+              <h3 className="font-medium text-blue-800 dark:text-blue-200 mb-2">
+                📋 Création du bon de sortie
+              </h3>
+              <p className="text-blue-700 dark:text-blue-300 text-sm">
+                Un numéro de bon unique sera généré automatiquement pour faciliter le suivi et les retours.
+              </p>
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium mb-1">Date de retour prévue</label>
@@ -827,7 +859,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
                 onClick={handleCheckout}
                 disabled={isLoading}
               >
-                {isLoading ? 'Enregistrement en cours...' : 'Enregistrer et Imprimer'}
+                {isLoading ? 'Création en cours...' : 'Créer le Bon et Imprimer'}
               </Button>
               <Button
                 variant="outline"

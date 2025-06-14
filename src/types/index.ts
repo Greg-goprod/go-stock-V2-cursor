@@ -38,10 +38,25 @@ export interface User {
   dateCreated: string;
 }
 
+export interface DeliveryNote {
+  id: string;
+  noteNumber: string;
+  userId: string;
+  issueDate: string;
+  dueDate: string;
+  status: 'active' | 'returned' | 'partial' | 'overdue';
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+  user?: User;
+  checkouts?: CheckoutRecord[];
+}
+
 export interface CheckoutRecord {
   id: string;
   equipmentId: string;
   userId: string;
+  deliveryNoteId?: string;
   checkoutDate: string;
   dueDate: string;
   returnDate?: string;

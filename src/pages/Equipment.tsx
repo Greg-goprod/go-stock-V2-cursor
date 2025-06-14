@@ -344,7 +344,7 @@ const EquipmentPage: React.FC = () => {
   const renderGridView = () => (
     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-7 gap-4">
       {filteredEquipment.map((item) => (
-        <Card key={item.id} className="hover:shadow-lg transition-shadow">
+        <div key={item.id} className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border-2 border-gray-200 dark:border-gray-700 hover:shadow-lg hover:border-gray-300 dark:hover:border-gray-600 transition-all duration-200 overflow-hidden">
           <div className="p-3">
             {/* Image avec fond blanc en mode sombre */}
             <div className="relative mb-3">
@@ -435,7 +435,7 @@ const EquipmentPage: React.FC = () => {
               </div>
             </div>
           </div>
-        </Card>
+        </div>
       ))}
     </div>
   );

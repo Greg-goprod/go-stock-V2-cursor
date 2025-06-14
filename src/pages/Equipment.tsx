@@ -378,7 +378,7 @@ const EquipmentPage: React.FC = () => {
                       icon={<Pencil size={16} />}
                       onClick={() => {
                         // TODO: Implement edit functionality
-                        toast.info('Fonction d\'édition à venir');
+                        toast('Fonction d\'édition à venir');
                       }}
                     />
                     <Button
@@ -494,7 +494,7 @@ const EquipmentPage: React.FC = () => {
                     icon={<Pencil size={14} />}
                     onClick={() => {
                       // TODO: Implement edit functionality
-                      toast.info('Fonction d\'édition à venir');
+                      toast('Fonction d\'édition à venir');
                     }}
                     className="px-2 py-1"
                   />

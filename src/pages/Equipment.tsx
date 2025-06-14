@@ -7,6 +7,7 @@ import QRCodeGenerator from '../components/QRCode/QRCodeGenerator';
 import Modal from '../components/common/Modal';
 import FilterPanel, { FilterOption } from '../components/common/FilterPanel';
 import AddEquipmentModal from '../components/equipment/AddEquipmentModal';
+import EditEquipmentModal from '../components/equipment/EditEquipmentModal';
 import ConfirmModal from '../components/common/ConfirmModal';
 import { useLanguage } from '../contexts/LanguageContext';
 import { Equipment, Category, Supplier, EquipmentInstance } from '../types';
@@ -33,6 +34,8 @@ const EquipmentPage: React.FC = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [activeFilters, setActiveFilters] = useState<Record<string, string>>({});
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingEquipment, setEditingEquipment] = useState<Equipment | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [equipmentToDelete, setEquipmentToDelete] = useState<Equipment | null>(null);
 
@@ -50,7 +53,8 @@ const EquipmentPage: React.FC = () => {
         .select(`
           *,
           categories(id, name),
-          suppliers(id, name)
+          suppliers(id, name),
+          equipment_groups(id, name)
         `)
         .order('name');
 
@@ -96,7 +100,9 @@ const EquipmentPage: React.FC = () => {
         articleNumber: eq.article_number,
         qrType: eq.qr_type || 'individual',
         totalQuantity: eq.total_quantity || 1,
-        availableQuantity: eq.available_quantity || 1
+        availableQuantity: eq.available_quantity || 1,
+        shortTitle: eq.short_title,
+        group: eq.equipment_groups?.name || ''
       })) || [];
 
       setEquipment(transformedEquipment);
@@ -109,6 +115,11 @@ const EquipmentPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleEditClick = (equipment: Equipment) => {
+    setEditingEquipment(equipment);
+    setShowEditModal(true);
   };
 
   const handleDeleteClick = (equipment: Equipment) => {
@@ -167,6 +178,12 @@ const EquipmentPage: React.FC = () => {
   const handleCloseAddModal = () => {
     setShowAddModal(false);
     fetchData(); // Refresh data after adding equipment
+  };
+
+  const handleCloseEditModal = () => {
+    setShowEditModal(false);
+    setEditingEquipment(null);
+    fetchData(); // Refresh data after editing equipment
   };
 
   const getEquipmentInstances = (equipmentId: string) => {
@@ -376,10 +393,7 @@ const EquipmentPage: React.FC = () => {
                       variant="outline"
                       size="sm"
                       icon={<Pencil size={16} />}
-                      onClick={() => {
-                        // TODO: Implement edit functionality
-                        toast('Fonction d\'édition à venir');
-                      }}
+                      onClick={() => handleEditClick(item)}
                     />
                     <Button
                       variant="danger"
@@ -492,10 +506,7 @@ const EquipmentPage: React.FC = () => {
                     variant="outline"
                     size="sm"
                     icon={<Pencil size={14} />}
-                    onClick={() => {
-                      // TODO: Implement edit functionality
-                      toast('Fonction d\'édition à venir');
-                    }}
+                    onClick={() => handleEditClick(item)}
                     className="px-2 py-1"
                   />
                   <Button
@@ -667,6 +678,14 @@ const EquipmentPage: React.FC = () => {
         isOpen={showAddModal}
         onClose={handleCloseAddModal}
       />
+
+      {editingEquipment && (
+        <EditEquipmentModal
+          isOpen={showEditModal}
+          onClose={handleCloseEditModal}
+          equipment={editingEquipment}
+        />
+      )}
 
       <ConfirmModal
         isOpen={showDeleteConfirm}

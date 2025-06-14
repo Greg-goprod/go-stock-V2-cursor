@@ -16,7 +16,8 @@ const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, user }) => {
   const { t } = useLanguage();
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
-    name: '',
+    first_name: '',
+    last_name: '',
     email: '',
     phone: '',
     department: '',
@@ -26,7 +27,8 @@ const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, user }) => {
   useEffect(() => {
     if (user) {
       setFormData({
-        name: user.name,
+        first_name: user.first_name,
+        last_name: user.last_name,
         email: user.email,
         phone: user.phone || '',
         department: user.department,
@@ -34,7 +36,8 @@ const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, user }) => {
       });
     } else {
       setFormData({
-        name: '',
+        first_name: '',
+        last_name: '',
         email: '',
         phone: '',
         department: '',
@@ -49,7 +52,8 @@ const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, user }) => {
 
     try {
       const dataToSubmit = {
-        name: formData.name,
+        first_name: formData.first_name,
+        last_name: formData.last_name,
         email: formData.email,
         phone: formData.phone || null,
         department: formData.department,
@@ -77,7 +81,8 @@ const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, user }) => {
 
       onClose();
       setFormData({
-        name: '',
+        first_name: '',
+        last_name: '',
         email: '',
         phone: '',
         department: '',
@@ -107,18 +112,34 @@ const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, user }) => {
       size="md"
     >
       <form onSubmit={handleSubmit} className="space-y-6">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            {t('name')} *
-          </label>
-          <input
-            type="text"
-            name="name"
-            required
-            value={formData.name}
-            onChange={handleChange}
-            className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
-          />
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Prénom *
+            </label>
+            <input
+              type="text"
+              name="first_name"
+              required
+              value={formData.first_name}
+              onChange={handleChange}
+              className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Nom *
+            </label>
+            <input
+              type="text"
+              name="last_name"
+              required
+              value={formData.last_name}
+              onChange={handleChange}
+              className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
+            />
+          </div>
         </div>
 
         <div>

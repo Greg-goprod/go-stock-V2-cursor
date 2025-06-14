@@ -4,7 +4,7 @@ import Button from '../common/Button';
 import QRCodeScanner from '../QRCode/QRCodeScanner';
 import { User, Equipment } from '../../types';
 import { supabase } from '../../lib/supabase';
-import { Search, UserPlus, Package, Plus, Trash2, Calendar, Printer } from 'lucide-react';
+import { Search, UserPlus, Package, Plus, Trash2, Calendar, Printer, List, Filter } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface CheckoutModalProps {
@@ -33,19 +33,24 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
   const [isLoading, setIsLoading] = useState(false);
   
   // User selection states
-  const [showUserForm, setShowUserForm] = useState(false);
+  const [userSelectionMode, setUserSelectionMode] = useState<'scan' | 'new' | 'list'>('scan');
   const [userSearch, setUserSearch] = useState('');
   const [users, setUsers] = useState<User[]>([]);
   const [newUserData, setNewUserData] = useState({
-    name: '',
+    first_name: '',
+    last_name: '',
     phone: '',
     email: '',
     department: ''
   });
   
   // Equipment states
+  const [equipmentMode, setEquipmentMode] = useState<'scan' | 'list' | 'new'>('scan');
   const [showScanner, setShowScanner] = useState(false);
   const [equipment, setEquipment] = useState<Equipment[]>([]);
+  const [filteredEquipment, setFilteredEquipment] = useState<Equipment[]>([]);
+  const [equipmentSearch, setEquipmentSearch] = useState('');
+  const [equipmentFilter, setEquipmentFilter] = useState('');
   const [showNewEquipmentForm, setShowNewEquipmentForm] = useState(false);
   const [tempNewEquipment, setTempNewEquipment] = useState<NewEquipment>({
     name: '',
@@ -64,12 +69,31 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
     }
   }, [isOpen]);
 
+  useEffect(() => {
+    // Filter equipment based on search and filter
+    let filtered = equipment;
+    
+    if (equipmentSearch) {
+      filtered = filtered.filter(eq => 
+        eq.name.toLowerCase().includes(equipmentSearch.toLowerCase()) ||
+        eq.description.toLowerCase().includes(equipmentSearch.toLowerCase()) ||
+        eq.serial_number.toLowerCase().includes(equipmentSearch.toLowerCase())
+      );
+    }
+    
+    if (equipmentFilter) {
+      filtered = filtered.filter(eq => eq.category === equipmentFilter);
+    }
+    
+    setFilteredEquipment(filtered);
+  }, [equipment, equipmentSearch, equipmentFilter]);
+
   const fetchUsers = async () => {
     try {
       const { data, error } = await supabase
         .from('users')
         .select('*')
-        .order('name');
+        .order('first_name');
       
       if (error) throw error;
       setUsers(data || []);
@@ -98,7 +122,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
     if (user) {
       setSelectedUser(user);
       setStep('equipment');
-      toast.success(`Utilisateur sélectionné: ${user.name}`);
+      toast.success(`Utilisateur sélectionné: ${user.first_name} ${user.last_name}`);
     } else {
       toast.error('Utilisateur non trouvé');
     }
@@ -125,9 +149,25 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
     }
   };
 
+  const handleSelectEquipmentFromList = (equipmentItem: Equipment) => {
+    const existingItem = checkoutItems.find(item => item.equipment.id === equipmentItem.id);
+    if (existingItem) {
+      setCheckoutItems(prev => 
+        prev.map(item => 
+          item.equipment.id === equipmentItem.id 
+            ? { ...item, quantity: item.quantity + 1 }
+            : item
+        )
+      );
+    } else {
+      setCheckoutItems(prev => [...prev, { equipment: equipmentItem, quantity: 1 }]);
+    }
+    toast.success(`${equipmentItem.name} ajouté`);
+  };
+
   const handleCreateUser = async () => {
-    if (!newUserData.name || !newUserData.phone) {
-      toast.error('Nom et téléphone obligatoires');
+    if (!newUserData.first_name || !newUserData.last_name || !newUserData.phone) {
+      toast.error('Prénom, nom et téléphone obligatoires');
       return;
     }
 
@@ -146,7 +186,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
       
       setSelectedUser(data);
       setStep('equipment');
-      setShowUserForm(false);
+      setUserSelectionMode('scan');
       toast.success('Utilisateur créé avec succès');
     } catch (error: any) {
       console.error('Error creating user:', error);
@@ -278,7 +318,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
           </div>
           
           <div class="info">
-            <p><strong>Utilisateur:</strong> ${selectedUser?.name}</p>
+            <p><strong>Utilisateur:</strong> ${selectedUser?.first_name} ${selectedUser?.last_name}</p>
             <p><strong>Téléphone:</strong> ${selectedUser?.phone}</p>
             <p><strong>Département:</strong> ${selectedUser?.department}</p>
             <p><strong>Date de retour prévue:</strong> ${new Date(dueDate).toLocaleDateString('fr-FR')}</p>
@@ -324,27 +364,32 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
     setCheckoutItems([]);
     setNewEquipment([]);
     setNotes('');
-    setShowUserForm(false);
+    setUserSelectionMode('scan');
+    setEquipmentMode('scan');
     setShowScanner(false);
     setShowNewEquipmentForm(false);
     setUserSearch('');
-    setNewUserData({ name: '', phone: '', email: '', department: '' });
+    setEquipmentSearch('');
+    setEquipmentFilter('');
+    setNewUserData({ first_name: '', last_name: '', phone: '', email: '', department: '' });
     setTempNewEquipment({ name: '', serialNumber: '', description: '' });
     onClose();
   };
 
   const filteredUsers = users.filter(user =>
-    user.name.toLowerCase().includes(userSearch.toLowerCase()) ||
+    `${user.first_name} ${user.last_name}`.toLowerCase().includes(userSearch.toLowerCase()) ||
     user.email.toLowerCase().includes(userSearch.toLowerCase()) ||
     (user.phone || '').includes(userSearch)
   );
+
+  const categories = Array.from(new Set(equipment.map(eq => eq.category))).filter(Boolean);
 
   return (
     <Modal
       isOpen={isOpen}
       onClose={handleClose}
       title="Sortie de Matériel"
-      size="lg"
+      size="xl"
     >
       <div className="space-y-6">
         {/* Progress indicator */}
@@ -370,74 +415,78 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
           <div className="space-y-4">
             <div className="flex gap-3">
               <Button
-                variant="primary"
+                variant={userSelectionMode === 'scan' ? 'primary' : 'outline'}
                 icon={<Search size={18} />}
-                onClick={() => setShowScanner(true)}
-                disabled={showScanner}
+                onClick={() => setUserSelectionMode('scan')}
               >
                 Scanner Badge
               </Button>
               <Button
-                variant="outline"
+                variant={userSelectionMode === 'new' ? 'primary' : 'outline'}
                 icon={<UserPlus size={18} />}
-                onClick={() => setShowUserForm(true)}
+                onClick={() => setUserSelectionMode('new')}
               >
                 Nouvel Utilisateur
               </Button>
+              <Button
+                variant={userSelectionMode === 'list' ? 'primary' : 'outline'}
+                icon={<List size={18} />}
+                onClick={() => setUserSelectionMode('list')}
+              >
+                Liste Utilisateurs
+              </Button>
             </div>
 
-            {showScanner && (
+            {userSelectionMode === 'scan' && (
               <div className="border rounded-lg p-4">
                 <QRCodeScanner onScan={handleUserScan} />
-                <Button
-                  variant="outline"
-                  onClick={() => setShowScanner(false)}
-                  className="mt-2"
-                >
-                  Annuler
-                </Button>
               </div>
             )}
 
-            {!showScanner && !showUserForm && (
+            {userSelectionMode === 'list' && (
               <div>
                 <input
                   type="text"
                   placeholder="Rechercher un utilisateur..."
                   value={userSearch}
                   onChange={(e) => setUserSearch(e.target.value)}
-                  className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm"
+                  className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm mb-3"
                 />
                 
-                {userSearch && (
-                  <div className="mt-2 max-h-40 overflow-y-auto border rounded-md">
-                    {filteredUsers.map(user => (
-                      <div
-                        key={user.id}
-                        className="p-3 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer border-b last:border-b-0"
-                        onClick={() => {
-                          setSelectedUser(user);
-                          setStep('equipment');
-                        }}
-                      >
-                        <div className="font-medium">{user.name}</div>
-                        <div className="text-sm text-gray-500">{user.phone} • {user.department}</div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                <div className="max-h-60 overflow-y-auto border rounded-md">
+                  {filteredUsers.map(user => (
+                    <div
+                      key={user.id}
+                      className="p-3 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer border-b last:border-b-0"
+                      onClick={() => {
+                        setSelectedUser(user);
+                        setStep('equipment');
+                      }}
+                    >
+                      <div className="font-medium">{user.first_name} {user.last_name}</div>
+                      <div className="text-sm text-gray-500">{user.phone} • {user.department}</div>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 
-            {showUserForm && (
+            {userSelectionMode === 'new' && (
               <div className="border rounded-lg p-4 space-y-4">
                 <h3 className="font-medium">Nouvel Utilisateur</h3>
                 <div className="grid grid-cols-2 gap-4">
                   <input
                     type="text"
-                    placeholder="Nom et prénom *"
-                    value={newUserData.name}
-                    onChange={(e) => setNewUserData(prev => ({ ...prev, name: e.target.value }))}
+                    placeholder="Prénom *"
+                    value={newUserData.first_name}
+                    onChange={(e) => setNewUserData(prev => ({ ...prev, first_name: e.target.value }))}
+                    className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Nom *"
+                    value={newUserData.last_name}
+                    onChange={(e) => setNewUserData(prev => ({ ...prev, last_name: e.target.value }))}
                     className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm"
                   />
                   <input
@@ -459,7 +508,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
                     placeholder="Département"
                     value={newUserData.department}
                     onChange={(e) => setNewUserData(prev => ({ ...prev, department: e.target.value }))}
-                    className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm"
+                    className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm col-span-2"
                   />
                 </div>
                 <div className="flex gap-3">
@@ -472,7 +521,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
                   </Button>
                   <Button
                     variant="outline"
-                    onClick={() => setShowUserForm(false)}
+                    onClick={() => setUserSelectionMode('scan')}
                   >
                     Annuler
                   </Button>
@@ -483,7 +532,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
             {selectedUser && (
               <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
                 <h3 className="font-medium text-green-800 dark:text-green-200">Utilisateur sélectionné</h3>
-                <p className="text-green-700 dark:text-green-300">{selectedUser.name} - {selectedUser.phone}</p>
+                <p className="text-green-700 dark:text-green-300">{selectedUser.first_name} {selectedUser.last_name} - {selectedUser.phone}</p>
                 <Button
                   variant="primary"
                   onClick={() => setStep('equipment')}
@@ -501,23 +550,39 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
           <div className="space-y-4">
             <div className="flex gap-3">
               <Button
-                variant="primary"
+                variant={equipmentMode === 'scan' ? 'primary' : 'outline'}
                 icon={<Package size={18} />}
-                onClick={() => setShowScanner(true)}
-                disabled={showScanner}
+                onClick={() => {
+                  setEquipmentMode('scan');
+                  setShowScanner(true);
+                }}
               >
                 Scanner QR Code
               </Button>
               <Button
-                variant="outline"
+                variant={equipmentMode === 'list' ? 'primary' : 'outline'}
+                icon={<List size={18} />}
+                onClick={() => {
+                  setEquipmentMode('list');
+                  setShowScanner(false);
+                }}
+              >
+                Liste Matériel
+              </Button>
+              <Button
+                variant={equipmentMode === 'new' ? 'primary' : 'outline'}
                 icon={<Plus size={18} />}
-                onClick={() => setShowNewEquipmentForm(true)}
+                onClick={() => {
+                  setEquipmentMode('new');
+                  setShowScanner(false);
+                  setShowNewEquipmentForm(true);
+                }}
               >
                 Ajouter Équipement
               </Button>
             </div>
 
-            {showScanner && (
+            {equipmentMode === 'scan' && showScanner && (
               <div className="border rounded-lg p-4">
                 <QRCodeScanner onScan={handleEquipmentScan} />
                 <Button
@@ -527,6 +592,56 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
                 >
                   Arrêter Scanner
                 </Button>
+              </div>
+            )}
+
+            {equipmentMode === 'list' && (
+              <div className="space-y-4">
+                <div className="flex gap-3">
+                  <input
+                    type="text"
+                    placeholder="Rechercher par nom ou description..."
+                    value={equipmentSearch}
+                    onChange={(e) => setEquipmentSearch(e.target.value)}
+                    className="flex-1 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm"
+                  />
+                  <select
+                    value={equipmentFilter}
+                    onChange={(e) => setEquipmentFilter(e.target.value)}
+                    className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm"
+                  >
+                    <option value="">Toutes catégories</option>
+                    {categories.map(category => (
+                      <option key={category} value={category}>{category}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="max-h-60 overflow-y-auto border rounded-md">
+                  {filteredEquipment.map(eq => (
+                    <div
+                      key={eq.id}
+                      className="p-3 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer border-b last:border-b-0 flex justify-between items-center"
+                      onClick={() => handleSelectEquipmentFromList(eq)}
+                    >
+                      <div>
+                        <div className="font-medium">{eq.name}</div>
+                        <div className="text-sm text-gray-500">{eq.serial_number} • {eq.category}</div>
+                        <div className="text-sm text-gray-400">{eq.description}</div>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleSelectEquipmentFromList(eq);
+                        }}
+                      >
+                        Ajouter
+                      </Button>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 

@@ -12,7 +12,7 @@ import { supabase } from '../lib/supabase';
 import toast from 'react-hot-toast';
 
 type ViewMode = 'grid' | 'list';
-type SortField = 'name' | 'email' | 'phone' | 'department' | 'role';
+type SortField = 'first_name' | 'last_name' | 'email' | 'phone' | 'department' | 'role';
 type SortDirection = 'asc' | 'desc';
 
 const Users: React.FC = () => {
@@ -21,7 +21,7 @@ const Users: React.FC = () => {
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [selectedUser, setSelectedUser] = useState<string | null>(null);
   const [showQRModal, setShowQRModal] = useState(false);
-  const [sortField, setSortField] = useState<SortField>('name');
+  const [sortField, setSortField] = useState<SortField>('first_name');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const [showFilters, setShowFilters] = useState(false);
   const [activeFilters, setActiveFilters] = useState<Record<string, string>>({});
@@ -40,7 +40,7 @@ const Users: React.FC = () => {
       const { data, error } = await supabase
         .from('users')
         .select('*')
-        .order('name', { ascending: true });
+        .order('first_name', { ascending: true });
 
       if (error) {
         throw error;
@@ -138,8 +138,10 @@ const Users: React.FC = () => {
   const sortedUsers = [...users].sort((a, b) => {
     const direction = sortDirection === 'asc' ? 1 : -1;
     switch (sortField) {
-      case 'name':
-        return a.name.localeCompare(b.name) * direction;
+      case 'first_name':
+        return a.first_name.localeCompare(b.first_name) * direction;
+      case 'last_name':
+        return a.last_name.localeCompare(b.last_name) * direction;
       case 'email':
         return a.email.localeCompare(b.email) * direction;
       case 'phone':
@@ -161,7 +163,8 @@ const Users: React.FC = () => {
         case 'search':
           const searchTerm = value.toLowerCase();
           return (
-            user.name.toLowerCase().includes(searchTerm) ||
+            user.first_name.toLowerCase().includes(searchTerm) ||
+            user.last_name.toLowerCase().includes(searchTerm) ||
             user.email.toLowerCase().includes(searchTerm) ||
             (user.phone || '').toLowerCase().includes(searchTerm)
           );
@@ -191,7 +194,7 @@ const Users: React.FC = () => {
             <tr>
               <th 
                 className="px-6 py-3 text-left cursor-pointer group"
-                onClick={() => handleSort('name')}
+                onClick={() => handleSort('first_name')}
               >
                 <div className="flex items-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   Nom
@@ -246,12 +249,12 @@ const Users: React.FC = () => {
                   <div className="flex items-center">
                     <div className="h-10 w-10 rounded-full bg-primary-100 dark:bg-primary-900 text-primary-600 dark:text-primary-300 flex items-center justify-center">
                       <span className="font-medium">
-                        {user.name.split(' ').map(n => n[0]).join('')}
+                        {user.first_name[0]}{user.last_name[0]}
                       </span>
                     </div>
                     <div className="ml-4">
                       <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                        {user.name}
+                        {user.first_name} {user.last_name}
                       </div>
                     </div>
                   </div>
@@ -306,11 +309,11 @@ const Users: React.FC = () => {
             <div className="flex items-center gap-4 mb-4">
               <div className="h-12 w-12 rounded-full bg-primary-100 dark:bg-primary-900 text-primary-600 dark:text-primary-300 flex items-center justify-center">
                 <span className="text-lg font-medium">
-                  {user.name.split(' ').map(n => n[0]).join('')}
+                  {user.first_name[0]}{user.last_name[0]}
                 </span>
               </div>
               <div>
-                <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100">{user.name}</h3>
+                <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100">{user.first_name} {user.last_name}</h3>
                 <p className="text-sm text-gray-600 dark:text-gray-300">{user.role}</p>
               </div>
             </div>
@@ -418,7 +421,7 @@ const Users: React.FC = () => {
           <div className="flex justify-center">
             <QRCodeGenerator
               value={selectedUser}
-              title={users.find(u => u.id === selectedUser)?.name || ''}
+              title={users.find(u => u.id === selectedUser)?.first_name + ' ' + users.find(u => u.id === selectedUser)?.last_name || ''}
               subtitle={users.find(u => u.id === selectedUser)?.department}
               size={200}
             />
@@ -444,7 +447,7 @@ const Users: React.FC = () => {
         onClose={() => setShowDeleteConfirm(false)}
         onConfirm={handleDeleteConfirm}
         title="Confirmer la suppression"
-        message={`Êtes-vous sûr de vouloir supprimer l'utilisateur ${userToDelete?.name} ? Cette action est irréversible.`}
+        message={`Êtes-vous sûr de vouloir supprimer l'utilisateur ${userToDelete?.first_name} ${userToDelete?.last_name} ? Cette action est irréversible.`}
         confirmLabel="Supprimer"
         cancelLabel="Annuler"
       />

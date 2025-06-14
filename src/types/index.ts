@@ -14,7 +14,8 @@ export interface Equipment {
 
 export interface User {
   id: string;
-  name: string;
+  first_name: string;
+  last_name: string;
   email: string;
   phone: string;
   department: string;

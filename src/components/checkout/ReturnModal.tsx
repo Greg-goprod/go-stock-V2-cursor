@@ -4,7 +4,7 @@ import Button from '../common/Button';
 import QRCodeScanner from '../QRCode/QRCodeScanner';
 import { User, CheckoutRecord, Equipment } from '../../types';
 import { supabase } from '../../lib/supabase';
-import { Search, Package, Calendar, Printer, AlertTriangle } from 'lucide-react';
+import { Search, Package, Calendar, Printer, AlertTriangle, List } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface ReturnModalProps {
@@ -24,6 +24,16 @@ interface ReturnItem {
   notes?: string;
 }
 
+interface PendingReturn {
+  id: string;
+  equipment_name: string;
+  user_name: string;
+  due_date: string;
+  checkout_date: string;
+  is_overdue: boolean;
+  checkout: CheckoutWithDetails;
+}
+
 const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose }) => {
   const [step, setStep] = useState<'user' | 'items' | 'summary'>('user');
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
@@ -32,13 +42,16 @@ const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose }) => {
   const [isLoading, setIsLoading] = useState(false);
   
   // User selection states
+  const [selectionMode, setSelectionMode] = useState<'scan' | 'search' | 'list'>('scan');
   const [showScanner, setShowScanner] = useState(false);
   const [users, setUsers] = useState<User[]>([]);
   const [userSearch, setUserSearch] = useState('');
+  const [pendingReturns, setPendingReturns] = useState<PendingReturn[]>([]);
 
   useEffect(() => {
     if (isOpen) {
       fetchUsersWithCheckouts();
+      fetchPendingReturns();
     }
   }, [isOpen]);
 
@@ -51,12 +64,46 @@ const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose }) => {
           checkouts!inner(*)
         `)
         .eq('checkouts.status', 'active')
-        .order('name');
+        .order('first_name');
       
       if (error) throw error;
       setUsers(data || []);
     } catch (error) {
       console.error('Error fetching users with checkouts:', error);
+    }
+  };
+
+  const fetchPendingReturns = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('checkouts')
+        .select(`
+          *,
+          equipment(*),
+          users(*)
+        `)
+        .eq('status', 'active')
+        .order('due_date', { ascending: true });
+      
+      if (error) throw error;
+      
+      const returns: PendingReturn[] = data?.map(checkout => ({
+        id: checkout.id,
+        equipment_name: checkout.equipment.name,
+        user_name: `${checkout.users.first_name} ${checkout.users.last_name}`,
+        due_date: checkout.due_date,
+        checkout_date: checkout.checkout_date,
+        is_overdue: new Date(checkout.due_date) < new Date(),
+        checkout: {
+          ...checkout,
+          equipment: checkout.equipment,
+          user: checkout.users
+        }
+      })) || [];
+      
+      setPendingReturns(returns);
+    } catch (error) {
+      console.error('Error fetching pending returns:', error);
     }
   };
 
@@ -96,10 +143,21 @@ const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose }) => {
       setSelectedUser(user);
       fetchUserCheckouts(user.id);
       setStep('items');
-      toast.success(`Utilisateur sélectionné: ${user.name}`);
+      toast.success(`Utilisateur sélectionné: ${user.first_name} ${user.last_name}`);
     } else {
       toast.error('Utilisateur non trouvé ou sans matériel emprunté');
     }
+  };
+
+  const handleSelectFromList = (pendingReturn: PendingReturn) => {
+    setSelectedUser(pendingReturn.checkout.user);
+    setUserCheckouts([pendingReturn.checkout]);
+    setReturnItems([{
+      checkout: pendingReturn.checkout,
+      status: 'complete'
+    }]);
+    setStep('items');
+    toast.success(`Retour sélectionné: ${pendingReturn.equipment_name}`);
   };
 
   const handleEquipmentScan = (scannedId: string) => {
@@ -230,7 +288,7 @@ const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose }) => {
           </div>
           
           <div class="info">
-            <p><strong>Utilisateur:</strong> ${selectedUser?.name}</p>
+            <p><strong>Utilisateur:</strong> ${selectedUser?.first_name} ${selectedUser?.last_name}</p>
             <p><strong>Téléphone:</strong> ${selectedUser?.phone}</p>
             <p><strong>Département:</strong> ${selectedUser?.department}</p>
           </div>
@@ -332,15 +390,21 @@ const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose }) => {
     setSelectedUser(null);
     setUserCheckouts([]);
     setReturnItems([]);
+    setSelectionMode('scan');
     setShowScanner(false);
     setUserSearch('');
     onClose();
   };
 
   const filteredUsers = users.filter(user =>
-    user.name.toLowerCase().includes(userSearch.toLowerCase()) ||
+    `${user.first_name} ${user.last_name}`.toLowerCase().includes(userSearch.toLowerCase()) ||
     user.email.toLowerCase().includes(userSearch.toLowerCase()) ||
     (user.phone || '').includes(userSearch)
+  );
+
+  const filteredPendingReturns = pendingReturns.filter(ret =>
+    ret.equipment_name.toLowerCase().includes(userSearch.toLowerCase()) ||
+    ret.user_name.toLowerCase().includes(userSearch.toLowerCase())
   );
 
   return (
@@ -348,14 +412,14 @@ const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose }) => {
       isOpen={isOpen}
       onClose={handleClose}
       title="Retour de Matériel"
-      size="lg"
+      size="xl"
     >
       <div className="space-y-6">
         {/* Progress indicator */}
         <div className="flex items-center justify-center space-x-4">
           <div className={`flex items-center ${step === 'user' ? 'text-primary-600' : 'text-gray-400'}`}>
             <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step === 'user' ? 'bg-primary-600 text-white' : 'bg-gray-200'}`}>1</div>
-            <span className="ml-2">Utilisateur</span>
+            <span className="ml-2">Sélection</span>
           </div>
           <div className="w-8 h-px bg-gray-300"></div>
           <div className={`flex items-center ${step === 'items' ? 'text-primary-600' : 'text-gray-400'}`}>
@@ -369,21 +433,43 @@ const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose }) => {
           </div>
         </div>
 
-        {/* Step 1: User Selection */}
+        {/* Step 1: User/Return Selection */}
         {step === 'user' && (
           <div className="space-y-4">
             <div className="flex gap-3">
               <Button
-                variant="primary"
+                variant={selectionMode === 'scan' ? 'primary' : 'outline'}
                 icon={<Search size={18} />}
-                onClick={() => setShowScanner(true)}
-                disabled={showScanner}
+                onClick={() => {
+                  setSelectionMode('scan');
+                  setShowScanner(true);
+                }}
               >
                 Scanner Badge
               </Button>
+              <Button
+                variant={selectionMode === 'search' ? 'primary' : 'outline'}
+                icon={<Search size={18} />}
+                onClick={() => {
+                  setSelectionMode('search');
+                  setShowScanner(false);
+                }}
+              >
+                Rechercher Utilisateur
+              </Button>
+              <Button
+                variant={selectionMode === 'list' ? 'primary' : 'outline'}
+                icon={<List size={18} />}
+                onClick={() => {
+                  setSelectionMode('list');
+                  setShowScanner(false);
+                }}
+              >
+                Liste Retours
+              </Button>
             </div>
 
-            {showScanner && (
+            {selectionMode === 'scan' && showScanner && (
               <div className="border rounded-lg p-4">
                 <QRCodeScanner onScan={handleUserScan} />
                 <Button
@@ -396,18 +482,18 @@ const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose }) => {
               </div>
             )}
 
-            {!showScanner && (
+            {selectionMode === 'search' && (
               <div>
                 <input
                   type="text"
                   placeholder="Rechercher un utilisateur avec du matériel emprunté..."
                   value={userSearch}
                   onChange={(e) => setUserSearch(e.target.value)}
-                  className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm"
+                  className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm mb-3"
                 />
                 
                 {userSearch && (
-                  <div className="mt-2 max-h-40 overflow-y-auto border rounded-md">
+                  <div className="max-h-60 overflow-y-auto border rounded-md">
                     {filteredUsers.map(user => (
                       <div
                         key={user.id}
@@ -418,7 +504,7 @@ const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose }) => {
                           setStep('items');
                         }}
                       >
-                        <div className="font-medium">{user.name}</div>
+                        <div className="font-medium">{user.first_name} {user.last_name}</div>
                         <div className="text-sm text-gray-500">{user.phone} • {user.department}</div>
                       </div>
                     ))}
@@ -427,10 +513,60 @@ const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose }) => {
               </div>
             )}
 
+            {selectionMode === 'list' && (
+              <div>
+                <input
+                  type="text"
+                  placeholder="Rechercher par équipement ou utilisateur..."
+                  value={userSearch}
+                  onChange={(e) => setUserSearch(e.target.value)}
+                  className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm mb-3"
+                />
+                
+                <div className="max-h-80 overflow-y-auto border rounded-md">
+                  <div className="bg-gray-50 dark:bg-gray-800 p-2 border-b font-medium text-sm">
+                    Matériel à retourner ({filteredPendingReturns.length})
+                  </div>
+                  {filteredPendingReturns.map(ret => (
+                    <div
+                      key={ret.id}
+                      className={`p-3 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer border-b last:border-b-0 ${ret.is_overdue ? 'bg-red-50 dark:bg-red-900/20' : ''}`}
+                      onClick={() => handleSelectFromList(ret)}
+                    >
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <div className="font-medium flex items-center">
+                            {ret.equipment_name}
+                            {ret.is_overdue && (
+                              <AlertTriangle size={16} className="text-red-500 ml-2" />
+                            )}
+                          </div>
+                          <div className="text-sm text-gray-500">
+                            Emprunté par: {ret.user_name}
+                          </div>
+                          <div className="text-sm text-gray-500">
+                            Emprunté le: {new Date(ret.checkout_date).toLocaleDateString('fr-FR')}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className={`text-sm font-medium ${ret.is_overdue ? 'text-red-600' : 'text-gray-600'}`}>
+                            Retour prévu: {new Date(ret.due_date).toLocaleDateString('fr-FR')}
+                          </div>
+                          {ret.is_overdue && (
+                            <div className="text-xs text-red-500">EN RETARD</div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {selectedUser && (
               <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
                 <h3 className="font-medium text-green-800 dark:text-green-200">Utilisateur sélectionné</h3>
-                <p className="text-green-700 dark:text-green-300">{selectedUser.name} - {selectedUser.phone}</p>
+                <p className="text-green-700 dark:text-green-300">{selectedUser.first_name} {selectedUser.last_name} - {selectedUser.phone}</p>
                 <Button
                   variant="primary"
                   onClick={() => setStep('items')}
@@ -472,7 +608,7 @@ const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose }) => {
 
             {/* User's Checkouts */}
             <div className="border rounded-lg p-4">
-              <h3 className="font-medium mb-3">Matériel emprunté par {selectedUser?.name}</h3>
+              <h3 className="font-medium mb-3">Matériel emprunté par {selectedUser?.first_name} {selectedUser?.last_name}</h3>
               <div className="space-y-3">
                 {userCheckouts.map((checkout) => {
                   const returnItem = returnItems.find(item => item.checkout.id === checkout.id);

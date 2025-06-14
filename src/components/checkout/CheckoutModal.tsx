@@ -77,7 +77,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
       filtered = filtered.filter(eq => 
         eq.name.toLowerCase().includes(equipmentSearch.toLowerCase()) ||
         eq.description.toLowerCase().includes(equipmentSearch.toLowerCase()) ||
-        eq.serial_number.toLowerCase().includes(equipmentSearch.toLowerCase())
+        eq.serialNumber.toLowerCase().includes(equipmentSearch.toLowerCase())
       );
     }
     
@@ -106,12 +106,36 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
     try {
       const { data, error } = await supabase
         .from('equipment')
-        .select('*')
+        .select(`
+          *,
+          categories(id, name),
+          suppliers(id, name)
+        `)
         .eq('status', 'available')
         .order('name');
       
       if (error) throw error;
-      setEquipment(data || []);
+      
+      // Transform data to match our interface
+      const transformedEquipment: Equipment[] = data?.map(eq => ({
+        id: eq.id,
+        name: eq.name,
+        description: eq.description || '',
+        category: eq.categories?.name || '',
+        serialNumber: eq.serial_number,
+        status: eq.status as Equipment['status'],
+        addedDate: eq.added_date || eq.created_at,
+        lastMaintenance: eq.last_maintenance,
+        imageUrl: eq.image_url,
+        supplier: eq.suppliers?.name || '',
+        location: eq.location || '',
+        articleNumber: eq.article_number,
+        qrType: eq.qr_type || 'individual',
+        totalQuantity: eq.total_quantity || 1,
+        availableQuantity: eq.available_quantity || 1
+      })) || [];
+      
+      setEquipment(transformedEquipment);
     } catch (error) {
       console.error('Error fetching equipment:', error);
     }
@@ -226,13 +250,36 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
             name: newEq.name,
             serial_number: newEq.serialNumber,
             description: newEq.description,
-            status: 'checked-out'
+            status: 'checked-out',
+            qr_type: 'individual',
+            total_quantity: 1,
+            available_quantity: 0
           }])
           .select()
           .single();
 
         if (error) throw error;
-        addedEquipment.push(data);
+        
+        // Transform to match our interface
+        const transformedEquipment: Equipment = {
+          id: data.id,
+          name: data.name,
+          description: data.description || '',
+          category: '',
+          serialNumber: data.serial_number,
+          status: data.status as Equipment['status'],
+          addedDate: data.created_at,
+          lastMaintenance: data.last_maintenance,
+          imageUrl: data.image_url,
+          supplier: '',
+          location: data.location || '',
+          articleNumber: data.article_number,
+          qrType: data.qr_type || 'individual',
+          totalQuantity: data.total_quantity || 1,
+          availableQuantity: data.available_quantity || 0
+        };
+        
+        addedEquipment.push(transformedEquipment);
       }
 
       // Create checkout records for existing equipment
@@ -267,16 +314,22 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
 
         if (checkoutError) throw checkoutError;
 
-        // Update equipment status to checked-out
+        // Update equipment status and available quantity
         for (const item of checkoutItems) {
+          const newAvailableQuantity = Math.max(0, (item.equipment.availableQuantity || 1) - item.quantity);
+          const newStatus = newAvailableQuantity === 0 ? 'checked-out' : 'available';
+          
           await supabase
             .from('equipment')
-            .update({ status: 'checked-out' })
+            .update({ 
+              status: newStatus,
+              available_quantity: newAvailableQuantity
+            })
             .eq('id', item.equipment.id);
         }
       }
 
-      toast.success('Sortie de matériel enregistrée');
+      toast.success('Sortie de matériel enregistrée avec succès');
       handlePrintCheckout();
       handleClose();
     } catch (error: any) {
@@ -292,7 +345,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
     if (!printWindow) return;
 
     const allItems = [
-      ...checkoutItems.map(item => ({ name: item.equipment.name, serialNumber: item.equipment.serial_number, quantity: item.quantity })),
+      ...checkoutItems.map(item => ({ name: item.equipment.name, serialNumber: item.equipment.serialNumber, quantity: item.quantity })),
       ...newEquipment.map(eq => ({ name: eq.name, serialNumber: eq.serialNumber, quantity: 1 }))
     ];
 
@@ -626,8 +679,11 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
                     >
                       <div>
                         <div className="font-medium">{eq.name}</div>
-                        <div className="text-sm text-gray-500">{eq.serial_number} • {eq.category}</div>
+                        <div className="text-sm text-gray-500">{eq.serialNumber} • {eq.category}</div>
                         <div className="text-sm text-gray-400">{eq.description}</div>
+                        <div className="text-xs text-gray-500">
+                          Stock: {eq.availableQuantity}/{eq.totalQuantity}
+                        </div>
                       </div>
                       <Button
                         variant="outline"
@@ -697,7 +753,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
                     <div key={index} className="flex justify-between items-center p-2 bg-gray-50 dark:bg-gray-800 rounded">
                       <div>
                         <span className="font-medium">{item.equipment.name}</span>
-                        <span className="text-sm text-gray-500 ml-2">({item.equipment.serial_number})</span>
+                        <span className="text-sm text-gray-500 ml-2">({item.equipment.serialNumber})</span>
                         <span className="text-sm text-gray-500 ml-2">Qté: {item.quantity}</span>
                       </div>
                       <Button
@@ -771,7 +827,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
                 onClick={handleCheckout}
                 disabled={isLoading}
               >
-                Enregistrer et Imprimer
+                {isLoading ? 'Enregistrement en cours...' : 'Enregistrer et Imprimer'}
               </Button>
               <Button
                 variant="outline"

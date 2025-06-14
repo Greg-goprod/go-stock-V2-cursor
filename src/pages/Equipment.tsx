@@ -346,13 +346,13 @@ const EquipmentPage: React.FC = () => {
       {filteredEquipment.map((item) => (
         <Card key={item.id} className="hover:shadow-lg transition-shadow">
           <div className="p-3">
-            {/* Image avec taille fixe mais image complète visible */}
+            {/* Image avec fond blanc en mode sombre */}
             <div className="relative mb-3">
               {item.imageUrl ? (
                 <img
                   src={item.imageUrl}
                   alt={item.name}
-                  className="w-full h-32 object-contain rounded-md bg-gray-50 dark:bg-gray-700"
+                  className="w-full h-32 object-contain rounded-md bg-white"
                 />
               ) : (
                 <div className="w-full h-32 bg-gray-100 dark:bg-gray-700 rounded-md flex items-center justify-center">

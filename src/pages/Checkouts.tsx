@@ -1,20 +1,70 @@
-import React from 'react';
-import { useApp } from '../contexts/AppContext';
+import React, { useState, useEffect } from 'react';
 import Card from '../components/common/Card';
 import Badge from '../components/common/Badge';
+import { useLanguage } from '../contexts/LanguageContext';
+import { supabase } from '../lib/supabase';
 import { format } from 'date-fns';
 
-const Checkouts: React.FC = () => {
-  const { checkouts, getEquipmentById, getUserById } = useApp();
+interface CheckoutWithDetails {
+  id: string;
+  checkout_date: string;
+  due_date: string;
+  return_date?: string;
+  status: string;
+  notes?: string;
+  equipment: {
+    name: string;
+    serial_number: string;
+  };
+  users: {
+    first_name: string;
+    last_name: string;
+  };
+}
 
-  const sortedCheckouts = [...checkouts].sort(
-    (a, b) => new Date(b.checkoutDate).getTime() - new Date(a.checkoutDate).getTime()
-  );
+const Checkouts: React.FC = () => {
+  const { t } = useLanguage();
+  const [checkouts, setCheckouts] = useState<CheckoutWithDetails[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchCheckouts();
+  }, []);
+
+  const fetchCheckouts = async () => {
+    try {
+      setLoading(true);
+      
+      const { data, error } = await supabase
+        .from('checkouts')
+        .select(`
+          *,
+          equipment(name, serial_number),
+          users(first_name, last_name)
+        `)
+        .order('checkout_date', { ascending: false });
+
+      if (error) throw error;
+      setCheckouts(data || []);
+    } catch (error: any) {
+      console.error('Error fetching checkouts:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-gray-500 dark:text-gray-400">{t('loading')}</div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Checkouts</h1>
+        <h1 className="text-2xl font-bold text-gray-800 dark:text-white">{t('checkouts')}</h1>
       </div>
 
       <Card>
@@ -23,58 +73,61 @@ const Checkouts: React.FC = () => {
             <thead className="bg-gray-50 dark:bg-gray-800">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Equipment
+                  {t('equipment')}
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  User
+                  {t('user')}
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Checkout Date
+                  {t('checkoutDate')}
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Due Date
+                  {t('dueDate')}
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Return Date
+                  {t('returnDate')}
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Status
+                  {t('status')}
                 </th>
               </tr>
             </thead>
             <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
-              {sortedCheckouts.map((checkout) => {
-                const equipment = getEquipmentById(checkout.equipmentId);
-                const user = getUserById(checkout.userId);
-
+              {checkouts.map((checkout) => {
+                const isOverdue = checkout.status === 'active' && new Date(checkout.due_date) < new Date();
+                
                 return (
                   <tr key={checkout.id}>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
-                      {equipment?.name || 'Unknown Equipment'}
+                      {checkout.equipment?.name || 'Équipement inconnu'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
-                      {user?.name || 'Unknown User'}
+                      {checkout.users ? `${checkout.users.first_name} ${checkout.users.last_name}` : 'Utilisateur inconnu'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                      {format(new Date(checkout.checkoutDate), 'MMM d, yyyy')}
+                      {format(new Date(checkout.checkout_date), 'dd/MM/yyyy')}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                      {format(new Date(checkout.dueDate), 'MMM d, yyyy')}
+                      {format(new Date(checkout.due_date), 'dd/MM/yyyy')}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                      {checkout.returnDate
-                        ? format(new Date(checkout.returnDate), 'MMM d, yyyy')
+                      {checkout.return_date
+                        ? format(new Date(checkout.return_date), 'dd/MM/yyyy')
                         : '-'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <Badge
                         variant={
+                          checkout.status === 'returned' ? 'neutral' :
+                          isOverdue ? 'danger' :
                           checkout.status === 'active' ? 'success' :
-                          checkout.status === 'overdue' ? 'danger' :
-                          'neutral'
+                          'warning'
                         }
                       >
-                        {checkout.status}
+                        {checkout.status === 'returned' ? 'Retourné' :
+                         isOverdue ? 'En retard' :
+                         checkout.status === 'active' ? 'Actif' :
+                         checkout.status}
                       </Badge>
                     </td>
                   </tr>

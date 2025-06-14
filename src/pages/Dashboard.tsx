@@ -1,8 +1,6 @@
-import React, { useState } from 'react';
-import { useApp } from '../contexts/AppContext';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
 import Card from '../components/common/Card';
-import Button from '../components/common/Button';
+import Button from '../common/Button';
 import Badge from '../components/common/Badge';
 import CheckoutModal from '../components/checkout/CheckoutModal';
 import ReturnModal from '../components/checkout/ReturnModal';
@@ -17,22 +15,95 @@ import {
   LogIn
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
+import { supabase } from '../lib/supabase';
+import { Equipment, User, CheckoutRecord } from '../types';
 
 const Dashboard: React.FC = () => {
-  const { equipment, users, checkouts, notifications, getOverdueCheckouts } = useApp();
   const { t } = useLanguage();
   const [showCheckoutModal, setShowCheckoutModal] = useState(false);
   const [showReturnModal, setShowReturnModal] = useState(false);
-  
-  const availableEquipment = equipment.filter(item => item.status === 'available').length;
-  const checkedOutEquipment = equipment.filter(item => item.status === 'checked-out').length;
-  const overdueEquipment = getOverdueCheckouts().length;
-  const unreadNotifications = notifications.filter(notif => !notif.read).length;
-  
-  const recentCheckouts = checkouts
-    .filter(checkout => checkout.status === 'active' || checkout.status === 'overdue')
-    .sort((a, b) => new Date(b.checkoutDate).getTime() - new Date(a.checkoutDate).getTime())
-    .slice(0, 5);
+  const [stats, setStats] = useState({
+    availableEquipment: 0,
+    checkedOutEquipment: 0,
+    overdueEquipment: 0,
+    unreadNotifications: 0
+  });
+  const [recentCheckouts, setRecentCheckouts] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
+
+  const fetchDashboardData = async () => {
+    try {
+      setLoading(true);
+
+      // Fetch equipment stats
+      const { data: equipment, error: equipmentError } = await supabase
+        .from('equipment')
+        .select('status, available_quantity, total_quantity');
+
+      if (equipmentError) throw equipmentError;
+
+      // Calculate stats
+      let availableCount = 0;
+      let checkedOutCount = 0;
+
+      equipment?.forEach(eq => {
+        const available = eq.available_quantity || 0;
+        const total = eq.total_quantity || 1;
+        
+        availableCount += available;
+        checkedOutCount += (total - available);
+      });
+
+      // Fetch overdue checkouts
+      const { data: overdueCheckouts, error: overdueError } = await supabase
+        .from('checkouts')
+        .select('id')
+        .eq('status', 'active')
+        .lt('due_date', new Date().toISOString());
+
+      if (overdueError) throw overdueError;
+
+      // Fetch recent checkouts with user and equipment info
+      const { data: checkouts, error: checkoutsError } = await supabase
+        .from('checkouts')
+        .select(`
+          *,
+          equipment(name),
+          users(first_name, last_name)
+        `)
+        .in('status', ['active', 'overdue'])
+        .order('checkout_date', { ascending: false })
+        .limit(5);
+
+      if (checkoutsError) throw checkoutsError;
+
+      setStats({
+        availableEquipment: availableCount,
+        checkedOutEquipment: checkedOutCount,
+        overdueEquipment: overdueCheckouts?.length || 0,
+        unreadNotifications: 0 // TODO: Implement notifications
+      });
+
+      setRecentCheckouts(checkouts || []);
+
+    } catch (error: any) {
+      console.error('Error fetching dashboard data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-gray-500 dark:text-gray-400">{t('loading')}</div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -70,7 +141,7 @@ const Dashboard: React.FC = () => {
           </div>
           <div>
             <p className="text-gray-500 dark:text-gray-400 text-sm">{t('available')}</p>
-            <p className="text-2xl font-semibold text-gray-800 dark:text-white">{availableEquipment}</p>
+            <p className="text-2xl font-semibold text-gray-800 dark:text-white">{stats.availableEquipment}</p>
           </div>
         </Card>
         
@@ -80,7 +151,7 @@ const Dashboard: React.FC = () => {
           </div>
           <div>
             <p className="text-gray-500 dark:text-gray-400 text-sm">{t('checkedOut')}</p>
-            <p className="text-2xl font-semibold text-gray-800 dark:text-white">{checkedOutEquipment}</p>
+            <p className="text-2xl font-semibold text-gray-800 dark:text-white">{stats.checkedOutEquipment}</p>
           </div>
         </Card>
         
@@ -90,7 +161,7 @@ const Dashboard: React.FC = () => {
           </div>
           <div>
             <p className="text-gray-500 dark:text-gray-400 text-sm">{t('overdue')}</p>
-            <p className="text-2xl font-semibold text-gray-800 dark:text-white">{overdueEquipment}</p>
+            <p className="text-2xl font-semibold text-gray-800 dark:text-white">{stats.overdueEquipment}</p>
           </div>
         </Card>
         
@@ -100,7 +171,7 @@ const Dashboard: React.FC = () => {
           </div>
           <div>
             <p className="text-gray-500 dark:text-gray-400 text-sm">{t('notifications')}</p>
-            <p className="text-2xl font-semibold text-gray-800 dark:text-white">{unreadNotifications}</p>
+            <p className="text-2xl font-semibold text-gray-800 dark:text-white">{stats.unreadNotifications}</p>
           </div>
         </Card>
       </div>
@@ -130,28 +201,27 @@ const Dashboard: React.FC = () => {
               </thead>
               <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
                 {recentCheckouts.map(checkout => {
-                  const equipmentItem = equipment.find(e => e.id === checkout.equipmentId);
-                  const user = users.find(u => u.id === checkout.userId);
+                  const isOverdue = new Date(checkout.due_date) < new Date();
                   
                   return (
                     <tr key={checkout.id} className="hover:bg-gray-50 dark:hover:bg-gray-800">
                       <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
-                        {equipmentItem?.name || t('unknownEquipment')}
+                        {checkout.equipment?.name || 'Équipement inconnu'}
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
-                        {user?.name || t('unknownUser')}
+                        {checkout.users ? `${checkout.users.first_name} ${checkout.users.last_name}` : 'Utilisateur inconnu'}
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                        {new Date(checkout.checkoutDate).toLocaleDateString()}
+                        {new Date(checkout.checkout_date).toLocaleDateString('fr-FR')}
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                        {new Date(checkout.dueDate).toLocaleDateString()}
+                        {new Date(checkout.due_date).toLocaleDateString('fr-FR')}
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm">
                         <Badge
-                          variant={checkout.status === 'active' ? 'success' : 'danger'}
+                          variant={isOverdue ? 'danger' : 'success'}
                         >
-                          {t(checkout.status)}
+                          {isOverdue ? 'En retard' : 'Actif'}
                         </Badge>
                       </td>
                     </tr>
@@ -161,74 +231,7 @@ const Dashboard: React.FC = () => {
             </table>
           </div>
         ) : (
-          <p className="text-gray-500 dark:text-gray-400 text-center py-4">{t('noActiveCheckouts')}</p>
-        )}
-        
-        {recentCheckouts.length > 0 && (
-          <div className="mt-4 flex justify-end">
-            <Link to="/checkouts">
-              <Button 
-                variant="outline" 
-                size="sm"
-                icon={<ArrowUpRight size={16} />}
-              >
-                {t('viewAllCheckouts')}
-              </Button>
-            </Link>
-          </div>
-        )}
-      </Card>
-      
-      <Card title={t('recentNotifications')}>
-        {notifications.length > 0 ? (
-          <div className="space-y-2">
-            {notifications.slice(0, 5).map(notification => (
-              <div 
-                key={notification.id} 
-                className={`p-3 rounded-md ${
-                  notification.read 
-                    ? 'bg-gray-50 dark:bg-gray-800' 
-                    : 'bg-primary-50 dark:bg-primary-900/50 border-l-4 border-primary-500'
-                }`}
-              >
-                <div className="flex items-start">
-                  <div className="flex-shrink-0 mr-3">
-                    {notification.type === 'overdue' && (
-                      <AlertTriangle size={18} className="text-warning-500 dark:text-warning-400" />
-                    )}
-                    {notification.type === 'maintenance' && (
-                      <Package size={18} className="text-primary-500 dark:text-primary-400" />
-                    )}
-                    {notification.type === 'system' && (
-                      <Bell size={18} className="text-gray-500 dark:text-gray-400" />
-                    )}
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-800 dark:text-gray-200">{notification.message}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      {new Date(notification.date).toLocaleString()}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="text-gray-500 dark:text-gray-400 text-center py-4">{t('noNotifications')}</p>
-        )}
-        
-        {notifications.length > 0 && (
-          <div className="mt-4 flex justify-end">
-            <Link to="/notifications">
-              <Button 
-                variant="outline" 
-                size="sm"
-                icon={<ArrowUpRight size={16} />}
-              >
-                {t('viewAllNotifications')}
-              </Button>
-            </Link>
-          </div>
+          <p className="text-gray-500 dark:text-gray-400 text-center py-4">Aucun emprunt actif</p>
         )}
       </Card>
 

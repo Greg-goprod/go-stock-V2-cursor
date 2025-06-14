@@ -346,17 +346,17 @@ const EquipmentPage: React.FC = () => {
       {filteredEquipment.map((item) => (
         <Card key={item.id} className="hover:shadow-lg transition-shadow">
           <div className="p-3">
-            {/* Image réduite */}
+            {/* Image avec taille fixe mais image complète visible */}
             <div className="relative mb-3">
               {item.imageUrl ? (
                 <img
                   src={item.imageUrl}
                   alt={item.name}
-                  className="w-full h-24 object-cover rounded-md"
+                  className="w-full h-32 object-contain rounded-md bg-gray-50 dark:bg-gray-700"
                 />
               ) : (
-                <div className="w-full h-24 bg-gray-100 dark:bg-gray-700 rounded-md flex items-center justify-center">
-                  <Package size={24} className="text-gray-400" />
+                <div className="w-full h-32 bg-gray-100 dark:bg-gray-700 rounded-md flex items-center justify-center">
+                  <Package size={32} className="text-gray-400" />
                 </div>
               )}
               

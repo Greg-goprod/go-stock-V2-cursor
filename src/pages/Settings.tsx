@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Card from '../components/common/Card';
+import AccordionCard from '../components/common/AccordionCard';
 import Button from '../components/common/Button';
 import { useTheme } from '../contexts/ThemeContext';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -220,7 +221,7 @@ const Settings: React.FC = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="space-y-6">
-          {/* Language Settings */}
+          {/* Language Settings - Simple Card */}
           <Card>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -250,7 +251,7 @@ const Settings: React.FC = () => {
             </div>
           </Card>
 
-          {/* Theme Settings */}
+          {/* Theme Settings - Simple Card */}
           <Card>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -286,19 +287,12 @@ const Settings: React.FC = () => {
             </div>
           </Card>
 
-          {/* System Settings */}
-          <Card>
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-primary-100 dark:bg-primary-900/50">
-                  <SettingsIcon className="w-5 h-5 text-primary-600 dark:text-primary-400" />
-                </div>
-                <h3 className="text-lg font-medium text-gray-800 dark:text-white">
-                  {t('systemSettings')}
-                </h3>
-              </div>
-            </div>
-            
+          {/* System Settings - Accordion */}
+          <AccordionCard
+            title={t('systemSettings')}
+            icon={<SettingsIcon className="w-5 h-5 text-primary-600 dark:text-primary-400" />}
+            defaultOpen={true}
+          >
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -350,9 +344,9 @@ const Settings: React.FC = () => {
                 )}
               </div>
             </div>
-          </Card>
+          </AccordionCard>
 
-          {/* Import Excel */}
+          {/* Import Excel - Simple Card */}
           <Card>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -383,162 +377,171 @@ const Settings: React.FC = () => {
         </div>
 
         <div className="space-y-6">
-          {/* Categories */}
-          <Card>
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-medium text-gray-800 dark:text-white">
-                {t('categories')}
-              </h3>
-              <Button 
-                variant="primary" 
-                size="sm" 
-                icon={<Plus size={16} />}
-                onClick={handleAddCategory}
-              >
-                {t('addCategory')}
-              </Button>
-            </div>
-            <div className="space-y-2">
-              {categories.map((category) => (
-                <div
-                  key={category.id}
-                  className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg"
+          {/* Categories - Accordion */}
+          <AccordionCard
+            title={t('categories')}
+            icon={<Tag className="w-5 h-5 text-primary-600 dark:text-primary-400" />}
+            defaultOpen={true}
+          >
+            <div className="space-y-4">
+              <div className="flex justify-end">
+                <Button 
+                  variant="primary" 
+                  size="sm" 
+                  icon={<Plus size={16} />}
+                  onClick={handleAddCategory}
                 >
-                  <div>
-                    <h4 className="font-medium text-gray-800 dark:text-white">
-                      {category.name}
-                    </h4>
-                    {category.description && (
-                      <p className="text-sm text-gray-500 dark:text-gray-400">
-                        {category.description}
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      icon={<Pencil size={16} />}
-                      onClick={() => handleEditCategory(category)}
-                    />
-                    <Button
-                      variant="danger"
-                      size="sm"
-                      icon={<Trash2 size={16} />}
-                      onClick={() => handleDeleteCategory(category.id)}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </Card>
-
-          {/* Groups */}
-          <Card>
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-medium text-gray-800 dark:text-white">
-                {t('groups')}
-              </h3>
-              <Button 
-                variant="primary" 
-                size="sm" 
-                icon={<Plus size={16} />}
-                onClick={handleAddGroup}
-              >
-                {t('addGroup')}
-              </Button>
-            </div>
-            <div className="space-y-2">
-              {groups.map((group) => (
-                <div
-                  key={group.id}
-                  className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg"
-                >
-                  <div className="flex items-center gap-3">
-                    <div
-                      className="w-4 h-4 rounded-full"
-                      style={{ backgroundColor: group.color }}
-                    />
+                  {t('addCategory')}
+                </Button>
+              </div>
+              <div className="space-y-2">
+                {categories.map((category) => (
+                  <div
+                    key={category.id}
+                    className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg"
+                  >
                     <div>
                       <h4 className="font-medium text-gray-800 dark:text-white">
-                        {group.name}
+                        {category.name}
                       </h4>
-                      {group.description && (
+                      {category.description && (
                         <p className="text-sm text-gray-500 dark:text-gray-400">
-                          {group.description}
+                          {category.description}
                         </p>
                       )}
                     </div>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        icon={<Pencil size={16} />}
+                        onClick={() => handleEditCategory(category)}
+                      />
+                      <Button
+                        variant="danger"
+                        size="sm"
+                        icon={<Trash2 size={16} />}
+                        onClick={() => handleDeleteCategory(category.id)}
+                      />
+                    </div>
                   </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      icon={<Pencil size={16} />}
-                      onClick={() => handleEditGroup(group)}
-                    />
-                    <Button
-                      variant="danger"
-                      size="sm"
-                      icon={<Trash2 size={16} />}
-                      onClick={() => handleDeleteGroup(group.id)}
-                    />
-                  </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-          </Card>
+          </AccordionCard>
 
-          {/* Suppliers */}
-          <Card>
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-medium text-gray-800 dark:text-white">
-                {t('suppliers')}
-              </h3>
-              <Button 
-                variant="primary" 
-                size="sm" 
-                icon={<Plus size={16} />}
-                onClick={handleAddSupplier}
-              >
-                {t('addSupplier')}
-              </Button>
-            </div>
-            <div className="space-y-2">
-              {suppliers.map((supplier) => (
-                <div
-                  key={supplier.id}
-                  className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg"
+          {/* Groups - Accordion */}
+          <AccordionCard
+            title={t('groups')}
+            icon={<UserCheck className="w-5 h-5 text-primary-600 dark:text-primary-400" />}
+            defaultOpen={false}
+          >
+            <div className="space-y-4">
+              <div className="flex justify-end">
+                <Button 
+                  variant="primary" 
+                  size="sm" 
+                  icon={<Plus size={16} />}
+                  onClick={handleAddGroup}
                 >
-                  <div>
-                    <h4 className="font-medium text-gray-800 dark:text-white">
-                      {supplier.name}
-                    </h4>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                      {supplier.contactPerson} • {supplier.phone}
-                    </p>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                      {supplier.email}
-                    </p>
+                  {t('addGroup')}
+                </Button>
+              </div>
+              <div className="space-y-2">
+                {groups.map((group) => (
+                  <div
+                    key={group.id}
+                    className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div
+                        className="w-4 h-4 rounded-full"
+                        style={{ backgroundColor: group.color }}
+                      />
+                      <div>
+                        <h4 className="font-medium text-gray-800 dark:text-white">
+                          {group.name}
+                        </h4>
+                        {group.description && (
+                          <p className="text-sm text-gray-500 dark:text-gray-400">
+                            {group.description}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        icon={<Pencil size={16} />}
+                        onClick={() => handleEditGroup(group)}
+                      />
+                      <Button
+                        variant="danger"
+                        size="sm"
+                        icon={<Trash2 size={16} />}
+                        onClick={() => handleDeleteGroup(group.id)}
+                      />
+                    </div>
                   </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      icon={<Pencil size={16} />}
-                      onClick={() => handleEditSupplier(supplier)}
-                    />
-                    <Button
-                      variant="danger"
-                      size="sm"
-                      icon={<Trash2 size={16} />}
-                      onClick={() => handleDeleteSupplier(supplier.id)}
-                    />
-                  </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-          </Card>
+          </AccordionCard>
+
+          {/* Suppliers - Accordion */}
+          <AccordionCard
+            title={t('suppliers')}
+            icon={<UserCheck className="w-5 h-5 text-primary-600 dark:text-primary-400" />}
+            defaultOpen={false}
+          >
+            <div className="space-y-4">
+              <div className="flex justify-end">
+                <Button 
+                  variant="primary" 
+                  size="sm" 
+                  icon={<Plus size={16} />}
+                  onClick={handleAddSupplier}
+                >
+                  {t('addSupplier')}
+                </Button>
+              </div>
+              <div className="space-y-2">
+                {suppliers.map((supplier) => (
+                  <div
+                    key={supplier.id}
+                    className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg"
+                  >
+                    <div>
+                      <h4 className="font-medium text-gray-800 dark:text-white">
+                        {supplier.name}
+                      </h4>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        {supplier.contactPerson} • {supplier.phone}
+                      </p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        {supplier.email}
+                      </p>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        icon={<Pencil size={16} />}
+                        onClick={() => handleEditSupplier(supplier)}
+                      />
+                      <Button
+                        variant="danger"
+                        size="sm"
+                        icon={<Trash2 size={16} />}
+                        onClick={() => handleDeleteSupplier(supplier.id)}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </AccordionCard>
         </div>
       </div>
 

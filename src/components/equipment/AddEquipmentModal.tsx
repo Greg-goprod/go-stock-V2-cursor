@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Modal from '../common/Modal';
 import Button from '../common/Button';
-import { useApp } from '../../contexts/AppContext';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { supabase } from '../../lib/supabase';
 import toast from 'react-hot-toast';
+import { Category, Supplier } from '../../types';
 
 interface AddEquipmentModalProps {
   isOpen: boolean;
@@ -12,8 +12,9 @@ interface AddEquipmentModalProps {
 }
 
 const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ isOpen, onClose }) => {
-  const { categories, suppliers } = useApp();
   const { t } = useLanguage();
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
@@ -23,8 +24,44 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ isOpen, onClose }
     status: 'available',
     supplier_id: '',
     location: '',
-    image_url: ''
+    image_url: '',
+    short_title: ''
   });
+
+  useEffect(() => {
+    if (isOpen) {
+      fetchCategories();
+      fetchSuppliers();
+    }
+  }, [isOpen]);
+
+  const fetchCategories = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('categories')
+        .select('*')
+        .order('name');
+      
+      if (error) throw error;
+      setCategories(data || []);
+    } catch (error) {
+      console.error('Error fetching categories:', error);
+    }
+  };
+
+  const fetchSuppliers = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('suppliers')
+        .select('*')
+        .order('name');
+      
+      if (error) throw error;
+      setSuppliers(data || []);
+    } catch (error) {
+      console.error('Error fetching suppliers:', error);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,7 +76,8 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ isOpen, onClose }
         // Ensure other fields are properly formatted
         image_url: formData.image_url || null,
         description: formData.description || null,
-        location: formData.location || null
+        location: formData.location || null,
+        short_title: formData.short_title || null
       };
 
       const { error } = await supabase
@@ -48,7 +86,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ isOpen, onClose }
 
       if (error) throw error;
 
-      toast.success(t('equipmentAdded'));
+      toast.success('Équipement ajouté avec succès');
       onClose();
       setFormData({
         name: '',
@@ -58,11 +96,12 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ isOpen, onClose }
         status: 'available',
         supplier_id: '',
         location: '',
-        image_url: ''
+        image_url: '',
+        short_title: ''
       });
     } catch (error: any) {
       console.error('Error adding equipment:', error);
-      toast.error(error.message || t('errorAddingEquipment'));
+      toast.error(error.message || 'Erreur lors de l\'ajout de l\'équipement');
     } finally {
       setIsLoading(false);
     }
@@ -80,14 +119,14 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ isOpen, onClose }
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={t('addEquipment')}
+      title="Ajouter un Équipement"
       size="lg"
     >
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              {t('name')} *
+              Nom *
             </label>
             <input
               type="text"
@@ -101,7 +140,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ isOpen, onClose }
 
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              {t('serialNumber')} *
+              Numéro de série *
             </label>
             <input
               type="text"
@@ -115,7 +154,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ isOpen, onClose }
 
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              {t('category')}
+              Catégorie
             </label>
             <select
               name="category_id"
@@ -123,7 +162,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ isOpen, onClose }
               onChange={handleChange}
               className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
             >
-              <option value="">{t('selectCategory')}</option>
+              <option value="">Sélectionner une catégorie</option>
               {categories.map(category => (
                 <option key={category.id} value={category.id}>
                   {category.name}
@@ -134,7 +173,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ isOpen, onClose }
 
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              {t('supplier')}
+              Fournisseur
             </label>
             <select
               name="supplier_id"
@@ -142,7 +181,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ isOpen, onClose }
               onChange={handleChange}
               className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
             >
-              <option value="">{t('selectSupplier')}</option>
+              <option value="">Sélectionner un fournisseur</option>
               {suppliers.map(supplier => (
                 <option key={supplier.id} value={supplier.id}>
                   {supplier.name}
@@ -153,7 +192,24 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ isOpen, onClose }
 
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              {t('location')}
+              Statut
+            </label>
+            <select
+              name="status"
+              value={formData.status}
+              onChange={handleChange}
+              className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
+            >
+              <option value="available">Disponible</option>
+              <option value="checked-out">Emprunté</option>
+              <option value="maintenance">En maintenance</option>
+              <option value="retired">Retiré</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Emplacement
             </label>
             <input
               type="text"
@@ -166,7 +222,20 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ isOpen, onClose }
 
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              {t('imageUrl')}
+              Titre court
+            </label>
+            <input
+              type="text"
+              name="short_title"
+              value={formData.short_title}
+              onChange={handleChange}
+              className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              URL de l'image
             </label>
             <input
               type="url"
@@ -180,7 +249,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ isOpen, onClose }
 
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            {t('description')}
+            Description
           </label>
           <textarea
             name="description"
@@ -196,14 +265,14 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ isOpen, onClose }
             variant="outline"
             onClick={onClose}
           >
-            {t('cancel')}
+            Annuler
           </Button>
           <Button
             variant="primary"
             type="submit"
             disabled={isLoading}
           >
-            {isLoading ? t('adding') : t('add')}
+            {isLoading ? 'Ajout en cours...' : 'Ajouter'}
           </Button>
         </div>
       </form>

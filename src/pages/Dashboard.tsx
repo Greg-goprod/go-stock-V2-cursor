@@ -1,9 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useApp } from '../contexts/AppContext';
 import { Link } from 'react-router-dom';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import Badge from '../components/common/Badge';
+import CheckoutModal from '../components/checkout/CheckoutModal';
+import ReturnModal from '../components/checkout/ReturnModal';
 import { 
   AlertTriangle, 
   Package, 
@@ -19,6 +21,8 @@ import { useLanguage } from '../contexts/LanguageContext';
 const Dashboard: React.FC = () => {
   const { equipment, users, checkouts, notifications, getOverdueCheckouts } = useApp();
   const { t } = useLanguage();
+  const [showCheckoutModal, setShowCheckoutModal] = useState(false);
+  const [showReturnModal, setShowReturnModal] = useState(false);
   
   const availableEquipment = equipment.filter(item => item.status === 'available').length;
   const checkedOutEquipment = equipment.filter(item => item.status === 'checked-out').length;
@@ -43,6 +47,7 @@ const Dashboard: React.FC = () => {
             size="lg"
             icon={<LogOut size={20} />}
             className="flex-1"
+            onClick={() => setShowCheckoutModal(true)}
           >
             SORTIE MATERIEL
           </Button>
@@ -51,6 +56,7 @@ const Dashboard: React.FC = () => {
             size="lg"
             icon={<LogIn size={20} />}
             className="flex-1"
+            onClick={() => setShowReturnModal(true)}
           >
             RETOUR MATERIEL
           </Button>
@@ -225,6 +231,17 @@ const Dashboard: React.FC = () => {
           </div>
         )}
       </Card>
+
+      {/* Modals */}
+      <CheckoutModal
+        isOpen={showCheckoutModal}
+        onClose={() => setShowCheckoutModal(false)}
+      />
+
+      <ReturnModal
+        isOpen={showReturnModal}
+        onClose={() => setShowReturnModal(false)}
+      />
     </div>
   );
 };

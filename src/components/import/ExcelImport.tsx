@@ -39,50 +39,142 @@ const ExcelImport: React.FC<ExcelImportProps> = ({ isOpen, onClose, onImportComp
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const downloadTemplate = () => {
-    const template = [
-      {
-        name: 'Laptop Dell XPS 13',
-        description: 'Ordinateur portable Dell XPS 13 avec 16GB RAM',
-        category: 'Électronique',
-        serial_number: 'DL-XPS-001',
-        status: 'available',
-        location: 'Bureau principal',
-        supplier: 'TechSource Inc.',
-        image_url: 'https://images.pexels.com/photos/18105/pexels-photo.jpg'
-      },
-      {
-        name: 'Perceuse électrique',
-        description: 'Perceuse sans fil 20V avec batterie',
-        category: 'Outils',
-        serial_number: 'DW-20V-002',
-        status: 'available',
-        location: 'Atelier',
-        supplier: 'ToolMaster Supply',
-        image_url: ''
-      }
-    ];
+    try {
+      // Données d'exemple pour le modèle
+      const templateData = [
+        {
+          name: 'Laptop Dell XPS 13',
+          description: 'Ordinateur portable Dell XPS 13 avec 16GB RAM et 512GB SSD',
+          category: 'Électronique',
+          serial_number: 'DL-XPS-001',
+          status: 'available',
+          location: 'Bureau principal',
+          supplier: 'TechSource Inc.',
+          image_url: 'https://images.pexels.com/photos/18105/pexels-photo.jpg'
+        },
+        {
+          name: 'Perceuse électrique DeWalt',
+          description: 'Perceuse sans fil 20V MAX avec batterie lithium-ion',
+          category: 'Outils',
+          serial_number: 'DW-20V-002',
+          status: 'available',
+          location: 'Atelier',
+          supplier: 'ToolMaster Supply',
+          image_url: 'https://images.pexels.com/photos/1029243/pexels-photo-1029243.jpeg'
+        },
+        {
+          name: 'Chaise de bureau ergonomique',
+          description: 'Chaise de bureau avec support lombaire réglable',
+          category: 'Mobilier de bureau',
+          serial_number: 'OC-ERG-003',
+          status: 'available',
+          location: 'Salle de stockage',
+          supplier: 'Office Solutions',
+          image_url: 'https://images.pexels.com/photos/1957478/pexels-photo-1957478.jpeg'
+        }
+      ];
 
-    const ws = XLSX.utils.json_to_sheet(template);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Matériel');
+      // Créer la feuille principale avec les données d'exemple
+      const ws = XLSX.utils.json_to_sheet(templateData);
+      
+      // Définir la largeur des colonnes
+      const colWidths = [
+        { wch: 25 }, // name
+        { wch: 40 }, // description
+        { wch: 15 }, // category
+        { wch: 15 }, // serial_number
+        { wch: 12 }, // status
+        { wch: 20 }, // location
+        { wch: 20 }, // supplier
+        { wch: 50 }  // image_url
+      ];
+      ws['!cols'] = colWidths;
 
-    // Ajout des instructions dans une deuxième feuille
-    const instructions = [
-      { Champ: 'name', Description: 'Nom du matériel (obligatoire)', Exemple: 'Laptop Dell XPS 13' },
-      { Champ: 'description', Description: 'Description détaillée (optionnel)', Exemple: 'Ordinateur portable avec 16GB RAM' },
-      { Champ: 'category', Description: 'Catégorie du matériel (optionnel)', Exemple: 'Électronique' },
-      { Champ: 'serial_number', Description: 'Numéro de série unique (obligatoire)', Exemple: 'DL-XPS-001' },
-      { Champ: 'status', Description: 'Statut: available, maintenance, retired', Exemple: 'available' },
-      { Champ: 'location', Description: 'Emplacement du matériel (optionnel)', Exemple: 'Bureau principal' },
-      { Champ: 'supplier', Description: 'Nom du fournisseur (optionnel)', Exemple: 'TechSource Inc.' },
-      { Champ: 'image_url', Description: 'URL de l\'image (optionnel)', Exemple: 'https://example.com/image.jpg' }
-    ];
+      // Créer le classeur
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Matériel');
 
-    const wsInstructions = XLSX.utils.json_to_sheet(instructions);
-    XLSX.utils.book_append_sheet(wb, wsInstructions, 'Instructions');
+      // Créer la feuille d'instructions
+      const instructions = [
+        {
+          Champ: 'name',
+          Description: 'Nom du matériel',
+          Obligatoire: 'OUI',
+          Exemple: 'Laptop Dell XPS 13',
+          Notes: 'Nom descriptif du matériel'
+        },
+        {
+          Champ: 'description',
+          Description: 'Description détaillée',
+          Obligatoire: 'NON',
+          Exemple: 'Ordinateur portable avec 16GB RAM',
+          Notes: 'Description complète du matériel'
+        },
+        {
+          Champ: 'category',
+          Description: 'Catégorie du matériel',
+          Obligatoire: 'NON',
+          Exemple: 'Électronique',
+          Notes: 'Sera créée automatiquement si inexistante'
+        },
+        {
+          Champ: 'serial_number',
+          Description: 'Numéro de série unique',
+          Obligatoire: 'OUI',
+          Exemple: 'DL-XPS-001',
+          Notes: 'Doit être unique dans la base de données'
+        },
+        {
+          Champ: 'status',
+          Description: 'Statut du matériel',
+          Obligatoire: 'NON',
+          Exemple: 'available',
+          Notes: 'Valeurs: available, checked-out, maintenance, retired'
+        },
+        {
+          Champ: 'location',
+          Description: 'Emplacement du matériel',
+          Obligatoire: 'NON',
+          Exemple: 'Bureau principal',
+          Notes: 'Lieu de stockage ou d\'utilisation'
+        },
+        {
+          Champ: 'supplier',
+          Description: 'Nom du fournisseur',
+          Obligatoire: 'NON',
+          Exemple: 'TechSource Inc.',
+          Notes: 'Sera créé automatiquement si inexistant'
+        },
+        {
+          Champ: 'image_url',
+          Description: 'URL de l\'image',
+          Obligatoire: 'NON',
+          Exemple: 'https://example.com/image.jpg',
+          Notes: 'Lien vers une image du matériel'
+        }
+      ];
 
-    XLSX.writeFile(wb, 'GO-Mat_Modele_Import.xlsx');
-    toast.success('Modèle Excel téléchargé');
+      const wsInstructions = XLSX.utils.json_to_sheet(instructions);
+      
+      // Largeur des colonnes pour les instructions
+      const instructionColWidths = [
+        { wch: 15 }, // Champ
+        { wch: 25 }, // Description
+        { wch: 12 }, // Obligatoire
+        { wch: 30 }, // Exemple
+        { wch: 40 }  // Notes
+      ];
+      wsInstructions['!cols'] = instructionColWidths;
+
+      XLSX.utils.book_append_sheet(wb, wsInstructions, 'Instructions');
+
+      // Télécharger le fichier
+      XLSX.writeFile(wb, 'GO-Mat_Modele_Import.xlsx');
+      toast.success('Modèle Excel téléchargé avec succès');
+    } catch (error) {
+      console.error('Error creating Excel template:', error);
+      toast.error('Erreur lors de la création du modèle Excel');
+    }
   };
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -97,6 +189,26 @@ const ExcelImport: React.FC<ExcelImportProps> = ({ isOpen, onClose, onImportComp
     }
   };
 
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const files = Array.from(e.dataTransfer.files);
+    const excelFile = files.find(file => file.name.match(/\.(xlsx|xls)$/));
+    
+    if (excelFile) {
+      setFile(excelFile);
+      parseExcelFile(excelFile);
+    } else {
+      toast.error('Veuillez déposer un fichier Excel (.xlsx ou .xls)');
+    }
+  };
+
   const parseExcelFile = (file: File) => {
     setIsLoading(true);
     const reader = new FileReader();
@@ -105,38 +217,59 @@ const ExcelImport: React.FC<ExcelImportProps> = ({ isOpen, onClose, onImportComp
       try {
         const data = new Uint8Array(e.target?.result as ArrayBuffer);
         const workbook = XLSX.read(data, { type: 'array' });
-        const sheetName = workbook.SheetNames[0];
+        
+        // Prendre la première feuille qui n'est pas "Instructions"
+        let sheetName = workbook.SheetNames.find(name => name !== 'Instructions') || workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
         const jsonData = XLSX.utils.sheet_to_json(worksheet) as any[];
 
+        if (jsonData.length === 0) {
+          toast.error('Le fichier Excel est vide ou ne contient pas de données valides');
+          setIsLoading(false);
+          return;
+        }
+
         const parsedData: ImportRow[] = jsonData.map(row => ({
-          name: row.name || '',
-          description: row.description || '',
-          category: row.category || '',
-          serial_number: row.serial_number || '',
-          status: row.status || 'available',
-          location: row.location || '',
-          supplier: row.supplier || '',
-          image_url: row.image_url || ''
+          name: (row.name || '').toString().trim(),
+          description: (row.description || '').toString().trim(),
+          category: (row.category || '').toString().trim(),
+          serial_number: (row.serial_number || '').toString().trim(),
+          status: (row.status || 'available').toString().trim(),
+          location: (row.location || '').toString().trim(),
+          supplier: (row.supplier || '').toString().trim(),
+          image_url: (row.image_url || '').toString().trim()
         }));
 
         setData(parsedData);
         validateData(parsedData);
         setStep('validate');
+        toast.success(`${parsedData.length} lignes lues avec succès`);
       } catch (error) {
         console.error('Error parsing Excel file:', error);
-        toast.error('Erreur lors de la lecture du fichier Excel');
+        toast.error('Erreur lors de la lecture du fichier Excel. Vérifiez le format du fichier.');
       } finally {
         setIsLoading(false);
       }
     };
 
+    reader.onerror = () => {
+      toast.error('Erreur lors de la lecture du fichier');
+      setIsLoading(false);
+    };
+
     reader.readAsArrayBuffer(file);
   };
 
-  const validateData = (data: ImportRow[]) => {
+  const validateData = async (data: ImportRow[]) => {
     const errors: ValidationError[] = [];
     const serialNumbers = new Set<string>();
+
+    // Vérifier les numéros de série existants dans la base de données
+    const { data: existingEquipment } = await supabase
+      .from('equipment')
+      .select('serial_number');
+    
+    const existingSerialNumbers = new Set(existingEquipment?.map(eq => eq.serial_number) || []);
 
     data.forEach((row, index) => {
       const rowNumber = index + 1;
@@ -154,6 +287,11 @@ const ExcelImport: React.FC<ExcelImportProps> = ({ isOpen, onClose, onImportComp
           errors.push({ row: rowNumber, field: 'serial_number', message: 'Numéro de série en double dans le fichier' });
         } else {
           serialNumbers.add(row.serial_number);
+        }
+
+        // Vérification des doublons dans la base de données
+        if (existingSerialNumbers.has(row.serial_number)) {
+          errors.push({ row: rowNumber, field: 'serial_number', message: 'Numéro de série déjà existant dans la base de données' });
         }
       }
 
@@ -197,8 +335,8 @@ const ExcelImport: React.FC<ExcelImportProps> = ({ isOpen, onClose, onImportComp
       const { data: categories } = await supabase.from('categories').select('id, name');
       const { data: suppliers } = await supabase.from('suppliers').select('id, name');
 
-      const categoryMap = new Map(categories?.map(c => [c.name, c.id]) || []);
-      const supplierMap = new Map(suppliers?.map(s => [s.name, s.id]) || []);
+      const categoryMap = new Map(categories?.map(c => [c.name.toLowerCase(), c.id]) || []);
+      const supplierMap = new Map(suppliers?.map(s => [s.name.toLowerCase(), s.id]) || []);
 
       for (const row of data) {
         try {
@@ -214,7 +352,9 @@ const ExcelImport: React.FC<ExcelImportProps> = ({ isOpen, onClose, onImportComp
 
           // Gérer la catégorie
           if (row.category.trim()) {
-            let categoryId = categoryMap.get(row.category.trim());
+            const categoryKey = row.category.trim().toLowerCase();
+            let categoryId = categoryMap.get(categoryKey);
+            
             if (!categoryId) {
               // Créer une nouvelle catégorie
               const { data: newCategory, error: categoryError } = await supabase
@@ -225,14 +365,16 @@ const ExcelImport: React.FC<ExcelImportProps> = ({ isOpen, onClose, onImportComp
 
               if (categoryError) throw categoryError;
               categoryId = newCategory.id;
-              categoryMap.set(row.category.trim(), categoryId);
+              categoryMap.set(categoryKey, categoryId);
             }
             equipmentData.category_id = categoryId;
           }
 
           // Gérer le fournisseur
           if (row.supplier.trim()) {
-            let supplierId = supplierMap.get(row.supplier.trim());
+            const supplierKey = row.supplier.trim().toLowerCase();
+            let supplierId = supplierMap.get(supplierKey);
+            
             if (!supplierId) {
               // Créer un nouveau fournisseur
               const { data: newSupplier, error: supplierError } = await supabase
@@ -243,7 +385,7 @@ const ExcelImport: React.FC<ExcelImportProps> = ({ isOpen, onClose, onImportComp
 
               if (supplierError) throw supplierError;
               supplierId = newSupplier.id;
-              supplierMap.set(row.supplier.trim(), supplierId);
+              supplierMap.set(supplierKey, supplierId);
             }
             equipmentData.supplier_id = supplierId;
           }
@@ -347,7 +489,11 @@ const ExcelImport: React.FC<ExcelImportProps> = ({ isOpen, onClose, onImportComp
               </Button>
             </div>
 
-            <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8">
+            <div 
+              className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 transition-colors hover:border-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/10"
+              onDragOver={handleDragOver}
+              onDrop={handleDrop}
+            >
               <div className="text-center">
                 <Upload size={32} className="mx-auto text-gray-400 mb-4" />
                 <div className="space-y-2">
@@ -370,16 +516,36 @@ const ExcelImport: React.FC<ExcelImportProps> = ({ isOpen, onClose, onImportComp
                   />
                 </div>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                  Formats supportés: .xlsx, .xls
+                  Formats supportés: .xlsx, .xls (max 10MB)
                 </p>
               </div>
             </div>
 
             {file && (
               <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-                <div className="flex items-center">
-                  <FileSpreadsheet size={20} className="text-blue-600 dark:text-blue-400 mr-2" />
-                  <span className="text-blue-800 dark:text-blue-200 font-medium">{file.name}</span>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <FileSpreadsheet size={20} className="text-blue-600 dark:text-blue-400 mr-2" />
+                    <div>
+                      <span className="text-blue-800 dark:text-blue-200 font-medium">{file.name}</span>
+                      <p className="text-xs text-blue-600 dark:text-blue-400">
+                        {(file.size / 1024 / 1024).toFixed(2)} MB
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    icon={<X size={16} />}
+                    onClick={() => {
+                      setFile(null);
+                      if (fileInputRef.current) {
+                        fileInputRef.current.value = '';
+                      }
+                    }}
+                  >
+                    Supprimer
+                  </Button>
                 </div>
               </div>
             )}
@@ -414,14 +580,19 @@ const ExcelImport: React.FC<ExcelImportProps> = ({ isOpen, onClose, onImportComp
             {validationErrors.length > 0 && (
               <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
                 <h4 className="font-medium text-red-800 dark:text-red-200 mb-2">
-                  Erreurs de validation
+                  Erreurs de validation ({validationErrors.length})
                 </h4>
                 <div className="max-h-40 overflow-y-auto space-y-1">
-                  {validationErrors.map((error, index) => (
+                  {validationErrors.slice(0, 20).map((error, index) => (
                     <div key={index} className="text-sm text-red-700 dark:text-red-300">
-                      Ligne {error.row}, champ "{error.field}": {error.message}
+                      <span className="font-medium">Ligne {error.row}</span>, champ "{error.field}": {error.message}
                     </div>
                   ))}
+                  {validationErrors.length > 20 && (
+                    <div className="text-sm text-red-600 dark:text-red-400 font-medium">
+                      ... et {validationErrors.length - 20} autres erreurs
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -431,6 +602,7 @@ const ExcelImport: React.FC<ExcelImportProps> = ({ isOpen, onClose, onImportComp
                 <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                   <thead className="bg-gray-50 dark:bg-gray-800 sticky top-0">
                     <tr>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Ligne</th>
                       <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Nom</th>
                       <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">N° Série</th>
                       <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Catégorie</th>
@@ -445,6 +617,12 @@ const ExcelImport: React.FC<ExcelImportProps> = ({ isOpen, onClose, onImportComp
                       
                       return (
                         <tr key={index} className={hasErrors ? 'bg-red-50 dark:bg-red-900/10' : ''}>
+                          <td className="px-4 py-2 text-sm text-gray-500 dark:text-gray-400">
+                            {index + 1}
+                            {hasErrors && (
+                              <AlertCircle size={14} className="inline ml-1 text-red-500" />
+                            )}
+                          </td>
                           <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-100">
                             {row.name}
                             {rowErrors.some(e => e.field === 'name') && (

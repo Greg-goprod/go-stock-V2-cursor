@@ -231,28 +231,12 @@ const Settings: React.FC = () => {
               </div>
               <div className="flex gap-2">
                 <Button
-                  variant="outline"
-                  size="sm"
-                  icon={<Download size={16} />}
-                  onClick={() => {
-                    // Télécharger directement le modèle
-                    const link = document.createElement('a');
-                    link.href = '/template/GO-Mat_Modele_Import.xlsx';
-                    link.download = 'GO-Mat_Modele_Import.xlsx';
-                    document.body.appendChild(link);
-                    link.click();
-                    document.body.removeChild(link);
-                  }}
-                >
-                  Modèle
-                </Button>
-                <Button
                   variant="primary"
                   size="sm"
                   icon={<Upload size={16} />}
                   onClick={() => setShowExcelImport(true)}
                 >
-                  Importer
+                  Importer Excel
                 </Button>
               </div>
             </div>

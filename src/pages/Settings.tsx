@@ -4,10 +4,11 @@ import Button from '../components/common/Button';
 import { useTheme } from '../contexts/ThemeContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useApp } from '../contexts/AppContext';
-import { Sun, Moon, Languages, Plus, Pencil, Trash2, Tag, UserCheck, Save, X } from 'lucide-react';
+import { Sun, Moon, Languages, Plus, Pencil, Trash2, Tag, UserCheck, Save, X, Upload, Download } from 'lucide-react';
 import ColorPicker from '../components/common/ColorPicker';
 import CategoryModal from '../components/categories/CategoryModal';
 import SupplierModal from '../components/suppliers/SupplierModal';
+import ExcelImport from '../components/import/ExcelImport';
 import { Category, Supplier } from '../types';
 
 const Settings: React.FC = () => {
@@ -35,6 +36,9 @@ const Settings: React.FC = () => {
   // Supplier Modal State
   const [showSupplierModal, setShowSupplierModal] = useState(false);
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier | undefined>();
+
+  // Excel Import State
+  const [showExcelImport, setShowExcelImport] = useState(false);
 
   const [newStatus, setNewStatus] = useState('');
   const [newRole, setNewRole] = useState('');
@@ -137,7 +141,7 @@ const Settings: React.FC = () => {
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div className="max-w-6xl mx-auto space-y-6">
       <h1 className="text-2xl font-bold text-gray-800 dark:text-white">
         {t('settings')}
       </h1>
@@ -205,6 +209,51 @@ const Settings: React.FC = () => {
                   )}
                   {theme === 'dark' ? t('light') : t('dark')}
                 </button>
+              </div>
+            </div>
+          </Card>
+
+          {/* Import Excel */}
+          <Card>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-primary-100 dark:bg-primary-900/50">
+                  <Upload className="w-5 h-5 text-primary-600 dark:text-primary-400" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-medium text-gray-800 dark:text-white">
+                    Import de Matériel
+                  </h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    Importer du matériel depuis un fichier Excel
+                  </p>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  icon={<Download size={16} />}
+                  onClick={() => {
+                    // Télécharger directement le modèle
+                    const link = document.createElement('a');
+                    link.href = '/template/GO-Mat_Modele_Import.xlsx';
+                    link.download = 'GO-Mat_Modele_Import.xlsx';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                  }}
+                >
+                  Modèle
+                </Button>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  icon={<Upload size={16} />}
+                  onClick={() => setShowExcelImport(true)}
+                >
+                  Importer
+                </Button>
               </div>
             </div>
           </Card>
@@ -456,7 +505,7 @@ const Settings: React.FC = () => {
         </div>
       </div>
 
-      {/* Add the modals at the end */}
+      {/* Modals */}
       <CategoryModal
         isOpen={showCategoryModal}
         onClose={handleCloseCategoryModal}
@@ -467,6 +516,15 @@ const Settings: React.FC = () => {
         isOpen={showSupplierModal}
         onClose={handleCloseSupplierModal}
         supplier={selectedSupplier}
+      />
+
+      <ExcelImport
+        isOpen={showExcelImport}
+        onClose={() => setShowExcelImport(false)}
+        onImportComplete={() => {
+          // Refresh data if needed
+          console.log('Import completed');
+        }}
       />
     </div>
   );

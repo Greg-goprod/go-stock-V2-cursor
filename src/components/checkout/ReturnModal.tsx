@@ -19,7 +19,7 @@ interface CheckoutWithDetails extends CheckoutRecord {
 
 interface ReturnItem {
   checkout: CheckoutWithDetails;
-  status: 'complete' | 'partial' | 'lost';
+  action: 'return' | 'extend' | 'lost';
   newDueDate?: string;
   notes?: string;
 }
@@ -130,7 +130,7 @@ const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose }) => {
       setUserCheckouts(checkoutsWithDetails);
       setReturnItems(checkoutsWithDetails.map(checkout => ({
         checkout,
-        status: 'complete' as const
+        action: 'return' as const
       })));
     } catch (error) {
       console.error('Error fetching user checkouts:', error);
@@ -154,7 +154,7 @@ const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose }) => {
     setUserCheckouts([pendingReturn.checkout]);
     setReturnItems([{
       checkout: pendingReturn.checkout,
-      status: 'complete'
+      action: 'return'
     }]);
     setStep('items');
     toast.success(`Retour sélectionné: ${pendingReturn.equipment_name}`);
@@ -168,7 +168,7 @@ const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose }) => {
       if (existingReturn) {
         toast.info('Équipement déjà scanné');
       } else {
-        setReturnItems(prev => [...prev, { checkout, status: 'complete' }]);
+        setReturnItems(prev => [...prev, { checkout, action: 'return' }]);
         toast.success(`${checkout.equipment.name} scanné pour retour`);
       }
     } else {
@@ -176,11 +176,11 @@ const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose }) => {
     }
   };
 
-  const updateReturnStatus = (checkoutId: string, status: 'complete' | 'partial' | 'lost', newDueDate?: string, notes?: string) => {
+  const updateReturnAction = (checkoutId: string, action: 'return' | 'extend' | 'lost', newDueDate?: string, notes?: string) => {
     setReturnItems(prev => 
       prev.map(item => 
         item.checkout.id === checkoutId 
-          ? { ...item, status, newDueDate, notes }
+          ? { ...item, action, newDueDate, notes }
           : item
       )
     );
@@ -197,38 +197,44 @@ const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose }) => {
 
       for (const item of returnItems) {
         const updateData: any = {
-          return_date: new Date().toISOString(),
           notes: item.notes || null
         };
 
-        switch (item.status) {
-          case 'complete':
+        switch (item.action) {
+          case 'return':
+            // Retour complet - marquer comme retourné
             updateData.status = 'returned';
-            // Update equipment status to available
+            updateData.return_date = new Date().toISOString();
+            
+            // Mettre à jour le statut de l'équipement
+            const newAvailableQuantity = (item.checkout.equipment.availableQuantity || 0) + 1;
+            const newStatus = newAvailableQuantity >= (item.checkout.equipment.totalQuantity || 1) ? 'available' : 'checked-out';
+            
             await supabase
               .from('equipment')
-              .update({ status: 'available' })
+              .update({ 
+                status: newStatus,
+                available_quantity: newAvailableQuantity
+              })
               .eq('id', item.checkout.equipment.id);
             break;
           
-          case 'partial':
-            updateData.status = 'returned';
+          case 'extend':
+            // Prolongation - mettre à jour la date de retour
+            if (!item.newDueDate) {
+              toast.error('Date de prolongation requise');
+              continue;
+            }
             updateData.due_date = item.newDueDate;
-            // Create new checkout for remaining period
-            await supabase
-              .from('checkouts')
-              .insert([{
-                equipment_id: item.checkout.equipment.id,
-                user_id: item.checkout.user.id,
-                due_date: item.newDueDate,
-                status: 'active',
-                notes: `Retour partiel - ${item.notes || ''}`
-              }]);
+            updateData.notes = `${item.checkout.notes || ''}\nProlongation accordée jusqu'au ${new Date(item.newDueDate).toLocaleDateString('fr-FR')}${item.notes ? ` - ${item.notes}` : ''}`.trim();
             break;
           
           case 'lost':
+            // Matériel perdu - marquer comme perdu
             updateData.status = 'lost';
-            // Update equipment status to lost/retired
+            updateData.return_date = new Date().toISOString();
+            
+            // Mettre à jour le statut de l'équipement
             await supabase
               .from('equipment')
               .update({ status: 'retired' })
@@ -236,14 +242,14 @@ const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose }) => {
             break;
         }
 
-        // Update checkout record
+        // Mettre à jour l'enregistrement d'emprunt
         await supabase
           .from('checkouts')
           .update(updateData)
           .eq('id', item.checkout.id);
       }
 
-      toast.success('Retour de matériel enregistré');
+      toast.success('Opérations de retour enregistrées avec succès');
       handlePrintReturn();
       handleClose();
     } catch (error: any) {
@@ -258,9 +264,9 @@ const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose }) => {
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
-    const completeItems = returnItems.filter(item => item.status === 'complete');
-    const partialItems = returnItems.filter(item => item.status === 'partial');
-    const lostItems = returnItems.filter(item => item.status === 'lost');
+    const returnedItems = returnItems.filter(item => item.action === 'return');
+    const extendedItems = returnItems.filter(item => item.action === 'extend');
+    const lostItems = returnItems.filter(item => item.action === 'lost');
 
     printWindow.document.write(`
       <html>
@@ -274,8 +280,8 @@ const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose }) => {
             .items { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
             .items th, .items td { border: 1px solid #ddd; padding: 8px; text-align: left; }
             .items th { background-color: #f2f2f2; }
-            .complete { background-color: #d4edda; }
-            .partial { background-color: #fff3cd; }
+            .returned { background-color: #d4edda; }
+            .extended { background-color: #fff3cd; }
             .lost { background-color: #f8d7da; }
             .signature { margin-top: 30px; }
             .signature-line { border-bottom: 1px solid #333; width: 200px; margin-top: 20px; }
@@ -293,9 +299,9 @@ const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose }) => {
             <p><strong>Département:</strong> ${selectedUser?.department}</p>
           </div>
 
-          ${completeItems.length > 0 ? `
+          ${returnedItems.length > 0 ? `
             <div class="section">
-              <h3 style="color: #155724;">✓ Matériel Retourné Complet</h3>
+              <h3 style="color: #155724;">✓ Matériel Retourné</h3>
               <table class="items">
                 <thead>
                   <tr>
@@ -306,10 +312,10 @@ const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose }) => {
                   </tr>
                 </thead>
                 <tbody>
-                  ${completeItems.map(item => `
-                    <tr class="complete">
+                  ${returnedItems.map(item => `
+                    <tr class="returned">
                       <td>${item.checkout.equipment.name}</td>
-                      <td>${item.checkout.equipment.serial_number}</td>
+                      <td>${item.checkout.equipment.serialNumber}</td>
                       <td>${new Date(item.checkout.checkout_date).toLocaleDateString('fr-FR')}</td>
                       <td>${item.notes || '-'}</td>
                     </tr>
@@ -319,9 +325,9 @@ const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose }) => {
             </div>
           ` : ''}
 
-          ${partialItems.length > 0 ? `
+          ${extendedItems.length > 0 ? `
             <div class="section">
-              <h3 style="color: #856404;">⚠ Retour Partiel</h3>
+              <h3 style="color: #856404;">📅 Prolongations Accordées</h3>
               <table class="items">
                 <thead>
                   <tr>
@@ -332,10 +338,10 @@ const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose }) => {
                   </tr>
                 </thead>
                 <tbody>
-                  ${partialItems.map(item => `
-                    <tr class="partial">
+                  ${extendedItems.map(item => `
+                    <tr class="extended">
                       <td>${item.checkout.equipment.name}</td>
-                      <td>${item.checkout.equipment.serial_number}</td>
+                      <td>${item.checkout.equipment.serialNumber}</td>
                       <td>${item.newDueDate ? new Date(item.newDueDate).toLocaleDateString('fr-FR') : '-'}</td>
                       <td>${item.notes || '-'}</td>
                     </tr>
@@ -347,7 +353,7 @@ const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose }) => {
 
           ${lostItems.length > 0 ? `
             <div class="section">
-              <h3 style="color: #721c24;">✗ Matériel Perdu</h3>
+              <h3 style="color: #721c24;">✗ Matériel Déclaré Perdu</h3>
               <table class="items">
                 <thead>
                   <tr>
@@ -361,7 +367,7 @@ const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose }) => {
                   ${lostItems.map(item => `
                     <tr class="lost">
                       <td>${item.checkout.equipment.name}</td>
-                      <td>${item.checkout.equipment.serial_number}</td>
+                      <td>${item.checkout.equipment.serialNumber}</td>
                       <td>${new Date(item.checkout.checkout_date).toLocaleDateString('fr-FR')}</td>
                       <td>${item.notes || '-'}</td>
                     </tr>
@@ -372,7 +378,7 @@ const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose }) => {
           ` : ''}
 
           <div class="signature">
-            <p>Je confirme le retour du matériel ci-dessus dans les conditions indiquées.</p>
+            <p>Je confirme les opérations ci-dessus concernant le matériel emprunté.</p>
             <p>Signature de l'utilisateur:</p>
             <div class="signature-line"></div>
             <p style="margin-top: 5px;">Date: _______________</p>
@@ -619,7 +625,7 @@ const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose }) => {
                       <div className="flex justify-between items-start mb-2">
                         <div>
                           <h4 className="font-medium">{checkout.equipment.name}</h4>
-                          <p className="text-sm text-gray-500">{checkout.equipment.serial_number}</p>
+                          <p className="text-sm text-gray-500">{checkout.equipment.serialNumber}</p>
                           <p className="text-sm text-gray-500">
                             Emprunté le: {new Date(checkout.checkout_date).toLocaleDateString('fr-FR')}
                           </p>
@@ -631,36 +637,48 @@ const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose }) => {
                         
                         <div className="space-y-2">
                           <select
-                            value={returnItem?.status || 'complete'}
-                            onChange={(e) => updateReturnStatus(checkout.id, e.target.value as any)}
+                            value={returnItem?.action || 'return'}
+                            onChange={(e) => updateReturnAction(checkout.id, e.target.value as any)}
                             className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-2 py-1 text-sm"
                           >
-                            <option value="complete">Retour complet</option>
-                            <option value="partial">Retour partiel</option>
+                            <option value="return">Retour complet</option>
+                            <option value="extend">Prolonger l'emprunt</option>
                             <option value="lost">Matériel perdu</option>
                           </select>
                         </div>
                       </div>
 
-                      {returnItem?.status === 'partial' && (
+                      {returnItem?.action === 'extend' && (
                         <div className="mt-2 space-y-2">
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                            Nouvelle date de retour
+                          </label>
                           <input
                             type="date"
                             value={returnItem.newDueDate || ''}
-                            onChange={(e) => updateReturnStatus(checkout.id, 'partial', e.target.value, returnItem.notes)}
+                            onChange={(e) => updateReturnAction(checkout.id, 'extend', e.target.value, returnItem.notes)}
                             className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-2 py-1 text-sm"
-                            placeholder="Nouvelle date de retour"
+                            min={new Date().toISOString().split('T')[0]}
                           />
                         </div>
                       )}
 
-                      <textarea
-                        value={returnItem?.notes || ''}
-                        onChange={(e) => updateReturnStatus(checkout.id, returnItem?.status || 'complete', returnItem?.newDueDate, e.target.value)}
-                        placeholder="Notes sur le retour..."
-                        className="w-full mt-2 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-2 py-1 text-sm"
-                        rows={2}
-                      />
+                      <div className="mt-2">
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          Notes
+                        </label>
+                        <textarea
+                          value={returnItem?.notes || ''}
+                          onChange={(e) => updateReturnAction(checkout.id, returnItem?.action || 'return', returnItem?.newDueDate, e.target.value)}
+                          placeholder={
+                            returnItem?.action === 'return' ? 'Notes sur le retour...' :
+                            returnItem?.action === 'extend' ? 'Raison de la prolongation...' :
+                            'Circonstances de la perte...'
+                          }
+                          className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-2 py-1 text-sm"
+                          rows={2}
+                        />
+                      </div>
                     </div>
                   );
                 })}
@@ -672,7 +690,7 @@ const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose }) => {
               onClick={() => setStep('summary')}
               disabled={returnItems.length === 0}
             >
-              Valider les retours
+              Valider les opérations
             </Button>
           </div>
         )}
@@ -681,12 +699,12 @@ const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose }) => {
         {step === 'summary' && (
           <div className="space-y-4">
             <div className="border rounded-lg p-4">
-              <h3 className="font-medium mb-3">Résumé des retours</h3>
+              <h3 className="font-medium mb-3">Résumé des opérations</h3>
               
-              {returnItems.filter(item => item.status === 'complete').length > 0 && (
+              {returnItems.filter(item => item.action === 'return').length > 0 && (
                 <div className="mb-4">
-                  <h4 className="text-green-600 font-medium">✓ Retours complets ({returnItems.filter(item => item.status === 'complete').length})</h4>
-                  {returnItems.filter(item => item.status === 'complete').map(item => (
+                  <h4 className="text-green-600 font-medium">✓ Retours complets ({returnItems.filter(item => item.action === 'return').length})</h4>
+                  {returnItems.filter(item => item.action === 'return').map(item => (
                     <p key={item.checkout.id} className="text-sm text-gray-600 ml-4">
                       • {item.checkout.equipment.name}
                     </p>
@@ -694,10 +712,10 @@ const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose }) => {
                 </div>
               )}
 
-              {returnItems.filter(item => item.status === 'partial').length > 0 && (
+              {returnItems.filter(item => item.action === 'extend').length > 0 && (
                 <div className="mb-4">
-                  <h4 className="text-yellow-600 font-medium">⚠ Retours partiels ({returnItems.filter(item => item.status === 'partial').length})</h4>
-                  {returnItems.filter(item => item.status === 'partial').map(item => (
+                  <h4 className="text-blue-600 font-medium">📅 Prolongations ({returnItems.filter(item => item.action === 'extend').length})</h4>
+                  {returnItems.filter(item => item.action === 'extend').map(item => (
                     <p key={item.checkout.id} className="text-sm text-gray-600 ml-4">
                       • {item.checkout.equipment.name} - Nouveau retour: {item.newDueDate ? new Date(item.newDueDate).toLocaleDateString('fr-FR') : 'Non défini'}
                     </p>
@@ -705,10 +723,10 @@ const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose }) => {
                 </div>
               )}
 
-              {returnItems.filter(item => item.status === 'lost').length > 0 && (
+              {returnItems.filter(item => item.action === 'lost').length > 0 && (
                 <div className="mb-4">
-                  <h4 className="text-red-600 font-medium">✗ Matériel perdu ({returnItems.filter(item => item.status === 'lost').length})</h4>
-                  {returnItems.filter(item => item.status === 'lost').map(item => (
+                  <h4 className="text-red-600 font-medium">✗ Matériel perdu ({returnItems.filter(item => item.action === 'lost').length})</h4>
+                  {returnItems.filter(item => item.action === 'lost').map(item => (
                     <p key={item.checkout.id} className="text-sm text-gray-600 ml-4">
                       • {item.checkout.equipment.name}
                     </p>
@@ -724,7 +742,7 @@ const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose }) => {
                 onClick={handleReturn}
                 disabled={isLoading}
               >
-                Valider et Imprimer Quittance
+                {isLoading ? 'Traitement en cours...' : 'Valider et Imprimer Quittance'}
               </Button>
               <Button
                 variant="outline"

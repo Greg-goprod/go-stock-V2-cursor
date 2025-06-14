@@ -1,49 +1,83 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import { useTheme } from '../contexts/ThemeContext';
 import { useLanguage } from '../contexts/LanguageContext';
-import { useApp } from '../contexts/AppContext';
-import { Sun, Moon, Languages, Plus, Pencil, Trash2, Tag, UserCheck, Save, X, Upload, Download } from 'lucide-react';
+import { Sun, Moon, Languages, Plus, Pencil, Trash2, Tag, UserCheck, Save, X, Upload, Download, Settings as SettingsIcon } from 'lucide-react';
 import ColorPicker from '../components/common/ColorPicker';
 import CategoryModal from '../components/categories/CategoryModal';
 import SupplierModal from '../components/suppliers/SupplierModal';
+import GroupModal from '../components/groups/GroupModal';
 import ExcelImport from '../components/import/ExcelImport';
-import { Category, Supplier } from '../types';
+import { Category, Supplier, EquipmentGroup, SystemSetting } from '../types';
+import { supabase } from '../lib/supabase';
+import toast from 'react-hot-toast';
 
 const Settings: React.FC = () => {
   const { theme, toggleTheme } = useTheme();
   const { language, setLanguage, t } = useLanguage();
-  const { 
-    categories, 
-    suppliers, 
-    deleteCategory, 
-    deleteSupplier,
-    equipmentStatuses,
-    userRoles,
-    updateEquipmentStatuses,
-    updateUserRoles,
-    statusConfigs,
-    roleConfigs,
-    updateStatusConfigs,
-    updateRoleConfigs,
-  } = useApp();
+  
+  // Data states
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [groups, setGroups] = useState<EquipmentGroup[]>([]);
+  const [systemSettings, setSystemSettings] = useState<SystemSetting[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // Category Modal State
+  // Modal states
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<Category | undefined>();
-
-  // Supplier Modal State
   const [showSupplierModal, setShowSupplierModal] = useState(false);
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier | undefined>();
-
-  // Excel Import State
+  const [showGroupModal, setShowGroupModal] = useState(false);
+  const [selectedGroup, setSelectedGroup] = useState<EquipmentGroup | undefined>();
   const [showExcelImport, setShowExcelImport] = useState(false);
 
-  const [newStatus, setNewStatus] = useState('');
-  const [newRole, setNewRole] = useState('');
-  const [editingStatusId, setEditingStatusId] = useState<string | null>(null);
-  const [editedStatusName, setEditedStatusName] = useState('');
+  // Settings states
+  const [articlePrefix, setArticlePrefix] = useState('GOMAT');
+  const [isEditingPrefix, setIsEditingPrefix] = useState(false);
+  const [tempPrefix, setTempPrefix] = useState('GOMAT');
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      
+      // Fetch all data in parallel
+      const [categoriesRes, suppliersRes, groupsRes, settingsRes] = await Promise.all([
+        supabase.from('categories').select('*').order('name'),
+        supabase.from('suppliers').select('*').order('name'),
+        supabase.from('equipment_groups').select('*').order('name'),
+        supabase.from('system_settings').select('*')
+      ]);
+
+      if (categoriesRes.error) throw categoriesRes.error;
+      if (suppliersRes.error) throw suppliersRes.error;
+      if (groupsRes.error) throw groupsRes.error;
+      if (settingsRes.error) throw settingsRes.error;
+
+      setCategories(categoriesRes.data || []);
+      setSuppliers(suppliersRes.data || []);
+      setGroups(groupsRes.data || []);
+      setSystemSettings(settingsRes.data || []);
+
+      // Set article prefix
+      const prefixSetting = settingsRes.data?.find(s => s.id === 'article_prefix');
+      if (prefixSetting) {
+        setArticlePrefix(prefixSetting.value);
+        setTempPrefix(prefixSetting.value);
+      }
+
+    } catch (error: any) {
+      console.error('Error fetching data:', error);
+      toast.error(t('error'));
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleEditCategory = (category: Category) => {
     setSelectedCategory(category);
@@ -53,6 +87,23 @@ const Settings: React.FC = () => {
   const handleAddCategory = () => {
     setSelectedCategory(undefined);
     setShowCategoryModal(true);
+  };
+
+  const handleDeleteCategory = async (categoryId: string) => {
+    try {
+      const { error } = await supabase
+        .from('categories')
+        .delete()
+        .eq('id', categoryId);
+
+      if (error) throw error;
+      
+      setCategories(prev => prev.filter(c => c.id !== categoryId));
+      toast.success(t('success'));
+    } catch (error: any) {
+      console.error('Error deleting category:', error);
+      toast.error(error.message || t('error'));
+    }
   };
 
   const handleEditSupplier = (supplier: Supplier) => {
@@ -65,80 +116,101 @@ const Settings: React.FC = () => {
     setShowSupplierModal(true);
   };
 
+  const handleDeleteSupplier = async (supplierId: string) => {
+    try {
+      const { error } = await supabase
+        .from('suppliers')
+        .delete()
+        .eq('id', supplierId);
+
+      if (error) throw error;
+      
+      setSuppliers(prev => prev.filter(s => s.id !== supplierId));
+      toast.success(t('success'));
+    } catch (error: any) {
+      console.error('Error deleting supplier:', error);
+      toast.error(error.message || t('error'));
+    }
+  };
+
+  const handleEditGroup = (group: EquipmentGroup) => {
+    setSelectedGroup(group);
+    setShowGroupModal(true);
+  };
+
+  const handleAddGroup = () => {
+    setSelectedGroup(undefined);
+    setShowGroupModal(true);
+  };
+
+  const handleDeleteGroup = async (groupId: string) => {
+    try {
+      const { error } = await supabase
+        .from('equipment_groups')
+        .delete()
+        .eq('id', groupId);
+
+      if (error) throw error;
+      
+      setGroups(prev => prev.filter(g => g.id !== groupId));
+      toast.success(t('success'));
+    } catch (error: any) {
+      console.error('Error deleting group:', error);
+      toast.error(error.message || t('error'));
+    }
+  };
+
+  const handleSavePrefix = async () => {
+    if (tempPrefix.length > 5) {
+      toast.error('Le préfixe ne peut pas dépasser 5 caractères');
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('system_settings')
+        .upsert({
+          id: 'article_prefix',
+          value: tempPrefix,
+          description: 'Préfixe pour les numéros d\'articles (5 caractères max)'
+        });
+
+      if (error) throw error;
+
+      setArticlePrefix(tempPrefix);
+      setIsEditingPrefix(false);
+      toast.success(t('saved'));
+    } catch (error: any) {
+      console.error('Error saving prefix:', error);
+      toast.error(error.message || t('error'));
+    }
+  };
+
   const handleCloseCategoryModal = () => {
     setShowCategoryModal(false);
     setSelectedCategory(undefined);
+    fetchData(); // Refresh data
   };
 
   const handleCloseSupplierModal = () => {
     setShowSupplierModal(false);
     setSelectedSupplier(undefined);
+    fetchData(); // Refresh data
   };
 
-  const handleAddStatus = () => {
-    if (newStatus && !equipmentStatuses.includes(newStatus)) {
-      const newStatusConfig = {
-        id: newStatus.toLowerCase().replace(/\s+/g, '-'),
-        name: newStatus,
-        color: '#64748b' // default color
-      };
-      updateStatusConfigs([...statusConfigs, newStatusConfig]);
-      setNewStatus('');
-    }
+  const handleCloseGroupModal = () => {
+    setShowGroupModal(false);
+    setSelectedGroup(undefined);
+    fetchData(); // Refresh data
   };
 
-  const handleRemoveStatus = (statusId: string) => {
-    updateStatusConfigs(statusConfigs.filter(s => s.id !== statusId));
-  };
-
-  const handleEditStatus = (statusId: string) => {
-    const status = statusConfigs.find(s => s.id === statusId);
-    if (status) {
-      setEditingStatusId(statusId);
-      setEditedStatusName(status.name);
-    }
-  };
-
-  const handleSaveStatusName = (statusId: string) => {
-    if (editedStatusName.trim()) {
-      const newConfigs = statusConfigs.map(config =>
-        config.id === statusId ? { ...config, name: editedStatusName.trim() } : config
-      );
-      updateStatusConfigs(newConfigs);
-      setEditingStatusId(null);
-      setEditedStatusName('');
-    }
-  };
-
-  const handleStatusColorChange = (statusId: string, color: string) => {
-    const newConfigs = statusConfigs.map(config =>
-      config.id === statusId ? { ...config, color } : config
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-gray-500 dark:text-gray-400">{t('loading')}</div>
+      </div>
     );
-    updateStatusConfigs(newConfigs);
-  };
-
-  const handleAddRole = () => {
-    if (newRole && !userRoles.includes(newRole)) {
-      const newRoleConfig = {
-        id: newRole.toLowerCase().replace(/\s+/g, '-'),
-        name: newRole,
-        color: '#64748b' // default color
-      };
-      updateRoleConfigs([...roleConfigs, newRoleConfig]);
-      setNewRole('');
-    }
-  };
-
-  const handleRemoveRole = (roleId: string) => {
-    updateRoleConfigs(roleConfigs.filter(r => r.id !== roleId));
-  };
-
-  const handleRoleColorChange = (roleId: string, color: string) => {
-    const newConfigs = roleConfigs.map(config =>
-      config.id === roleId ? { ...config, color } : config
-    );
-    updateRoleConfigs(newConfigs);
-  };
+  }
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
@@ -160,18 +232,19 @@ const Settings: React.FC = () => {
                     {t('language')}
                   </h3>
                   <p className="text-sm text-gray-500 dark:text-gray-400">
-                    {language === 'fr' ? 'Français' : 'English'}
+                    {language === 'fr' ? 'Français' : language === 'en' ? 'English' : 'Deutsch'}
                   </p>
                 </div>
               </div>
               <div>
                 <select
                   value={language}
-                  onChange={(e) => setLanguage(e.target.value as 'fr' | 'en')}
+                  onChange={(e) => setLanguage(e.target.value as 'fr' | 'en' | 'de')}
                   className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-700 dark:text-gray-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
                 >
                   <option value="fr">Français</option>
                   <option value="en">English</option>
+                  <option value="de">Deutsch</option>
                 </select>
               </div>
             </div>
@@ -213,6 +286,72 @@ const Settings: React.FC = () => {
             </div>
           </Card>
 
+          {/* System Settings */}
+          <Card>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-primary-100 dark:bg-primary-900/50">
+                  <SettingsIcon className="w-5 h-5 text-primary-600 dark:text-primary-400" />
+                </div>
+                <h3 className="text-lg font-medium text-gray-800 dark:text-white">
+                  {t('systemSettings')}
+                </h3>
+              </div>
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  {t('articlePrefix')}
+                </label>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                  {t('prefixDescription')}
+                </p>
+                
+                {isEditingPrefix ? (
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={tempPrefix}
+                      onChange={(e) => setTempPrefix(e.target.value.toUpperCase())}
+                      maxLength={5}
+                      className="flex-1 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
+                    />
+                    <Button
+                      variant="success"
+                      size="sm"
+                      icon={<Save size={14} />}
+                      onClick={handleSavePrefix}
+                    />
+                    <Button
+                      variant="danger"
+                      size="sm"
+                      icon={<X size={14} />}
+                      onClick={() => {
+                        setIsEditingPrefix(false);
+                        setTempPrefix(articlePrefix);
+                      }}
+                    />
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <span className="font-mono text-lg font-medium text-gray-900 dark:text-gray-100">
+                      {articlePrefix}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      icon={<Pencil size={14} />}
+                      onClick={() => setIsEditingPrefix(true)}
+                    >
+                      {t('edit')}
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </Card>
+
           {/* Import Excel */}
           <Card>
             <div className="flex items-center justify-between">
@@ -222,7 +361,7 @@ const Settings: React.FC = () => {
                 </div>
                 <div>
                   <h3 className="text-lg font-medium text-gray-800 dark:text-white">
-                    Import de Matériel
+                    {t('importExcel')}
                   </h3>
                   <p className="text-sm text-gray-500 dark:text-gray-400">
                     Importer du matériel depuis un fichier Excel
@@ -236,150 +375,8 @@ const Settings: React.FC = () => {
                   icon={<Upload size={16} />}
                   onClick={() => setShowExcelImport(true)}
                 >
-                  Importer Excel
+                  {t('import')}
                 </Button>
-              </div>
-            </div>
-          </Card>
-
-          {/* Equipment Statuses */}
-          <Card>
-            <div className="flex justify-between items-center mb-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-primary-100 dark:bg-primary-900/50">
-                  <Tag className="w-5 h-5 text-primary-600 dark:text-primary-400" />
-                </div>
-                <h3 className="text-lg font-medium text-gray-800 dark:text-white">
-                  {t('statusManagement')}
-                </h3>
-              </div>
-            </div>
-            <div className="space-y-4">
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={newStatus}
-                  onChange={(e) => setNewStatus(e.target.value)}
-                  placeholder={t('newStatus')}
-                  className="flex-1 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
-                />
-                <Button
-                  variant="primary"
-                  size="sm"
-                  icon={<Plus size={16} />}
-                  onClick={handleAddStatus}
-                >
-                  {t('add')}
-                </Button>
-              </div>
-              <div className="space-y-2">
-                {statusConfigs.map((status) => (
-                  <div
-                    key={status.id}
-                    className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg"
-                  >
-                    <div className="flex items-center gap-3">
-                      <ColorPicker
-                        color={status.color}
-                        onChange={(color) => handleStatusColorChange(status.id, color)}
-                      />
-                      {editingStatusId === status.id ? (
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="text"
-                            value={editedStatusName}
-                            onChange={(e) => setEditedStatusName(e.target.value)}
-                            className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-2 py-1 text-sm text-gray-900 dark:text-gray-100"
-                            autoFocus
-                          />
-                          <Button
-                            variant="success"
-                            size="sm"
-                            icon={<Save size={14} />}
-                            onClick={() => handleSaveStatusName(status.id)}
-                          />
-                          <Button
-                            variant="danger"
-                            size="sm"
-                            icon={<X size={14} />}
-                            onClick={() => setEditingStatusId(null)}
-                          />
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{status.name}</span>
-                          <button
-                            onClick={() => handleEditStatus(status.id)}
-                            className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
-                          >
-                            <Pencil size={14} />
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                    <button
-                      onClick={() => handleRemoveStatus(status.id)}
-                      className="text-gray-500 hover:text-danger-500 dark:hover:text-danger-400"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </Card>
-
-          {/* User Roles */}
-          <Card>
-            <div className="flex justify-between items-center mb-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-primary-100 dark:bg-primary-900/50">
-                  <UserCheck className="w-5 h-5 text-primary-600 dark:text-primary-400" />
-                </div>
-                <h3 className="text-lg font-medium text-gray-800 dark:text-white">
-                  {t('userRoles')}
-                </h3>
-              </div>
-            </div>
-            <div className="space-y-4">
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={newRole}
-                  onChange={(e) => setNewRole(e.target.value)}
-                  placeholder={t('newRole')}
-                  className="flex-1 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm"
-                />
-                <Button
-                  variant="primary"
-                  size="sm"
-                  icon={<Plus size={16} />}
-                  onClick={handleAddRole}
-                >
-                  {t('add')}
-                </Button>
-              </div>
-              <div className="space-y-2">
-                {roleConfigs.map((role) => (
-                  <div
-                    key={role.id}
-                    className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg"
-                  >
-                    <div className="flex items-center gap-3">
-                      <ColorPicker
-                        color={role.color}
-                        onChange={(color) => handleRoleColorChange(role.id, color)}
-                      />
-                      <span className="text-sm font-medium">{role.name}</span>
-                    </div>
-                    <button
-                      onClick={() => handleRemoveRole(role.id)}
-                      className="text-gray-500 hover:text-danger-500"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                ))}
               </div>
             </div>
           </Card>
@@ -428,7 +425,63 @@ const Settings: React.FC = () => {
                       variant="danger"
                       size="sm"
                       icon={<Trash2 size={16} />}
-                      onClick={() => deleteCategory(category.id)}
+                      onClick={() => handleDeleteCategory(category.id)}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Card>
+
+          {/* Groups */}
+          <Card>
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-medium text-gray-800 dark:text-white">
+                {t('groups')}
+              </h3>
+              <Button 
+                variant="primary" 
+                size="sm" 
+                icon={<Plus size={16} />}
+                onClick={handleAddGroup}
+              >
+                {t('addGroup')}
+              </Button>
+            </div>
+            <div className="space-y-2">
+              {groups.map((group) => (
+                <div
+                  key={group.id}
+                  className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg"
+                >
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="w-4 h-4 rounded-full"
+                      style={{ backgroundColor: group.color }}
+                    />
+                    <div>
+                      <h4 className="font-medium text-gray-800 dark:text-white">
+                        {group.name}
+                      </h4>
+                      {group.description && (
+                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                          {group.description}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      icon={<Pencil size={16} />}
+                      onClick={() => handleEditGroup(group)}
+                    />
+                    <Button
+                      variant="danger"
+                      size="sm"
+                      icon={<Trash2 size={16} />}
+                      onClick={() => handleDeleteGroup(group.id)}
                     />
                   </div>
                 </div>
@@ -479,7 +532,7 @@ const Settings: React.FC = () => {
                       variant="danger"
                       size="sm"
                       icon={<Trash2 size={16} />}
-                      onClick={() => deleteSupplier(supplier.id)}
+                      onClick={() => handleDeleteSupplier(supplier.id)}
                     />
                   </div>
                 </div>
@@ -502,11 +555,16 @@ const Settings: React.FC = () => {
         supplier={selectedSupplier}
       />
 
+      <GroupModal
+        isOpen={showGroupModal}
+        onClose={handleCloseGroupModal}
+        group={selectedGroup}
+      />
+
       <ExcelImport
         isOpen={showExcelImport}
         onClose={() => setShowExcelImport(false)}
         onImportComplete={() => {
-          // Refresh data if needed
           console.log('Import completed');
         }}
       />

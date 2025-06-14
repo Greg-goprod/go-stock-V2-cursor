@@ -14,6 +14,8 @@ export interface Equipment {
   qrType?: 'individual' | 'batch';
   totalQuantity?: number;
   availableQuantity?: number;
+  shortTitle?: string;
+  group?: string;
 }
 
 export interface EquipmentInstance {
@@ -72,6 +74,14 @@ export interface Category {
   description?: string;
 }
 
+export interface EquipmentGroup {
+  id: string;
+  name: string;
+  description?: string;
+  color: string;
+  createdAt: string;
+}
+
 export interface StatusConfig {
   id: string;
   name: string;
@@ -82,4 +92,11 @@ export interface RoleConfig {
   id: string;
   name: string;
   color: string;
+}
+
+export interface SystemSetting {
+  id: string;
+  value: string;
+  description?: string;
+  updatedAt: string;
 }

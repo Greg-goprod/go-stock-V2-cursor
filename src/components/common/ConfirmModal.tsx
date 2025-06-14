@@ -29,7 +29,7 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={title} size="sm">
       <div className="space-y-4">
-        <p className="text-gray-600 dark:text-gray-300">{message}</p>
+        <p className="text-gray-700 dark:text-gray-200">{message}</p>
         
         <div className="flex justify-end gap-3">
           <Button variant="outline" onClick={onClose}>

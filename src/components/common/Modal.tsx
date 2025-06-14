@@ -95,8 +95,8 @@ const Modal: React.FC<ModalProps> = ({
               </button>
             </div>
             
-            {/* Content avec padding optimisé */}
-            <div className="p-6 max-h-[calc(100vh-200px)] overflow-y-auto">
+            {/* Content avec padding optimisé et couleurs corrigées */}
+            <div className="p-6 max-h-[calc(100vh-200px)] overflow-y-auto text-gray-900 dark:text-white">
               {children}
             </div>
           </div>

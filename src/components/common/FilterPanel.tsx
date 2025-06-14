@@ -61,7 +61,7 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
         <div className="p-4 space-y-4">
           {options.map((option) => (
             <div key={option.id}>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
                 {option.label}
               </label>
               {option.type === 'select' ? (

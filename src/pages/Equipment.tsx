@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import Badge from '../components/common/Badge';
-import { Plus, Filter, Import, QrCode, LayoutGrid, List, ArrowUpDown, Pencil, Trash2 } from 'lucide-react';
+import { Plus, Filter, Import, QrCode, LayoutGrid, List, ArrowUpDown, Pencil, Trash2, Package } from 'lucide-react';
 import QRCodeGenerator from '../components/QRCode/QRCodeGenerator';
 import Modal from '../components/common/Modal';
 import FilterPanel, { FilterOption } from '../components/common/FilterPanel';
@@ -188,7 +188,7 @@ const EquipmentPage: React.FC = () => {
         return a.name.localeCompare(b.name) * direction;
       case 'status':
         return a.status.localeCompare(b.status) * direction;
-      case 'serialNumber':
+      case 'serial_number':
         return a.serialNumber.localeCompare(b.serialNumber) * direction;
       case 'category':
         return a.category.localeCompare(b.category) * direction;
@@ -244,7 +244,7 @@ const EquipmentPage: React.FC = () => {
               </th>
               <th 
                 className="px-6 py-3 text-left cursor-pointer group"
-                onClick={() => handleSort('serialNumber')}
+                onClick={() => handleSort('serial_number')}
               >
                 <div className="flex items-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   N° Série
@@ -342,63 +342,97 @@ const EquipmentPage: React.FC = () => {
   );
 
   const renderGridView = () => (
-    <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6">
+    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-7 gap-4">
       {filteredEquipment.map((item) => (
         <Card key={item.id} className="hover:shadow-lg transition-shadow">
-          {item.imageUrl && (
-            <img
-              src={item.imageUrl}
-              alt={item.name}
-              className="w-full h-48 object-cover rounded-t-lg"
-            />
-          )}
-          <div className="p-4">
-            <div className="flex justify-between items-start mb-2">
-              <div>
-                <h3 className="text-lg font-semibold text-gray-800 dark:text-white">{item.name}</h3>
-                <p className="text-sm text-gray-600 dark:text-gray-300">{item.serialNumber}</p>
+          <div className="p-3">
+            {/* Image réduite */}
+            <div className="relative mb-3">
+              {item.imageUrl ? (
+                <img
+                  src={item.imageUrl}
+                  alt={item.name}
+                  className="w-full h-24 object-cover rounded-md"
+                />
+              ) : (
+                <div className="w-full h-24 bg-gray-100 dark:bg-gray-700 rounded-md flex items-center justify-center">
+                  <Package size={24} className="text-gray-400" />
+                </div>
+              )}
+              
+              {/* Badge de statut en overlay */}
+              <div className="absolute top-1 right-1">
+                <Badge
+                  variant={
+                    item.status === 'available' ? 'success' :
+                    item.status === 'checked-out' ? 'warning' :
+                    item.status === 'maintenance' ? 'info' : 'neutral'
+                  }
+                >
+                  {item.status === 'available' ? 'Dispo' :
+                   item.status === 'checked-out' ? 'Emprunté' :
+                   item.status === 'maintenance' ? 'Maint.' : 'Retiré'}
+                </Badge>
               </div>
-              <Badge
-                variant={
-                  item.status === 'available' ? 'success' :
-                  item.status === 'checked-out' ? 'warning' :
-                  item.status === 'maintenance' ? 'info' : 'neutral'
-                }
-              >
-                {item.status}
-              </Badge>
             </div>
-            
-            <p className="mt-2 text-sm text-gray-600 dark:text-gray-400 line-clamp-2">{item.description}</p>
-            
-            {item.category && (
-              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{item.category}</p>
+
+            {/* Informations principales */}
+            <div className="space-y-1 mb-3">
+              <h3 className="text-sm font-semibold text-gray-800 dark:text-white line-clamp-2 leading-tight">
+                {item.name}
+              </h3>
+              <p className="text-xs text-gray-600 dark:text-gray-400 font-mono">
+                {item.serialNumber}
+              </p>
+              {item.category && (
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  {item.category}
+                </p>
+              )}
+              {item.location && (
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  📍 {item.location}
+                </p>
+              )}
+            </div>
+
+            {/* Description tronquée */}
+            {item.description && (
+              <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-2 mb-3">
+                {item.description}
+              </p>
             )}
             
-            <div className="mt-4 flex justify-end gap-2">
+            {/* Actions */}
+            <div className="flex justify-between items-center gap-1">
               <Button
                 variant="outline"
                 size="sm"
-                icon={<QrCode size={16} />}
+                icon={<QrCode size={14} />}
                 onClick={() => handleShowQR(item.id)}
+                className="text-xs px-2 py-1"
               >
-                QR Code
+                QR
               </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                icon={<Pencil size={16} />}
-                onClick={() => {
-                  // TODO: Implement edit functionality
-                  toast.info('Fonction d\'édition à venir');
-                }}
-              />
-              <Button
-                variant="danger"
-                size="sm"
-                icon={<Trash2 size={16} />}
-                onClick={() => handleDeleteClick(item)}
-              />
+              <div className="flex gap-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  icon={<Pencil size={14} />}
+                  onClick={() => {
+                    // TODO: Implement edit functionality
+                    toast.info('Fonction d\'édition à venir');
+                  }}
+                  className="px-2 py-1"
+                />
+                <Button
+                  variant="danger"
+                  size="sm"
+                  icon={<Trash2 size={14} />}
+                  onClick={() => handleDeleteClick(item)}
+                  className="px-2 py-1"
+                />
+              </div>
             </div>
           </div>
         </Card>

@@ -291,7 +291,7 @@ const Settings: React.FC = () => {
           <AccordionCard
             title={t('systemSettings')}
             icon={<SettingsIcon className="w-5 h-5 text-primary-600 dark:text-primary-400" />}
-            defaultOpen={true}
+            defaultOpen={false}
           >
             <div className="space-y-4">
               <div>
@@ -381,7 +381,7 @@ const Settings: React.FC = () => {
           <AccordionCard
             title={t('categories')}
             icon={<Tag className="w-5 h-5 text-primary-600 dark:text-primary-400" />}
-            defaultOpen={true}
+            defaultOpen={false}
           >
             <div className="space-y-4">
               <div className="flex justify-end">
@@ -394,7 +394,7 @@ const Settings: React.FC = () => {
                   {t('addCategory')}
                 </Button>
               </div>
-              <div className="space-y-2">
+              <div className="space-y-2 max-h-48 overflow-y-auto">
                 {categories.map((category) => (
                   <div
                     key={category.id}
@@ -447,7 +447,7 @@ const Settings: React.FC = () => {
                   {t('addGroup')}
                 </Button>
               </div>
-              <div className="space-y-2">
+              <div className="space-y-2 max-h-48 overflow-y-auto">
                 {groups.map((group) => (
                   <div
                     key={group.id}
@@ -506,7 +506,7 @@ const Settings: React.FC = () => {
                   {t('addSupplier')}
                 </Button>
               </div>
-              <div className="space-y-2">
+              <div className="space-y-2 max-h-48 overflow-y-auto">
                 {suppliers.map((supplier) => (
                   <div
                     key={supplier.id}

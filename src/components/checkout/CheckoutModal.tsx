@@ -32,21 +32,54 @@ interface PrintPreviewModalProps {
 
 const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({ isOpen, onClose, content, noteNumber }) => {
   const handlePrint = () => {
-    const printWindow = window.open('', '_blank', 'width=800,height=600');
-    if (!printWindow) {
-      toast.error('Impossible d\'ouvrir la fenêtre d\'impression');
-      return;
-    }
-
-    printWindow.document.write(content);
-    printWindow.document.close();
+    // Créer un iframe invisible pour l'impression
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'absolute';
+    iframe.style.top = '-9999px';
+    iframe.style.left = '-9999px';
+    iframe.style.width = '0px';
+    iframe.style.height = '0px';
+    iframe.style.border = 'none';
     
-    // Attendre que le contenu soit chargé avant d'imprimer
-    printWindow.onload = () => {
-      // Configuration pour 2 copies par défaut
-      printWindow.print();
-      printWindow.print(); // Deuxième impression
-    };
+    document.body.appendChild(iframe);
+    
+    const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+    if (iframeDoc) {
+      iframeDoc.open();
+      iframeDoc.write(content);
+      iframeDoc.close();
+      
+      // Attendre que le contenu soit chargé
+      iframe.onload = () => {
+        try {
+          // Première impression
+          iframe.contentWindow?.print();
+          
+          // Deuxième impression après un délai
+          setTimeout(() => {
+            iframe.contentWindow?.print();
+            
+            // Nettoyer l'iframe après impression
+            setTimeout(() => {
+              document.body.removeChild(iframe);
+            }, 1000);
+          }, 500);
+          
+        } catch (error) {
+          console.error('Erreur lors de l\'impression:', error);
+          toast.error('Erreur lors de l\'impression');
+          document.body.removeChild(iframe);
+        }
+      };
+    }
+  };
+
+  // Extraire le contenu HTML du body pour l'affichage dans la popup
+  const getDisplayContent = () => {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(content, 'text/html');
+    const bodyContent = doc.body.innerHTML;
+    return bodyContent;
   };
 
   return (
@@ -57,9 +90,21 @@ const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({ isOpen, onClose, 
       size="xl"
     >
       <div className="space-y-4">
+        <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3">
+          <p className="text-yellow-800 dark:text-yellow-200 text-sm">
+            📄 Aperçu du bon de sortie. Cliquez sur "Imprimer (2 copies)" pour lancer l'impression.
+          </p>
+        </div>
+        
         <div 
-          className="border rounded-lg p-4 bg-white max-h-96 overflow-y-auto"
-          dangerouslySetInnerHTML={{ __html: content }}
+          className="border rounded-lg p-6 bg-white max-h-96 overflow-y-auto"
+          style={{ 
+            fontFamily: 'Arial, sans-serif',
+            fontSize: '14px',
+            lineHeight: '1.6',
+            color: '#000'
+          }}
+          dangerouslySetInnerHTML={{ __html: getDisplayContent() }}
         />
         
         <div className="flex justify-between">

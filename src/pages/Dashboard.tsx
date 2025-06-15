@@ -12,7 +12,8 @@ import {
   Bell, 
   ArrowUpRight,
   LogOut,
-  LogIn
+  LogIn,
+  RefreshCw
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { supabase } from '../lib/supabase';
@@ -30,32 +31,81 @@ const Dashboard: React.FC = () => {
   });
   const [recentCheckouts, setRecentCheckouts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     fetchDashboardData();
+    
+    // Écouter les changements dans localStorage pour les notifications
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'checkout_notifications' || e.key === 'return_notifications') {
+        // Rafraîchir les données quand il y a de nouvelles notifications
+        fetchDashboardData();
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+
+    // Rafraîchir automatiquement toutes les 30 secondes
+    const interval = setInterval(() => {
+      fetchDashboardData(true); // true = silent refresh
+    }, 30000);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      clearInterval(interval);
+    };
   }, []);
 
-  const fetchDashboardData = async () => {
-    try {
-      setLoading(true);
+  // Écouter les changements de focus de la fenêtre pour rafraîchir
+  useEffect(() => {
+    const handleFocus = () => {
+      fetchDashboardData(true);
+    };
 
-      // Fetch equipment stats
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, []);
+
+  const fetchDashboardData = async (silent = false) => {
+    try {
+      if (!silent) {
+        setLoading(true);
+      } else {
+        setRefreshing(true);
+      }
+
+      // Fetch equipment avec les quantités réelles
       const { data: equipment, error: equipmentError } = await supabase
         .from('equipment')
-        .select('status, available_quantity, total_quantity');
+        .select('id, status, total_quantity, available_quantity');
 
       if (equipmentError) throw equipmentError;
 
-      // Calculate stats
-      let availableCount = 0;
-      let checkedOutCount = 0;
+      // Fetch active checkouts pour calculer les emprunts réels
+      const { data: activeCheckouts, error: checkoutsError } = await supabase
+        .from('checkouts')
+        .select('equipment_id')
+        .eq('status', 'active');
+
+      if (checkoutsError) throw checkoutsError;
+
+      // Calculer les statistiques réelles
+      let totalAvailable = 0;
+      let totalCheckedOut = 0;
+      let maintenanceCount = 0;
 
       equipment?.forEach(eq => {
-        const available = eq.available_quantity || 0;
         const total = eq.total_quantity || 1;
+        const available = eq.available_quantity || 0;
+        const borrowed = activeCheckouts?.filter(c => c.equipment_id === eq.id).length || 0;
         
-        availableCount += available;
-        checkedOutCount += (total - available);
+        totalAvailable += available;
+        totalCheckedOut += borrowed;
+        
+        if (eq.status === 'maintenance') {
+          maintenanceCount += 1;
+        }
       });
 
       // Fetch overdue checkouts
@@ -68,7 +118,7 @@ const Dashboard: React.FC = () => {
       if (overdueError) throw overdueError;
 
       // Fetch recent checkouts with user and equipment info
-      const { data: checkouts, error: checkoutsError } = await supabase
+      const { data: checkouts, error: recentCheckoutsError } = await supabase
         .from('checkouts')
         .select(`
           *,
@@ -79,13 +129,17 @@ const Dashboard: React.FC = () => {
         .order('checkout_date', { ascending: false })
         .limit(5);
 
-      if (checkoutsError) throw checkoutsError;
+      if (recentCheckoutsError) throw recentCheckoutsError;
+
+      // Compter les notifications non lues
+      const checkoutNotifications = JSON.parse(localStorage.getItem('checkout_notifications') || '[]');
+      const unreadNotificationsCount = checkoutNotifications.filter((n: any) => !n.read).length;
 
       setStats({
-        availableEquipment: availableCount,
-        checkedOutEquipment: checkedOutCount,
+        availableEquipment: totalAvailable,
+        checkedOutEquipment: totalCheckedOut,
         overdueEquipment: overdueCheckouts?.length || 0,
-        unreadNotifications: 0 // TODO: Implement notifications
+        unreadNotifications: unreadNotificationsCount
       });
 
       setRecentCheckouts(checkouts || []);
@@ -94,7 +148,28 @@ const Dashboard: React.FC = () => {
       console.error('Error fetching dashboard data:', error);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
+  };
+
+  const handleManualRefresh = () => {
+    fetchDashboardData();
+  };
+
+  const handleCheckoutModalClose = () => {
+    setShowCheckoutModal(false);
+    // Rafraîchir les données après fermeture du modal de sortie
+    setTimeout(() => {
+      fetchDashboardData();
+    }, 500);
+  };
+
+  const handleReturnModalClose = () => {
+    setShowReturnModal(false);
+    // Rafraîchir les données après fermeture du modal de retour
+    setTimeout(() => {
+      fetchDashboardData();
+    }, 500);
   };
 
   if (loading) {
@@ -110,6 +185,15 @@ const Dashboard: React.FC = () => {
       <div className="flex flex-col gap-4">
         <div className="flex justify-between items-center">
           <h2 className="text-2xl font-bold text-gray-800 dark:text-white">{t('dashboard')}</h2>
+          <Button
+            variant="outline"
+            size="sm"
+            icon={<RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />}
+            onClick={handleManualRefresh}
+            disabled={refreshing}
+          >
+            {refreshing ? 'Actualisation...' : 'Actualiser'}
+          </Button>
         </div>
 
         <div className="flex gap-3">
@@ -135,43 +219,55 @@ const Dashboard: React.FC = () => {
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="flex items-center p-4">
+        <Card className="flex items-center p-4 hover:shadow-md transition-shadow">
           <div className="rounded-full bg-primary-100 dark:bg-primary-900/50 p-3 mr-4">
             <Package size={24} className="text-primary-600 dark:text-primary-300" />
           </div>
           <div>
             <p className="text-gray-500 dark:text-gray-400 text-sm">{t('available')}</p>
-            <p className="text-2xl font-semibold text-gray-800 dark:text-white">{stats.availableEquipment}</p>
+            <p className="text-2xl font-semibold text-gray-800 dark:text-white">
+              {stats.availableEquipment}
+              {refreshing && <RefreshCw size={16} className="inline ml-2 animate-spin text-gray-400" />}
+            </p>
           </div>
         </Card>
         
-        <Card className="flex items-center p-4">
+        <Card className="flex items-center p-4 hover:shadow-md transition-shadow">
           <div className="rounded-full bg-success-100 dark:bg-success-900/50 p-3 mr-4">
             <CheckSquare size={24} className="text-success-600 dark:text-success-300" />
           </div>
           <div>
             <p className="text-gray-500 dark:text-gray-400 text-sm">{t('checkedOut')}</p>
-            <p className="text-2xl font-semibold text-gray-800 dark:text-white">{stats.checkedOutEquipment}</p>
+            <p className="text-2xl font-semibold text-gray-800 dark:text-white">
+              {stats.checkedOutEquipment}
+              {refreshing && <RefreshCw size={16} className="inline ml-2 animate-spin text-gray-400" />}
+            </p>
           </div>
         </Card>
         
-        <Card className="flex items-center p-4">
+        <Card className="flex items-center p-4 hover:shadow-md transition-shadow">
           <div className="rounded-full bg-warning-100 dark:bg-warning-900/50 p-3 mr-4">
             <AlertTriangle size={24} className="text-warning-600 dark:text-warning-300" />
           </div>
           <div>
             <p className="text-gray-500 dark:text-gray-400 text-sm">{t('overdue')}</p>
-            <p className="text-2xl font-semibold text-gray-800 dark:text-white">{stats.overdueEquipment}</p>
+            <p className="text-2xl font-semibold text-gray-800 dark:text-white">
+              {stats.overdueEquipment}
+              {refreshing && <RefreshCw size={16} className="inline ml-2 animate-spin text-gray-400" />}
+            </p>
           </div>
         </Card>
         
-        <Card className="flex items-center p-4">
+        <Card className="flex items-center p-4 hover:shadow-md transition-shadow">
           <div className="rounded-full bg-danger-100 dark:bg-danger-900/50 p-3 mr-4">
             <Bell size={24} className="text-danger-600 dark:text-danger-300" />
           </div>
           <div>
             <p className="text-gray-500 dark:text-gray-400 text-sm">{t('notifications')}</p>
-            <p className="text-2xl font-semibold text-gray-800 dark:text-white">{stats.unreadNotifications}</p>
+            <p className="text-2xl font-semibold text-gray-800 dark:text-white">
+              {stats.unreadNotifications}
+              {refreshing && <RefreshCw size={16} className="inline ml-2 animate-spin text-gray-400" />}
+            </p>
           </div>
         </Card>
       </div>
@@ -204,7 +300,7 @@ const Dashboard: React.FC = () => {
                   const isOverdue = new Date(checkout.due_date) < new Date();
                   
                   return (
-                    <tr key={checkout.id} className="hover:bg-gray-50 dark:hover:bg-gray-800">
+                    <tr key={checkout.id} className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
                       <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
                         {checkout.equipment?.name || 'Équipement inconnu'}
                       </td>
@@ -231,19 +327,22 @@ const Dashboard: React.FC = () => {
             </table>
           </div>
         ) : (
-          <p className="text-gray-500 dark:text-gray-400 text-center py-4">Aucun emprunt actif</p>
+          <div className="text-center py-8">
+            <Package size={48} className="mx-auto text-gray-400 mb-4" />
+            <p className="text-gray-500 dark:text-gray-400">Aucun emprunt actif</p>
+          </div>
         )}
       </Card>
 
       {/* Modals */}
       <CheckoutModal
         isOpen={showCheckoutModal}
-        onClose={() => setShowCheckoutModal(false)}
+        onClose={handleCheckoutModalClose}
       />
 
       <ReturnModal
         isOpen={showReturnModal}
-        onClose={() => setShowReturnModal(false)}
+        onClose={handleReturnModalClose}
       />
     </div>
   );

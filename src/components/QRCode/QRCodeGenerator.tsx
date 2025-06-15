@@ -19,65 +19,6 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
   printable = true,
 }) => {
   const handlePrint = () => {
-    // Générer le QR code SVG directement
-    const generateQRCodeSVG = (value: string, size: number) => {
-      // Créer un élément temporaire pour générer le SVG
-      const tempDiv = document.createElement('div');
-      tempDiv.style.position = 'absolute';
-      tempDiv.style.left = '-9999px';
-      document.body.appendChild(tempDiv);
-      
-      // Utiliser React pour créer le QR code
-      const qrElement = document.createElement('div');
-      tempDiv.appendChild(qrElement);
-      
-      // Créer le QR code manuellement avec les bonnes propriétés
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      canvas.width = size;
-      canvas.height = size;
-      
-      // Utiliser QRCode.js pour générer le QR code
-      import('qrcode').then(QRCode => {
-        QRCode.toCanvas(canvas, value, {
-          width: size,
-          margin: 1,
-          color: {
-            dark: '#000000',
-            light: '#FFFFFF'
-          }
-        }, (error) => {
-          if (error) {
-            console.error('Erreur génération QR:', error);
-            return;
-          }
-          
-          const dataURL = canvas.toDataURL('image/png');
-          createPrintWindow(dataURL);
-        });
-      }).catch(() => {
-        // Fallback: utiliser une approche différente
-        createPrintWindowWithSVG();
-      });
-      
-      // Nettoyer
-      document.body.removeChild(tempDiv);
-    };
-
-    const createPrintWindowWithSVG = () => {
-      // Créer le SVG manuellement
-      const svgContent = `
-        <svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200">
-          <rect width="200" height="200" fill="white"/>
-          <text x="100" y="100" text-anchor="middle" font-family="Arial" font-size="12" fill="black">
-            QR Code: ${value}
-          </text>
-        </svg>
-      `;
-      
-      createPrintWindow(`data:image/svg+xml;base64,${btoa(svgContent)}`);
-    };
-
     const createPrintWindow = (qrCodeDataURL: string) => {
       const printContent = `
         <!DOCTYPE html>
@@ -98,7 +39,7 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
                 margin: 0;
               }
               
-              /* Styles pour étiquettes 40x40mm */
+              /* Styles pour étiquettes 40x40mm carrées */
               .label-40x40 {
                 width: 40mm;
                 height: 40mm;
@@ -110,6 +51,22 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
                 justify-content: center;
                 page-break-after: always;
                 background: white;
+              }
+              
+              /* Styles pour étiquettes 40x40mm rondes */
+              .label-40x40-round {
+                width: 40mm;
+                height: 40mm;
+                padding: 3mm;
+                border: 1px solid #ccc;
+                border-radius: 50%;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                page-break-after: always;
+                background: white;
+                overflow: hidden;
               }
               
               /* Styles pour étiquettes 30x20mm */
@@ -131,6 +88,12 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
                 margin-bottom: 1mm;
               }
               
+              .qr-code-40-round {
+                width: 26mm;
+                height: 26mm;
+                margin-bottom: 1mm;
+              }
+              
               .qr-code-30 {
                 width: 16mm;
                 height: 16mm;
@@ -145,6 +108,18 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
                 max-height: 6mm;
                 overflow: hidden;
                 word-wrap: break-word;
+              }
+              
+              .title-40-round {
+                font-size: 5pt;
+                font-weight: bold;
+                text-align: center;
+                line-height: 1;
+                color: #000;
+                max-height: 5mm;
+                overflow: hidden;
+                word-wrap: break-word;
+                margin-top: 0.5mm;
               }
               
               .title-30 {
@@ -163,6 +138,14 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
                 color: #666;
                 text-align: center;
                 margin-top: 0.5mm;
+              }
+              
+              .subtitle-round {
+                font-size: 3.5pt;
+                color: #666;
+                text-align: center;
+                margin-top: 0.3mm;
+                line-height: 1;
               }
               
               .controls {
@@ -186,6 +169,14 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
                 background: #1d4ed8;
               }
               
+              .btn-round {
+                background: #10b981;
+              }
+              
+              .btn-round:hover {
+                background: #059669;
+              }
+              
               @media print {
                 body {
                   margin: 0;
@@ -194,7 +185,7 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
                 .controls {
                   display: none;
                 }
-                .label-40x40, .label-30x20 {
+                .label-40x40, .label-40x40-round, .label-30x20 {
                   border: 1px solid #000;
                   margin: 0;
                 }
@@ -208,18 +199,30 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
           </head>
           <body>
             <div class="controls">
-              <h2>Choisissez le format d'étiquette :</h2>
-              <button class="btn" onclick="showFormat('40x40')">Étiquette 40x40mm</button>
-              <button class="btn" onclick="showFormat('30x20')">Étiquette 30x20mm</button>
-              <button class="btn" onclick="window.print()">IMPRIMER</button>
-              <button class="btn" onclick="window.close()" style="background: #dc2626;">FERMER</button>
+              <h2>🏷️ Choisissez le format d'étiquette :</h2>
+              <div style="margin: 20px 0;">
+                <button class="btn" onclick="showFormat('40x40')">📐 Étiquette 40x40mm (Carrée)</button>
+                <button class="btn btn-round" onclick="showFormat('40x40-round')">⭕ Étiquette 40x40mm (Ronde)</button>
+                <button class="btn" onclick="showFormat('30x20')">📏 Étiquette 30x20mm</button>
+              </div>
+              <div style="margin: 20px 0;">
+                <button class="btn" onclick="window.print()" style="background: #059669; font-size: 16px; padding: 10px 20px;">🖨️ IMPRIMER</button>
+                <button class="btn" onclick="window.close()" style="background: #dc2626; font-size: 16px; padding: 10px 20px;">❌ FERMER</button>
+              </div>
             </div>
             
-            <!-- Format 40x40mm -->
+            <!-- Format 40x40mm carré -->
             <div id="format-40x40" class="label-40x40" style="display: none;">
               <img src="${qrCodeDataURL}" alt="QR Code" class="qr-code-40" />
               <div class="title-40">${title}</div>
               ${subtitle ? `<div class="subtitle">${subtitle}</div>` : ''}
+            </div>
+            
+            <!-- Format 40x40mm rond -->
+            <div id="format-40x40-round" class="label-40x40-round" style="display: none;">
+              <img src="${qrCodeDataURL}" alt="QR Code" class="qr-code-40-round" />
+              <div class="title-40-round">${title}</div>
+              ${subtitle ? `<div class="subtitle-round">${subtitle}</div>` : ''}
             </div>
             
             <!-- Format 30x20mm -->
@@ -232,16 +235,42 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
               function showFormat(format) {
                 // Masquer tous les formats
                 document.getElementById('format-40x40').style.display = 'none';
+                document.getElementById('format-40x40-round').style.display = 'none';
                 document.getElementById('format-30x20').style.display = 'none';
                 
                 // Afficher le format sélectionné
-                document.getElementById('format-' + format).style.display = format === '40x40' ? 'flex' : 'flex';
-                document.getElementById('format-' + format).style.flexDirection = format === '40x40' ? 'column' : 'row';
+                const selectedElement = document.getElementById('format-' + format);
+                selectedElement.style.display = 'flex';
+                
+                if (format === '30x20') {
+                  selectedElement.style.flexDirection = 'row';
+                } else {
+                  selectedElement.style.flexDirection = 'column';
+                }
+                
+                // Mettre en évidence le bouton sélectionné
+                const buttons = document.querySelectorAll('.btn');
+                buttons.forEach(btn => {
+                  btn.style.opacity = '0.7';
+                  btn.style.transform = 'scale(1)';
+                });
+                
+                // Trouver et mettre en évidence le bouton correspondant
+                if (format === '40x40') {
+                  buttons[0].style.opacity = '1';
+                  buttons[0].style.transform = 'scale(1.05)';
+                } else if (format === '40x40-round') {
+                  buttons[1].style.opacity = '1';
+                  buttons[1].style.transform = 'scale(1.05)';
+                } else if (format === '30x20') {
+                  buttons[2].style.opacity = '1';
+                  buttons[2].style.transform = 'scale(1.05)';
+                }
               }
               
-              // Afficher le format 40x40 par défaut
+              // Afficher le format rond par défaut
               window.onload = function() {
-                showFormat('40x40');
+                showFormat('40x40-round');
               };
             </script>
           </body>
@@ -249,7 +278,7 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
       `;
 
       // Ouvrir dans une nouvelle FENÊTRE
-      const printWindow = window.open('', 'printQRLabel', 'width=800,height=600,scrollbars=yes,resizable=yes,toolbar=no,menubar=no,location=no,status=no');
+      const printWindow = window.open('', 'printQRLabel', 'width=900,height=700,scrollbars=yes,resizable=yes,toolbar=no,menubar=no,location=no,status=no');
       
       if (!printWindow) {
         alert('Impossible d\'ouvrir la fenêtre d\'impression. Vérifiez que les popups ne sont pas bloquées.');
@@ -312,6 +341,20 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
     } else {
       createPrintWindowWithSVG();
     }
+
+    const createPrintWindowWithSVG = () => {
+      // Créer le SVG manuellement
+      const svgContent = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200">
+          <rect width="200" height="200" fill="white"/>
+          <text x="100" y="100" text-anchor="middle" font-family="Arial" font-size="12" fill="black">
+            QR Code: ${value}
+          </text>
+        </svg>
+      `;
+      
+      createPrintWindow(`data:image/svg+xml;base64,${btoa(svgContent)}`);
+    };
   };
 
   return (

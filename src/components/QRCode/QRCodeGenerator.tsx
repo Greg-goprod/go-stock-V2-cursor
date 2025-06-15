@@ -58,8 +58,8 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
               
               /* Styles pour étiquettes 40x40mm rondes avec QR 30x30mm et padding 5mm */
               .label-40x40-round {
-                width: 40mm;
-                height: 40mm;
+                width: 50mm;
+                height: 50mm;
                 border-radius: 50%;
                 display: flex;
                 flex-direction: column;

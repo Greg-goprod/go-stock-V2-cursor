@@ -4,13 +4,14 @@ import AccordionCard from '../components/common/AccordionCard';
 import Button from '../components/common/Button';
 import { useTheme } from '../contexts/ThemeContext';
 import { useLanguage } from '../contexts/LanguageContext';
-import { Sun, Moon, Languages, Plus, Pencil, Trash2, Tag, UserCheck, Save, X, Upload, Download, Settings as SettingsIcon, Image } from 'lucide-react';
+import { Sun, Moon, Languages, Plus, Pencil, Trash2, Tag, UserCheck, Save, X, Upload, Download, Settings as SettingsIcon, Image, Building2 } from 'lucide-react';
 import ColorPicker from '../components/common/ColorPicker';
 import CategoryModal from '../components/categories/CategoryModal';
 import SupplierModal from '../components/suppliers/SupplierModal';
 import GroupModal from '../components/groups/GroupModal';
+import DepartmentModal from '../components/departments/DepartmentModal';
 import ExcelImport from '../components/import/ExcelImport';
-import { Category, Supplier, EquipmentGroup, SystemSetting } from '../types';
+import { Category, Supplier, EquipmentGroup, SystemSetting, Department } from '../types';
 import { supabase } from '../lib/supabase';
 import toast from 'react-hot-toast';
 
@@ -22,6 +23,7 @@ const Settings: React.FC = () => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [groups, setGroups] = useState<EquipmentGroup[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
   const [systemSettings, setSystemSettings] = useState<SystemSetting[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -32,6 +34,8 @@ const Settings: React.FC = () => {
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier | undefined>();
   const [showGroupModal, setShowGroupModal] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState<EquipmentGroup | undefined>();
+  const [showDepartmentModal, setShowDepartmentModal] = useState(false);
+  const [selectedDepartment, setSelectedDepartment] = useState<Department | undefined>();
   const [showExcelImport, setShowExcelImport] = useState(false);
 
   // Settings states
@@ -66,6 +70,26 @@ const Settings: React.FC = () => {
       setSuppliers(suppliersRes.data || []);
       setGroups(groupsRes.data || []);
       setSystemSettings(settingsRes.data || []);
+
+      // Fetch departments from users table (unique departments)
+      const { data: usersData, error: usersError } = await supabase
+        .from('users')
+        .select('department')
+        .order('department');
+
+      if (usersError) throw usersError;
+
+      // Create departments list from unique user departments
+      const uniqueDepartments = Array.from(new Set(usersData?.map(u => u.department).filter(Boolean) || []));
+      const departmentsList: Department[] = uniqueDepartments.map((dept, index) => ({
+        id: `dept-${index}`,
+        name: dept,
+        description: `Département ${dept}`,
+        color: '#64748b',
+        createdAt: new Date().toISOString()
+      }));
+
+      setDepartments(departmentsList);
 
       // Set article prefix
       const prefixSetting = settingsRes.data?.find(s => s.id === 'article_prefix');
@@ -166,6 +190,40 @@ const Settings: React.FC = () => {
     } catch (error: any) {
       console.error('Error deleting group:', error);
       toast.error(error.message || t('error'));
+    }
+  };
+
+  const handleEditDepartment = (department: Department) => {
+    setSelectedDepartment(department);
+    setShowDepartmentModal(true);
+  };
+
+  const handleAddDepartment = () => {
+    setSelectedDepartment(undefined);
+    setShowDepartmentModal(true);
+  };
+
+  const handleDeleteDepartment = async (departmentName: string) => {
+    try {
+      // Check if any users are using this department
+      const { data: usersWithDept, error: checkError } = await supabase
+        .from('users')
+        .select('id')
+        .eq('department', departmentName);
+
+      if (checkError) throw checkError;
+
+      if (usersWithDept && usersWithDept.length > 0) {
+        toast.error(`Impossible de supprimer le département "${departmentName}" car ${usersWithDept.length} utilisateur(s) l'utilisent encore.`);
+        return;
+      }
+
+      // Remove from local state since it's derived from users table
+      setDepartments(prev => prev.filter(d => d.name !== departmentName));
+      toast.success('Département supprimé avec succès');
+    } catch (error: any) {
+      console.error('Error deleting department:', error);
+      toast.error(error.message || 'Erreur lors de la suppression');
     }
   };
 
@@ -286,6 +344,12 @@ const Settings: React.FC = () => {
   const handleCloseGroupModal = () => {
     setShowGroupModal(false);
     setSelectedGroup(undefined);
+    fetchData(); // Refresh data
+  };
+
+  const handleCloseDepartmentModal = () => {
+    setShowDepartmentModal(false);
+    setSelectedDepartment(undefined);
     fetchData(); // Refresh data
   };
 
@@ -582,6 +646,75 @@ const Settings: React.FC = () => {
             </div>
           </AccordionCard>
 
+          {/* Departments - Accordion */}
+          <AccordionCard
+            title="DÉPARTEMENTS"
+            icon={<Building2 className="w-5 h-5 text-primary-600 dark:text-primary-400" />}
+            defaultOpen={false}
+          >
+            <div className="space-y-4">
+              <div className="flex justify-end">
+                <Button 
+                  variant="primary" 
+                  size="sm" 
+                  icon={<Plus size={16} />}
+                  onClick={handleAddDepartment}
+                  className="font-bold"
+                >
+                  AJOUTER DÉPARTEMENT
+                </Button>
+              </div>
+              <div className="space-y-2 max-h-48 overflow-y-auto">
+                {departments.length === 0 ? (
+                  <div className="text-center py-4">
+                    <Building2 size={32} className="mx-auto text-gray-400 mb-2" />
+                    <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">
+                      Aucun département trouvé. Les départements sont créés automatiquement lors de l'ajout d'utilisateurs.
+                    </p>
+                  </div>
+                ) : (
+                  departments.map((department) => (
+                    <div
+                      key={department.id}
+                      className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div
+                          className="w-4 h-4 rounded-full"
+                          style={{ backgroundColor: department.color }}
+                        />
+                        <div>
+                          <h4 className="font-black text-gray-800 dark:text-white">
+                            {department.name}
+                          </h4>
+                          {department.description && (
+                            <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">
+                              {department.description}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          icon={<Pencil size={16} />}
+                          onClick={() => handleEditDepartment(department)}
+                        />
+                        <Button
+                          variant="danger"
+                          size="sm"
+                          icon={<Trash2 size={16} />}
+                          onClick={() => handleDeleteDepartment(department.name)}
+                        />
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </AccordionCard>
+
           {/* Groups - Accordion */}
           <AccordionCard
             title="GROUPES"
@@ -704,6 +837,12 @@ const Settings: React.FC = () => {
         isOpen={showCategoryModal}
         onClose={handleCloseCategoryModal}
         category={selectedCategory}
+      />
+
+      <DepartmentModal
+        isOpen={showDepartmentModal}
+        onClose={handleCloseDepartmentModal}
+        department={selectedDepartment}
       />
 
       <SupplierModal

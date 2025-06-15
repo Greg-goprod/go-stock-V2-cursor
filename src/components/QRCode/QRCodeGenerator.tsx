@@ -43,11 +43,11 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
                 min-height: 100vh;
               }
               
-              /* Styles pour étiquettes 40x30mm - ADAPTÉE DE 30x20mm */
+              /* Styles pour étiquettes 40x30mm - QR CODE AGRANDI DE 150% */
               .label-40x30 {
                 width: 40mm;
                 height: 30mm;
-                padding: 2mm;
+                padding: 1mm;
                 display: flex;
                 align-items: center;
                 justify-content: space-between;
@@ -97,10 +97,10 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
                 background: white;
               }
               
-              /* QR code pour étiquette 40x30mm - ADAPTÉ DE 30x20mm */
+              /* QR code pour étiquette 40x30mm - AGRANDI DE 150% (24mm → 36mm) */
               .qr-code-40x30 {
-                width: 24mm;
-                height: 24mm;
+                width: 36mm;
+                height: 36mm;
                 flex-shrink: 0;
               }
               
@@ -132,21 +132,22 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
                 height: 16mm;
               }
               
-              /* Titre pour étiquette 40x30mm - ADAPTÉ DE 30x20mm */
+              /* Titre pour étiquette 40x30mm - ESPACE RÉDUIT POUR LE QR AGRANDI */
               .title-40x30 {
-                font-size: 7pt;
+                font-size: 5pt;
                 font-weight: 900;
-                line-height: 1.1;
+                line-height: 1.0;
                 color: #000;
                 flex: 1;
-                margin-left: 2mm;
+                margin-left: 1mm;
                 word-wrap: break-word;
                 overflow: hidden;
                 text-transform: uppercase;
-                letter-spacing: 0.5px;
+                letter-spacing: 0.3px;
                 display: flex;
                 flex-direction: column;
                 justify-content: center;
+                max-width: 2mm;
               }
               
               /* Titre pour étiquette 40x40mm avec texte en dessous */
@@ -196,13 +197,13 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
                 letter-spacing: 0.3px;
               }
               
-              /* Sous-titre pour étiquette 40x30mm - ADAPTÉ DE 30x20mm */
+              /* Sous-titre pour étiquette 40x30mm - RÉDUIT POUR L'ESPACE */
               .subtitle-40x30 {
-                font-size: 5pt;
+                font-size: 3pt;
                 color: #666;
-                margin-top: 1mm;
+                margin-top: 0.5mm;
                 font-weight: 500;
-                line-height: 1.1;
+                line-height: 1.0;
               }
               
               /* Sous-titre pour étiquette 40x40mm avec texte en dessous */
@@ -453,7 +454,7 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
               
               <div class="format-buttons">
                 <button class="btn btn-40x30" onclick="showFormat('40x30')">
-                  📐 Étiquette 40x30mm (adaptée de 30x20mm)
+                  📐 Étiquette 40x30mm (QR agrandi 150%)
                 </button>
                 <button class="btn btn-40x40-text" onclick="showFormat('40x40-text-below')">
                   📄 Étiquette 40x40mm (texte en dessous)
@@ -476,14 +477,14 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
               </div>
               
               <div class="tip">
-                <div class="tip-icon">💡</div>
+                <div class="tip-icon">🔍</div>
                 <div>
-                  <strong>NOUVEAU :</strong> Étiquette 40x30mm adaptée du format 30x20mm avec QR code plus grand (24mm) et texte optimisé pour l'espace supplémentaire.
+                  <strong>NOUVEAU :</strong> QR code agrandi de 150% (36mm) pour l'étiquette 40x30mm - Scan ultra-facile avec texte optimisé pour l'espace restant.
                 </div>
               </div>
             </div>
             
-            <!-- Format 40x30mm - ADAPTÉ DE 30x20mm -->
+            <!-- Format 40x30mm - QR CODE AGRANDI DE 150% -->
             <div id="format-40x30" class="label-40x30" style="display: none;">
               <img src="${qrCodeDataURL}" alt="QR Code" class="qr-code-40x30" />
               <div class="title-40x30">

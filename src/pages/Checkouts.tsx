@@ -3,6 +3,7 @@ import Card from '../components/common/Card';
 import Badge from '../components/common/Badge';
 import Button from '../components/common/Button';
 import Accordion from '../components/common/Accordion';
+import DirectReturnModal from '../components/common/DirectReturnModal';
 import { useLanguage } from '../contexts/LanguageContext';
 import { supabase } from '../lib/supabase';
 import { format } from 'date-fns';
@@ -96,6 +97,8 @@ const Checkouts: React.FC = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [showReturnModal, setShowReturnModal] = useState(false);
   const [selectedNote, setSelectedNote] = useState<DeliveryNoteGroup | null>(null);
+  const [showDirectReturnModal, setShowDirectReturnModal] = useState(false);
+  const [selectedCheckout, setSelectedCheckout] = useState<CheckoutWithDetails | null>(null);
 
   useEffect(() => {
     fetchCheckouts();
@@ -222,6 +225,11 @@ const Checkouts: React.FC = () => {
   const handleReturnNote = (note: DeliveryNoteGroup) => {
     setSelectedNote(note);
     setShowReturnModal(true);
+  };
+
+  const handleDirectReturn = (checkout: CheckoutWithDetails) => {
+    setSelectedCheckout(checkout);
+    setShowDirectReturnModal(true);
   };
 
   const handlePrintNote = async (note: DeliveryNoteGroup) => {
@@ -819,14 +827,22 @@ const Checkouts: React.FC = () => {
                                 </div>
                               </div>
                               
-                              <div className="text-right">
+                              <div className="flex items-center gap-2">
                                 <Badge variant={getStatusBadgeVariant(checkout.status, itemOverdue)}>
                                   {getStatusLabel(checkout.status, itemOverdue)}
                                 </Badge>
-                                {checkout.return_date && (
-                                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                                    Retourné le {format(new Date(checkout.return_date), 'dd/MM/yyyy')}
-                                  </p>
+                                {checkout.status === 'active' && (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    icon={<ArrowLeft size={14} />}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleDirectReturn(checkout);
+                                    }}
+                                  >
+                                    Retour
+                                  </Button>
                                 )}
                               </div>
                             </div>
@@ -1002,15 +1018,7 @@ const Checkouts: React.FC = () => {
                               variant="outline"
                               size="sm"
                               icon={<ArrowLeft size={14} />}
-                              onClick={() => {
-                                // Trouver le bon de sortie correspondant
-                                const note = deliveryNotes.find(n => n.checkouts.some(c => c.id === checkout.id));
-                                if (note) {
-                                  handleReturnNote(note);
-                                } else {
-                                  toast.error('Bon de sortie non trouvé');
-                                }
-                              }}
+                              onClick={() => handleDirectReturn(checkout)}
                             >
                               Retour
                             </Button>
@@ -1036,6 +1044,20 @@ const Checkouts: React.FC = () => {
           setTimeout(() => fetchCheckouts(), 500);
         }}
       />
+
+      {/* Direct Return Modal */}
+      {selectedCheckout && (
+        <DirectReturnModal
+          isOpen={showDirectReturnModal}
+          onClose={() => {
+            setShowDirectReturnModal(false);
+            setSelectedCheckout(null);
+            // Refresh data after closing modal
+            setTimeout(() => fetchCheckouts(), 500);
+          }}
+          checkout={selectedCheckout}
+        />
+      )}
     </div>
   );
 };

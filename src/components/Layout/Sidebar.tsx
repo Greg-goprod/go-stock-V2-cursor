@@ -111,7 +111,7 @@ const Sidebar: React.FC = () => {
           
           <NavLink to="/checkouts" className={navLinkClass} onClick={() => setIsOpen(false)}>
             <CalendarClock size={20} />
-            <span>{t('checkouts')}</span>
+            <span>SORTIE MATÉRIEL</span>
           </NavLink>
           
           <NavLink to="/notifications" className={navLinkClass} onClick={() => setIsOpen(false)}>

@@ -17,9 +17,9 @@ const Header: React.FC = () => {
     const path = location.pathname;
     
     if (path === '/') return t('dashboard');
-    if (path.startsWith('/equipment')) return t('equipment');
+    if (path.startsWith('/equipment')) return 'Matériel';
     if (path.startsWith('/users')) return t('users');
-    if (path.startsWith('/checkouts')) return t('checkouts');
+    if (path.startsWith('/checkouts')) return 'SORTIE MATÉRIEL';
     if (path.startsWith('/notifications')) return t('notifications');
     if (path.startsWith('/settings')) return t('settings');
     if (path.startsWith('/scan')) return t('scan');

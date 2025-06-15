@@ -57,9 +57,19 @@ const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
         <head>
           <title>Bon de Sortie ${noteNumber} - GO-Mat</title>
           <style>
+            @page {
+              size: A4;
+              margin: 1cm;
+            }
             @media print {
-              body { margin: 0; font-size: 12pt; }
+              body { 
+                margin: 0; 
+                font-size: 12pt; 
+                color: #000 !important;
+                background: #fff !important;
+              }
               .no-print { display: none !important; }
+              .page-break { page-break-after: always; }
             }
             body { 
               font-family: Arial, sans-serif; 
@@ -90,7 +100,7 @@ const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
               margin-bottom: 30px; 
             }
             .items th, .items td { 
-              border: 1px solid #ddd; 
+              border: 1px solid #333; 
               padding: 8px; 
               text-align: left; 
             }
@@ -159,55 +169,98 @@ const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
             <p>Ce bon de sortie doit être conservé jusqu'au retour complet du matériel.</p>
             <p>Pour tout retour, présentez ce bon ou indiquez le numéro: <strong>${noteNumber}</strong></p>
           </div>
+
+          <!-- Deuxième copie -->
+          <div class="page-break"></div>
+          
+          <div class="header">
+            <h1>GO-Mat - Bon de Sortie (COPIE)</h1>
+            <div class="note-number">N° ${noteNumber}</div>
+            <p>Date d'émission: ${new Date().toLocaleDateString('fr-FR')}</p>
+          </div>
+          
+          <div class="info">
+            <p><strong>Utilisateur:</strong> ${selectedUser?.first_name} ${selectedUser?.last_name}</p>
+            <p><strong>Téléphone:</strong> ${selectedUser?.phone}</p>
+            <p><strong>Département:</strong> ${selectedUser?.department}</p>
+            <p><strong>Date de retour prévue:</strong> ${new Date(dueDate).toLocaleDateString('fr-FR')}</p>
+            ${notes ? `<p><strong>Notes:</strong> ${notes}</p>` : ''}
+          </div>
+
+          <table class="items">
+            <thead>
+              <tr>
+                <th>Équipement</th>
+                <th>Numéro de série</th>
+                <th>Quantité</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${allItems.map(item => `
+                <tr>
+                  <td>${item.name}</td>
+                  <td>${item.serialNumber}</td>
+                  <td>${item.quantity}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+
+          <div class="signature">
+            <p>Je reconnais avoir reçu le matériel ci-dessus et m'engage à le restituer en bon état.</p>
+            <p>Signature de l'utilisateur:</p>
+            <div class="signature-line"></div>
+            <p style="margin-top: 5px;">Date: _______________</p>
+          </div>
+
+          <div class="footer">
+            <p>Ce bon de sortie doit être conservé jusqu'au retour complet du matériel.</p>
+            <p>Pour tout retour, présentez ce bon ou indiquez le numéro: <strong>${noteNumber}</strong></p>
+          </div>
         </body>
       </html>
     `;
 
+    // Créer un blob avec le contenu HTML
+    const blob = new Blob([printContent], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    
     // Créer un iframe caché pour l'impression
-    const iframe = document.createElement('iframe');
-    iframe.style.position = 'absolute';
-    iframe.style.top = '-9999px';
-    iframe.style.left = '-9999px';
-    iframe.style.width = '1px';
-    iframe.style.height = '1px';
-    iframe.style.border = 'none';
-    iframe.style.visibility = 'hidden';
+    const printFrame = document.createElement('iframe');
+    printFrame.style.position = 'absolute';
+    printFrame.style.top = '-9999px';
+    printFrame.style.left = '-9999px';
+    printFrame.style.width = '1px';
+    printFrame.style.height = '1px';
+    printFrame.style.border = 'none';
+    printFrame.style.visibility = 'hidden';
     
-    document.body.appendChild(iframe);
+    document.body.appendChild(printFrame);
     
-    const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
-    if (iframeDoc) {
-      iframeDoc.open();
-      iframeDoc.write(printContent);
-      iframeDoc.close();
-      
-      // Attendre que le contenu soit chargé puis imprimer
-      setTimeout(() => {
-        try {
-          // Première impression
-          iframe.contentWindow?.print();
-          
-          // Deuxième impression après un délai
-          setTimeout(() => {
-            iframe.contentWindow?.print();
-            
-            // Nettoyer l'iframe
-            setTimeout(() => {
-              if (document.body.contains(iframe)) {
-                document.body.removeChild(iframe);
-              }
-            }, 1000);
-          }, 1000);
-          
-        } catch (error) {
-          console.error('Erreur lors de l\'impression:', error);
-          toast.error('Erreur lors de l\'impression');
-          if (document.body.contains(iframe)) {
-            document.body.removeChild(iframe);
+    printFrame.onload = () => {
+      try {
+        // Lancer l'impression
+        printFrame.contentWindow?.print();
+        
+        // Nettoyer après impression
+        setTimeout(() => {
+          if (document.body.contains(printFrame)) {
+            document.body.removeChild(printFrame);
           }
+          URL.revokeObjectURL(url);
+        }, 1000);
+        
+      } catch (error) {
+        console.error('Erreur lors de l\'impression:', error);
+        toast.error('Erreur lors de l\'impression');
+        if (document.body.contains(printFrame)) {
+          document.body.removeChild(printFrame);
         }
-      }, 500);
-    }
+        URL.revokeObjectURL(url);
+      }
+    };
+    
+    printFrame.src = url;
   };
 
   return (
@@ -224,7 +277,7 @@ const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
           </h3>
           <p className="text-green-700 dark:text-green-300 text-sm">
             Le bon de sortie N° <strong>{noteNumber}</strong> a été créé et enregistré dans la base de données.
-            Vous pouvez maintenant l'imprimer en 2 exemplaires.
+            Cliquez sur "Imprimer" pour imprimer automatiquement 2 copies du bon.
           </p>
         </div>
         
@@ -234,7 +287,7 @@ const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
             <h4 className="font-medium text-gray-900 dark:text-white">Aperçu du bon de sortie</h4>
           </div>
           
-          <div className="p-6 bg-white max-h-96 overflow-y-auto" style={{ 
+          <div className="p-6 bg-white dark:bg-gray-100 max-h-96 overflow-y-auto" style={{ 
             fontFamily: 'Arial, sans-serif',
             fontSize: '14px',
             lineHeight: '1.6',
@@ -242,13 +295,13 @@ const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
           }}>
             {/* Header */}
             <div className="text-center mb-6 pb-3 border-b-2 border-gray-800">
-              <h1 className="text-xl font-bold mb-2">GO-Mat - Bon de Sortie</h1>
+              <h1 className="text-xl font-bold mb-2 text-black">GO-Mat - Bon de Sortie</h1>
               <div className="text-lg font-bold text-blue-600 mb-2">N° {noteNumber}</div>
-              <p className="text-sm">Date d'émission: {new Date().toLocaleDateString('fr-FR')}</p>
+              <p className="text-sm text-black">Date d'émission: {new Date().toLocaleDateString('fr-FR')}</p>
             </div>
             
             {/* Informations utilisateur */}
-            <div className="mb-6">
+            <div className="mb-6 text-black">
               <p className="mb-1"><strong>Utilisateur:</strong> {selectedUser?.first_name} {selectedUser?.last_name}</p>
               <p className="mb-1"><strong>Téléphone:</strong> {selectedUser?.phone}</p>
               <p className="mb-1"><strong>Département:</strong> {selectedUser?.department}</p>
@@ -260,24 +313,24 @@ const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
             <table className="w-full border-collapse mb-6">
               <thead>
                 <tr className="bg-gray-100">
-                  <th className="border border-gray-300 px-2 py-2 text-left font-bold">Équipement</th>
-                  <th className="border border-gray-300 px-2 py-2 text-left font-bold">Numéro de série</th>
-                  <th className="border border-gray-300 px-2 py-2 text-left font-bold">Quantité</th>
+                  <th className="border border-gray-800 px-2 py-2 text-left font-bold text-black">Équipement</th>
+                  <th className="border border-gray-800 px-2 py-2 text-left font-bold text-black">Numéro de série</th>
+                  <th className="border border-gray-800 px-2 py-2 text-left font-bold text-black">Quantité</th>
                 </tr>
               </thead>
               <tbody>
                 {allItems.map((item, index) => (
                   <tr key={index}>
-                    <td className="border border-gray-300 px-2 py-2">{item.name}</td>
-                    <td className="border border-gray-300 px-2 py-2">{item.serialNumber}</td>
-                    <td className="border border-gray-300 px-2 py-2">{item.quantity}</td>
+                    <td className="border border-gray-800 px-2 py-2 text-black">{item.name}</td>
+                    <td className="border border-gray-800 px-2 py-2 text-black">{item.serialNumber}</td>
+                    <td className="border border-gray-800 px-2 py-2 text-black">{item.quantity}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
 
             {/* Signature */}
-            <div className="mt-12">
+            <div className="mt-12 text-black">
               <p className="mb-4">Je reconnais avoir reçu le matériel ci-dessus et m'engage à le restituer en bon état.</p>
               <p className="mb-4">Signature de l'utilisateur:</p>
               <div className="border-b border-gray-800 w-48 mb-2"></div>
@@ -290,6 +343,20 @@ const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
               <p>Pour tout retour, présentez ce bon ou indiquez le numéro: <strong>{noteNumber}</strong></p>
             </div>
           </div>
+        </div>
+        
+        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <Printer size={18} className="text-blue-600 dark:text-blue-400" />
+            <h4 className="font-medium text-blue-800 dark:text-blue-200">Information d'impression</h4>
+          </div>
+          <p className="text-blue-700 dark:text-blue-300 text-sm">
+            L'impression générera automatiquement <strong>2 copies</strong> du bon de sortie :
+          </p>
+          <ul className="text-blue-700 dark:text-blue-300 text-sm mt-2 ml-4 list-disc">
+            <li>Une copie pour l'utilisateur</li>
+            <li>Une copie pour l'archive</li>
+          </ul>
         </div>
         
         <div className="flex justify-between">
@@ -1089,7 +1156,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
                 </h3>
                 <p className="text-blue-700 dark:text-blue-300 text-sm">
                   Un numéro de bon unique sera généré automatiquement pour faciliter le suivi et les retours.
-                  Le bon sera affiché dans une popup pour impression (2 copies par défaut).
+                  Le bon sera affiché dans une popup modale pour impression (2 copies automatiques).
                   Une notification sera automatiquement créée pour tracer ce mouvement de sortie.
                 </p>
               </div>

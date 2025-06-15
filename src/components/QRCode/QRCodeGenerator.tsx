@@ -44,7 +44,6 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
                 width: 40mm;
                 height: 40mm;
                 padding: 2mm;
-                border: 1px solid #ccc;
                 display: flex;
                 flex-direction: column;
                 align-items: center;
@@ -58,7 +57,6 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
                 width: 40mm;
                 height: 40mm;
                 padding: 3mm;
-                border: 1px solid #ccc;
                 border-radius: 50%;
                 display: flex;
                 flex-direction: column;
@@ -74,7 +72,6 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
                 width: 30mm;
                 height: 20mm;
                 padding: 1mm;
-                border: 1px solid #ccc;
                 display: flex;
                 align-items: center;
                 justify-content: space-between;
@@ -151,6 +148,10 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
               .controls {
                 margin: 10mm;
                 text-align: center;
+                border: 1px solid #ddd;
+                padding: 20px;
+                border-radius: 8px;
+                background: #f9f9f9;
               }
               
               .btn {
@@ -163,10 +164,12 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
                 cursor: pointer;
                 font-size: 14px;
                 font-weight: bold;
+                transition: all 0.2s;
               }
               
               .btn:hover {
                 background: #1d4ed8;
+                transform: scale(1.02);
               }
               
               .btn-round {
@@ -175,6 +178,20 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
               
               .btn-round:hover {
                 background: #059669;
+              }
+              
+              .btn-print {
+                background: #059669;
+                font-size: 16px;
+                padding: 12px 24px;
+                margin: 10px 5px;
+              }
+              
+              .btn-close {
+                background: #dc2626;
+                font-size: 16px;
+                padding: 12px 24px;
+                margin: 10px 5px;
               }
               
               @media print {
@@ -186,8 +203,8 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
                   display: none;
                 }
                 .label-40x40, .label-40x40-round, .label-30x20 {
-                  border: 1px solid #000;
                   margin: 0;
+                  border: none;
                 }
               }
               
@@ -199,15 +216,18 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
           </head>
           <body>
             <div class="controls">
-              <h2>🏷️ Choisissez le format d'étiquette :</h2>
+              <h2 style="color: #2563eb; margin-bottom: 20px;">🏷️ Choisissez le format d'étiquette</h2>
               <div style="margin: 20px 0;">
                 <button class="btn" onclick="showFormat('40x40')">📐 Étiquette 40x40mm (Carrée)</button>
                 <button class="btn btn-round" onclick="showFormat('40x40-round')">⭕ Étiquette 40x40mm (Ronde)</button>
                 <button class="btn" onclick="showFormat('30x20')">📏 Étiquette 30x20mm</button>
               </div>
               <div style="margin: 20px 0;">
-                <button class="btn" onclick="window.print()" style="background: #059669; font-size: 16px; padding: 10px 20px;">🖨️ IMPRIMER</button>
-                <button class="btn" onclick="window.close()" style="background: #dc2626; font-size: 16px; padding: 10px 20px;">❌ FERMER</button>
+                <button class="btn btn-print" onclick="window.print()">🖨️ IMPRIMER</button>
+                <button class="btn btn-close" onclick="window.close()">❌ FERMER</button>
+              </div>
+              <div style="margin-top: 15px; font-size: 12px; color: #666;">
+                💡 <strong>Astuce :</strong> L'étiquette s'imprimera sans bordure pour un rendu professionnel
               </div>
             </div>
             
@@ -249,7 +269,7 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
                 }
                 
                 // Mettre en évidence le bouton sélectionné
-                const buttons = document.querySelectorAll('.btn');
+                const buttons = document.querySelectorAll('.btn:not(.btn-print):not(.btn-close)');
                 buttons.forEach(btn => {
                   btn.style.opacity = '0.7';
                   btn.style.transform = 'scale(1)';

@@ -167,61 +167,184 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
     }
   };
 
-  // 🎯 NOUVELLE FONCTION DE SCAN SIMPLIFIÉ
+  // 🎯 ALGORITHME DE RECHERCHE ULTRA-INTELLIGENT
   const handleEquipmentScan = (scannedId: string) => {
-    console.log('🔍 RECHERCHE ÉQUIPEMENT DÉTAILLÉE');
-    console.log('🔍 Valeur scannée:', JSON.stringify(scannedId));
-    console.log('🔍 Type:', typeof scannedId, 'Longueur:', scannedId.length);
-    console.log('🔍 Caractères spéciaux:', scannedId.split('').map(c => c.charCodeAt(0)));
+    console.log('🔍 === DÉBUT DE LA RECHERCHE INTELLIGENTE ===');
+    console.log('🔍 Valeur brute scannée:', JSON.stringify(scannedId));
+    console.log('🔍 Longueur:', scannedId.length);
+    console.log('🔍 Caractères:', scannedId.split('').map(c => `${c}(${c.charCodeAt(0)})`).join(' '));
 
-    // Nettoyer la valeur scannée
-    const cleanScannedId = scannedId.replace(/[\r\n\t\s]/g, '').trim();
+    // 🧹 NETTOYAGE ULTRA-COMPLET
+    const cleanScannedId = scannedId
+      .replace(/[\r\n\t\s]/g, '') // Supprimer espaces, tabs, retours
+      .replace(/[^\w\-\.]/g, '') // Garder seulement lettres, chiffres, tirets, points
+      .trim()
+      .toUpperCase(); // Normaliser en majuscules
+
     console.log('🧹 Valeur nettoyée:', JSON.stringify(cleanScannedId));
 
-    // 1. Recherche par ID exact
-    let equipmentItem = equipment.find(e => e.id === cleanScannedId);
-    console.log('🔍 Recherche par ID exact:', equipmentItem ? '✅ Trouvé' : '❌ Non trouvé');
-
-    // 2. Recherche par article number
-    if (!equipmentItem) {
-      equipmentItem = equipment.find(e => e.articleNumber === cleanScannedId);
-      console.log('🔍 Recherche par article number:', equipmentItem ? '✅ Trouvé' : '❌ Non trouvé');
+    if (!cleanScannedId) {
+      console.log('❌ Valeur vide après nettoyage');
+      const errorMessage = 'QR code vide ou invalide';
+      setScanHistory(prev => [...prev, {
+        id: Date.now().toString(),
+        timestamp: new Date().toLocaleTimeString('fr-FR'),
+        scannedValue: scannedId,
+        status: 'error',
+        message: errorMessage
+      }]);
+      toast.error(`❌ ${errorMessage}`);
+      return;
     }
 
-    // 3. Recherche par serial number
-    if (!equipmentItem) {
-      equipmentItem = equipment.find(e => e.serialNumber === cleanScannedId);
-      console.log('🔍 Recherche par serial number:', equipmentItem ? '✅ Trouvé' : '❌ Non trouvé');
+    // 🔍 RECHERCHE MULTI-CRITÈRES INTELLIGENTE
+    let equipmentItem: Equipment | undefined;
+    let searchMethod = '';
+
+    console.log('🔍 === RECHERCHE DANS', equipment.length, 'ÉQUIPEMENTS ===');
+
+    // 1️⃣ RECHERCHE EXACTE PAR ID
+    equipmentItem = equipment.find(e => e.id.toUpperCase() === cleanScannedId);
+    if (equipmentItem) {
+      searchMethod = 'ID exact';
+      console.log('✅ Trouvé par ID exact:', equipmentItem.name);
     }
 
-    // 4. Recherche par nom ou description (partielle)
+    // 2️⃣ RECHERCHE EXACTE PAR NUMÉRO D'ARTICLE
     if (!equipmentItem) {
       equipmentItem = equipment.find(e => 
-        e.name.toLowerCase().includes(cleanScannedId.toLowerCase()) ||
-        e.description.toLowerCase().includes(cleanScannedId.toLowerCase())
+        e.articleNumber && e.articleNumber.toUpperCase() === cleanScannedId
       );
-      console.log('🔍 Recherche par nom/description:', equipmentItem ? '✅ Trouvé' : '❌ Non trouvé');
+      if (equipmentItem) {
+        searchMethod = 'Numéro d\'article exact';
+        console.log('✅ Trouvé par numéro d\'article:', equipmentItem.name);
+      }
     }
 
-    // 5. Recherche insensible à la casse et caractères spéciaux
+    // 3️⃣ RECHERCHE EXACTE PAR NUMÉRO DE SÉRIE
     if (!equipmentItem) {
-      const normalizedScanned = cleanScannedId.toLowerCase().replace(/[^a-z0-9]/g, '');
+      equipmentItem = equipment.find(e => 
+        e.serialNumber.toUpperCase() === cleanScannedId
+      );
+      if (equipmentItem) {
+        searchMethod = 'Numéro de série exact';
+        console.log('✅ Trouvé par numéro de série:', equipmentItem.name);
+      }
+    }
+
+    // 4️⃣ RECHERCHE PARTIELLE PAR NUMÉRO D'ARTICLE (contient)
+    if (!equipmentItem) {
+      equipmentItem = equipment.find(e => 
+        e.articleNumber && 
+        (e.articleNumber.toUpperCase().includes(cleanScannedId) || 
+         cleanScannedId.includes(e.articleNumber.toUpperCase()))
+      );
+      if (equipmentItem) {
+        searchMethod = 'Numéro d\'article partiel';
+        console.log('✅ Trouvé par numéro d\'article partiel:', equipmentItem.name);
+      }
+    }
+
+    // 5️⃣ RECHERCHE PARTIELLE PAR NUMÉRO DE SÉRIE (contient)
+    if (!equipmentItem) {
+      equipmentItem = equipment.find(e => 
+        e.serialNumber.toUpperCase().includes(cleanScannedId) || 
+        cleanScannedId.includes(e.serialNumber.toUpperCase())
+      );
+      if (equipmentItem) {
+        searchMethod = 'Numéro de série partiel';
+        console.log('✅ Trouvé par numéro de série partiel:', equipmentItem.name);
+      }
+    }
+
+    // 6️⃣ RECHERCHE PAR NOM (contient)
+    if (!equipmentItem) {
+      equipmentItem = equipment.find(e => 
+        e.name.toUpperCase().includes(cleanScannedId) || 
+        cleanScannedId.includes(e.name.toUpperCase())
+      );
+      if (equipmentItem) {
+        searchMethod = 'Nom du matériel';
+        console.log('✅ Trouvé par nom:', equipmentItem.name);
+      }
+    }
+
+    // 7️⃣ RECHERCHE FUZZY (sans caractères spéciaux)
+    if (!equipmentItem) {
+      const fuzzyScanned = cleanScannedId.replace(/[^A-Z0-9]/g, '');
       equipmentItem = equipment.find(e => {
-        const normalizedArticle = (e.articleNumber || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-        const normalizedSerial = e.serialNumber.toLowerCase().replace(/[^a-z0-9]/g, '');
-        const normalizedName = e.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+        const fuzzyArticle = (e.articleNumber || '').replace(/[^A-Z0-9]/g, '').toUpperCase();
+        const fuzzySerial = e.serialNumber.replace(/[^A-Z0-9]/g, '').toUpperCase();
+        const fuzzyName = e.name.replace(/[^A-Z0-9]/g, '').toUpperCase();
         
-        return normalizedArticle === normalizedScanned || 
-               normalizedSerial === normalizedScanned ||
-               normalizedName.includes(normalizedScanned);
+        return fuzzyArticle === fuzzyScanned || 
+               fuzzySerial === fuzzyScanned ||
+               fuzzyName.includes(fuzzyScanned) ||
+               fuzzyScanned.includes(fuzzyArticle) ||
+               fuzzyScanned.includes(fuzzySerial);
       });
-      console.log('🔍 Recherche insensible à la casse:', equipmentItem ? '✅ Trouvé' : '❌ Non trouvé');
+      if (equipmentItem) {
+        searchMethod = 'Recherche fuzzy';
+        console.log('✅ Trouvé par recherche fuzzy:', equipmentItem.name);
+      }
+    }
+
+    // 8️⃣ RECHERCHE PAR SIMILARITÉ (Levenshtein distance)
+    if (!equipmentItem) {
+      const calculateSimilarity = (str1: string, str2: string): number => {
+        const matrix = Array(str2.length + 1).fill(null).map(() => Array(str1.length + 1).fill(null));
+        
+        for (let i = 0; i <= str1.length; i++) matrix[0][i] = i;
+        for (let j = 0; j <= str2.length; j++) matrix[j][0] = j;
+        
+        for (let j = 1; j <= str2.length; j++) {
+          for (let i = 1; i <= str1.length; i++) {
+            const indicator = str1[i - 1] === str2[j - 1] ? 0 : 1;
+            matrix[j][i] = Math.min(
+              matrix[j][i - 1] + 1,
+              matrix[j - 1][i] + 1,
+              matrix[j - 1][i - 1] + indicator
+            );
+          }
+        }
+        
+        const distance = matrix[str2.length][str1.length];
+        const maxLength = Math.max(str1.length, str2.length);
+        return maxLength === 0 ? 1 : 1 - (distance / maxLength);
+      };
+
+      let bestMatch: Equipment | undefined;
+      let bestSimilarity = 0;
+
+      equipment.forEach(e => {
+        const similarities = [
+          e.articleNumber ? calculateSimilarity(cleanScannedId, e.articleNumber.toUpperCase()) : 0,
+          calculateSimilarity(cleanScannedId, e.serialNumber.toUpperCase()),
+          calculateSimilarity(cleanScannedId, e.name.toUpperCase())
+        ];
+        
+        const maxSimilarity = Math.max(...similarities);
+        if (maxSimilarity > bestSimilarity && maxSimilarity > 0.7) { // 70% de similarité minimum
+          bestSimilarity = maxSimilarity;
+          bestMatch = e;
+        }
+      });
+
+      if (bestMatch) {
+        equipmentItem = bestMatch;
+        searchMethod = `Similarité (${Math.round(bestSimilarity * 100)}%)`;
+        console.log('✅ Trouvé par similarité:', equipmentItem.name, `(${Math.round(bestSimilarity * 100)}%)`);
+      }
     }
 
     const timestamp = new Date().toLocaleTimeString('fr-FR');
 
     if (equipmentItem) {
-      console.log('✅ ÉQUIPEMENT TROUVÉ:', equipmentItem.name);
+      console.log('🎯 === ÉQUIPEMENT TROUVÉ ===');
+      console.log('📦 Nom:', equipmentItem.name);
+      console.log('🔢 Article:', equipmentItem.articleNumber);
+      console.log('🏷️ Série:', equipmentItem.serialNumber);
+      console.log('🔍 Méthode:', searchMethod);
       
       const stock = stockInfo[equipmentItem.id];
       if (!stock || stock.available === 0) {
@@ -234,7 +357,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
           equipmentName: equipmentItem!.name,
           message: errorMessage
         }]);
-        toast.error(`❌ ${errorMessage}`);
+        toast.error(`❌ ${errorMessage} (${equipmentItem.name})`);
         return;
       }
 
@@ -251,7 +374,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
           equipmentName: equipmentItem!.name,
           message: errorMessage
         }]);
-        toast.error(`❌ ${errorMessage}`);
+        toast.error(`❌ ${errorMessage} (${equipmentItem.name})`);
         return;
       }
 
@@ -277,22 +400,25 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
         scannedValue: cleanScannedId,
         status: 'success',
         equipmentName: equipmentItem.name,
-        message: `Ajouté (${(currentQuantity + 1)}/${stock.available})`
+        message: `✅ Ajouté via ${searchMethod} (${(currentQuantity + 1)}/${stock.available})`
       }]);
 
-      toast.success(`✅ ${equipmentItem.name} ajouté !`);
+      toast.success(`✅ ${equipmentItem.name} ajouté ! (${searchMethod})`);
     } else {
-      console.log('❌ ÉQUIPEMENT NON TROUVÉ');
-      console.log('📋 Équipements disponibles:');
-      equipment.forEach((eq, index) => {
-        console.log(`  ${index + 1}. ID: ${eq.id}`);
-        console.log(`     Nom: ${eq.name}`);
-        console.log(`     Article: ${eq.articleNumber}`);
+      console.log('❌ === ÉQUIPEMENT NON TROUVÉ ===');
+      console.log('📋 Équipements disponibles dans la base:');
+      equipment.slice(0, 5).forEach((eq, index) => {
+        console.log(`  ${index + 1}. "${eq.name}"`);
+        console.log(`     ID: ${eq.id}`);
+        console.log(`     Article: ${eq.articleNumber || 'N/A'}`);
         console.log(`     Série: ${eq.serialNumber}`);
         console.log(`     ---`);
       });
+      if (equipment.length > 5) {
+        console.log(`  ... et ${equipment.length - 5} autres équipements`);
+      }
 
-      const errorMessage = 'Matériel non trouvé';
+      const errorMessage = `Matériel non trouvé (scanné: "${cleanScannedId}")`;
       setScanHistory(prev => [...prev, {
         id: Date.now().toString(),
         timestamp,
@@ -302,6 +428,8 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
       }]);
       toast.error(`❌ ${errorMessage}`);
     }
+
+    console.log('🔍 === FIN DE LA RECHERCHE ===');
   };
 
   const handleCreateUser = async () => {

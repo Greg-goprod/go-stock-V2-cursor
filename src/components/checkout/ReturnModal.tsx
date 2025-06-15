@@ -421,7 +421,7 @@ const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose }) => {
 
   const overdueCount = deliveryNotes.filter(note => note.status === 'overdue').length;
 
-  if (loading) {
+  if (isLoading) {
     return (
       <Modal isOpen={isOpen} onClose={handleClose} title="Retour de Matériel" size="xl">
         <div className="flex items-center justify-center h-64">

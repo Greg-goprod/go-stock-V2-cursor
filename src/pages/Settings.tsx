@@ -4,7 +4,7 @@ import AccordionCard from '../components/common/AccordionCard';
 import Button from '../components/common/Button';
 import { useTheme } from '../contexts/ThemeContext';
 import { useLanguage } from '../contexts/LanguageContext';
-import { Sun, Moon, Languages, Plus, Pencil, Trash2, Tag, UserCheck, Save, X, Upload, Download, Settings as SettingsIcon } from 'lucide-react';
+import { Sun, Moon, Languages, Plus, Pencil, Trash2, Tag, UserCheck, Save, X, Upload, Download, Settings as SettingsIcon, Image } from 'lucide-react';
 import ColorPicker from '../components/common/ColorPicker';
 import CategoryModal from '../components/categories/CategoryModal';
 import SupplierModal from '../components/suppliers/SupplierModal';
@@ -38,6 +38,8 @@ const Settings: React.FC = () => {
   const [articlePrefix, setArticlePrefix] = useState('GOMAT');
   const [isEditingPrefix, setIsEditingPrefix] = useState(false);
   const [tempPrefix, setTempPrefix] = useState('GOMAT');
+  const [companyLogo, setCompanyLogo] = useState('');
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -70,6 +72,12 @@ const Settings: React.FC = () => {
       if (prefixSetting) {
         setArticlePrefix(prefixSetting.value);
         setTempPrefix(prefixSetting.value);
+      }
+
+      // Set company logo
+      const logoSetting = settingsRes.data?.find(s => s.id === 'company_logo');
+      if (logoSetting) {
+        setCompanyLogo(logoSetting.value);
       }
 
     } catch (error: any) {
@@ -187,6 +195,82 @@ const Settings: React.FC = () => {
     }
   };
 
+  const handleLogoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Vérifier le type de fichier
+    if (!file.type.startsWith('image/')) {
+      toast.error('Veuillez sélectionner un fichier image');
+      return;
+    }
+
+    // Vérifier la taille (max 2MB)
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error('Le fichier ne doit pas dépasser 2MB');
+      return;
+    }
+
+    try {
+      setIsUploadingLogo(true);
+
+      // Convertir l'image en base64
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const base64String = e.target?.result as string;
+        
+        try {
+          // Sauvegarder le logo en base64 dans les paramètres système
+          const { error } = await supabase
+            .from('system_settings')
+            .upsert({
+              id: 'company_logo',
+              value: base64String,
+              description: 'Logo de l\'entreprise (base64)'
+            });
+
+          if (error) throw error;
+
+          setCompanyLogo(base64String);
+          toast.success('Logo uploadé avec succès');
+        } catch (error: any) {
+          console.error('Error saving logo:', error);
+          toast.error('Erreur lors de la sauvegarde du logo');
+        } finally {
+          setIsUploadingLogo(false);
+        }
+      };
+
+      reader.onerror = () => {
+        toast.error('Erreur lors de la lecture du fichier');
+        setIsUploadingLogo(false);
+      };
+
+      reader.readAsDataURL(file);
+    } catch (error: any) {
+      console.error('Error uploading logo:', error);
+      toast.error('Erreur lors de l\'upload du logo');
+      setIsUploadingLogo(false);
+    }
+  };
+
+  const handleRemoveLogo = async () => {
+    try {
+      const { error } = await supabase
+        .from('system_settings')
+        .delete()
+        .eq('id', 'company_logo');
+
+      if (error) throw error;
+
+      setCompanyLogo('');
+      toast.success('Logo supprimé avec succès');
+    } catch (error: any) {
+      console.error('Error removing logo:', error);
+      toast.error('Erreur lors de la suppression du logo');
+    }
+  };
+
   const handleCloseCategoryModal = () => {
     setShowCategoryModal(false);
     setSelectedCategory(undefined);
@@ -283,6 +367,70 @@ const Settings: React.FC = () => {
                   )}
                   {theme === 'dark' ? t('light') : t('dark')}
                 </button>
+              </div>
+            </div>
+          </Card>
+
+          {/* Company Logo - Simple Card */}
+          <Card>
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-primary-100 dark:bg-primary-900/50">
+                  <Image className="w-5 h-5 text-primary-600 dark:text-primary-400" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-medium text-gray-800 dark:text-white">
+                    Logo de l'entreprise
+                  </h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    Apparaît sur les bons de sortie et dans l'interface
+                  </p>
+                </div>
+              </div>
+
+              {companyLogo && (
+                <div className="flex items-center gap-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                  <img
+                    src={companyLogo}
+                    alt="Logo de l'entreprise"
+                    className="max-h-16 max-w-32 object-contain bg-white rounded border"
+                  />
+                  <div className="flex-1">
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      Logo actuel
+                    </p>
+                  </div>
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    onClick={handleRemoveLogo}
+                  >
+                    Supprimer
+                  </Button>
+                </div>
+              )}
+
+              <div className="flex gap-3">
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleLogoUpload}
+                  className="hidden"
+                  id="logo-upload"
+                  disabled={isUploadingLogo}
+                />
+                <label
+                  htmlFor="logo-upload"
+                  className={`inline-flex items-center justify-center rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-primary-500 cursor-pointer ${
+                    isUploadingLogo ? 'opacity-50 cursor-not-allowed' : ''
+                  }`}
+                >
+                  <Upload className="w-4 h-4 mr-2" />
+                  {isUploadingLogo ? 'Upload en cours...' : companyLogo ? 'Changer le logo' : 'Uploader un logo'}
+                </label>
+                <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center">
+                  Formats: JPG, PNG, GIF • Max: 2MB
+                </div>
               </div>
             </div>
           </Card>

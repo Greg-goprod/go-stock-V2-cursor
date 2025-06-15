@@ -270,144 +270,282 @@ const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose }) => {
     }
   };
 
-  const handlePrintReturn = () => {
+  const handlePrintReturn = async () => {
     if (!selectedNote) return;
 
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
+    try {
+      // Récupérer le logo depuis les paramètres système
+      const { data: logoSetting } = await supabase
+        .from('system_settings')
+        .select('value')
+        .eq('id', 'company_logo')
+        .single();
 
-    const returnedItems = returnItems.filter(item => item.action === 'return');
-    const extendedItems = returnItems.filter(item => item.action === 'extend');
-    const lostItems = returnItems.filter(item => item.action === 'lost');
+      const logoUrl = logoSetting?.value || '';
 
-    printWindow.document.write(`
-      <html>
-        <head>
-          <title>Quittance de Retour ${selectedNote.noteNumber} - GO-Mat</title>
-          <style>
-            body { font-family: Arial, sans-serif; margin: 20px; }
-            .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 10px; }
-            .note-number { font-size: 20px; font-weight: bold; color: #2563eb; margin-bottom: 10px; }
-            .section { margin-bottom: 20px; }
-            .items { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-            .items th, .items td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-            .items th { background-color: #f2f2f2; }
-            .returned { background-color: #d4edda; }
-            .extended { background-color: #fff3cd; }
-            .lost { background-color: #f8d7da; }
-            .signature { margin-top: 30px; }
-            .signature-line { border-bottom: 1px solid #333; width: 200px; margin-top: 20px; }
-            .footer { margin-top: 30px; text-align: center; font-size: 12px; color: #666; }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <h1>GO-Mat - Quittance de Retour</h1>
-            <div class="note-number">Bon N° ${selectedNote.noteNumber}</div>
-            <p>Date de retour: ${new Date().toLocaleDateString('fr-FR')}</p>
-          </div>
+      const returnedItems = returnItems.filter(item => item.action === 'return');
+      const extendedItems = returnItems.filter(item => item.action === 'extend');
+      const lostItems = returnItems.filter(item => item.action === 'lost');
 
-          <div class="section">
-            <p><strong>Utilisateur:</strong> ${selectedNote.user.first_name} ${selectedNote.user.last_name}</p>
-            <p><strong>Département:</strong> ${selectedNote.user.department}</p>
-            <p><strong>Date d'émission du bon:</strong> ${new Date(selectedNote.issueDate).toLocaleDateString('fr-FR')}</p>
-            <p><strong>Date de retour prévue:</strong> ${new Date(selectedNote.dueDate).toLocaleDateString('fr-FR')}</p>
-          </div>
-
-          ${returnedItems.length > 0 ? `
-            <div class="section">
-              <h3 style="color: #155724;">✓ Matériel Retourné</h3>
-              <table class="items">
-                <thead>
-                  <tr>
-                    <th>Équipement</th>
-                    <th>Numéro de série</th>
-                    <th>Date d'emprunt</th>
-                    <th>Notes</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${returnedItems.map(item => `
-                    <tr class="returned">
-                      <td>${item.checkout.equipment.name}</td>
-                      <td>${item.checkout.equipment.serialNumber}</td>
-                      <td>${new Date(item.checkout.checkout_date).toLocaleDateString('fr-FR')}</td>
-                      <td>${item.notes || '-'}</td>
-                    </tr>
-                  `).join('')}
-                </tbody>
-              </table>
+      const printContent = `
+        <html>
+          <head>
+            <title>Quittance de Retour ${selectedNote.noteNumber} - GO-Mat</title>
+            <style>
+              body { 
+                font-family: Arial, sans-serif; 
+                margin: 20px; 
+                color: #333;
+              }
+              .header { 
+                text-align: center; 
+                margin-bottom: 30px; 
+                border-bottom: 2px solid #333; 
+                padding-bottom: 20px; 
+              }
+              .logo {
+                max-height: 80px;
+                max-width: 200px;
+                margin-bottom: 10px;
+              }
+              .company-name {
+                font-size: 28px;
+                font-weight: bold;
+                color: #2563eb;
+                margin-bottom: 5px;
+              }
+              .subtitle {
+                font-size: 16px;
+                color: #666;
+                margin-bottom: 10px;
+              }
+              .note-number { 
+                font-size: 20px; 
+                font-weight: bold; 
+                color: #2563eb; 
+                margin-bottom: 10px; 
+              }
+              .section { 
+                margin-bottom: 20px; 
+                background: #f8f9fa;
+                padding: 15px;
+                border-radius: 8px;
+              }
+              .info-row {
+                display: flex;
+                margin-bottom: 8px;
+              }
+              .info-label {
+                font-weight: bold;
+                width: 200px;
+                color: #555;
+              }
+              .items { 
+                width: 100%; 
+                border-collapse: collapse; 
+                margin-bottom: 20px; 
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+              }
+              .items th, .items td { 
+                border: 1px solid #ddd; 
+                padding: 12px; 
+                text-align: left; 
+              }
+              .items th { 
+                background-color: #2563eb; 
+                color: white;
+                font-weight: bold;
+              }
+              .returned { background-color: #d4edda; }
+              .extended { background-color: #fff3cd; }
+              .lost { background-color: #f8d7da; }
+              .signature { 
+                margin-top: 30px; 
+                display: flex;
+                justify-content: space-between;
+              }
+              .signature-box {
+                width: 45%;
+                text-align: center;
+              }
+              .signature-line { 
+                border-bottom: 2px solid #333; 
+                width: 100%; 
+                margin-top: 30px; 
+                margin-bottom: 10px;
+              }
+              .footer { 
+                margin-top: 30px; 
+                text-align: center; 
+                font-size: 12px; 
+                color: #666; 
+                border-top: 1px solid #ddd;
+                padding-top: 20px;
+              }
+              @media print {
+                body { margin: 0; }
+                .no-print { display: none; }
+              }
+            </style>
+          </head>
+          <body>
+            <div class="header">
+              ${logoUrl ? `<img src="${logoUrl}" alt="Logo" class="logo" />` : ''}
+              <div class="company-name">GO-Mat</div>
+              <div class="subtitle">Gestion de Matériel</div>
+              <div class="note-number">Quittance de Retour - Bon N° ${selectedNote.noteNumber}</div>
+              <p>Date de retour: ${new Date().toLocaleDateString('fr-FR', { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+              })}</p>
             </div>
-          ` : ''}
 
-          ${extendedItems.length > 0 ? `
             <div class="section">
-              <h3 style="color: #856404;">📅 Prolongations Accordées</h3>
-              <table class="items">
-                <thead>
-                  <tr>
-                    <th>Équipement</th>
-                    <th>Numéro de série</th>
-                    <th>Nouvelle date de retour</th>
-                    <th>Notes</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${extendedItems.map(item => `
-                    <tr class="extended">
-                      <td>${item.checkout.equipment.name}</td>
-                      <td>${item.checkout.equipment.serialNumber}</td>
-                      <td>${item.newDueDate ? new Date(item.newDueDate).toLocaleDateString('fr-FR') : '-'}</td>
-                      <td>${item.notes || '-'}</td>
-                    </tr>
-                  `).join('')}
-                </tbody>
-              </table>
+              <h3 style="margin-top: 0; color: #2563eb;">Informations de l'emprunteur</h3>
+              <div class="info-row">
+                <span class="info-label">Nom complet:</span>
+                <span>${selectedNote.user.first_name} ${selectedNote.user.last_name}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Département:</span>
+                <span>${selectedNote.user.department}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Date d'émission du bon:</span>
+                <span>${new Date(selectedNote.issueDate).toLocaleDateString('fr-FR')}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Date de retour prévue:</span>
+                <span>${new Date(selectedNote.dueDate).toLocaleDateString('fr-FR')}</span>
+              </div>
             </div>
-          ` : ''}
 
-          ${lostItems.length > 0 ? `
-            <div class="section">
-              <h3 style="color: #721c24;">✗ Matériel Déclaré Perdu</h3>
-              <table class="items">
-                <thead>
-                  <tr>
-                    <th>Équipement</th>
-                    <th>Numéro de série</th>
-                    <th>Date d'emprunt</th>
-                    <th>Notes</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${lostItems.map(item => `
-                    <tr class="lost">
-                      <td>${item.checkout.equipment.name}</td>
-                      <td>${item.checkout.equipment.serialNumber}</td>
-                      <td>${new Date(item.checkout.checkout_date).toLocaleDateString('fr-FR')}</td>
-                      <td>${item.notes || '-'}</td>
+            ${returnedItems.length > 0 ? `
+              <div class="section">
+                <h3 style="color: #155724; margin-top: 0;">✓ Matériel Retourné</h3>
+                <table class="items">
+                  <thead>
+                    <tr>
+                      <th>Équipement</th>
+                      <th>Numéro de série</th>
+                      <th>Date d'emprunt</th>
+                      <th>Notes</th>
                     </tr>
-                  `).join('')}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    ${returnedItems.map(item => `
+                      <tr class="returned">
+                        <td>${item.checkout.equipment.name}</td>
+                        <td style="font-family: monospace;">${item.checkout.equipment.serialNumber}</td>
+                        <td>${new Date(item.checkout.checkout_date).toLocaleDateString('fr-FR')}</td>
+                        <td>${item.notes || '-'}</td>
+                      </tr>
+                    `).join('')}
+                  </tbody>
+                </table>
+              </div>
+            ` : ''}
+
+            ${extendedItems.length > 0 ? `
+              <div class="section">
+                <h3 style="color: #856404; margin-top: 0;">📅 Prolongations Accordées</h3>
+                <table class="items">
+                  <thead>
+                    <tr>
+                      <th>Équipement</th>
+                      <th>Numéro de série</th>
+                      <th>Nouvelle date de retour</th>
+                      <th>Notes</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${extendedItems.map(item => `
+                      <tr class="extended">
+                        <td>${item.checkout.equipment.name}</td>
+                        <td style="font-family: monospace;">${item.checkout.equipment.serialNumber}</td>
+                        <td>${item.newDueDate ? new Date(item.newDueDate).toLocaleDateString('fr-FR') : '-'}</td>
+                        <td>${item.notes || '-'}</td>
+                      </tr>
+                    `).join('')}
+                  </tbody>
+                </table>
+              </div>
+            ` : ''}
+
+            ${lostItems.length > 0 ? `
+              <div class="section">
+                <h3 style="color: #721c24; margin-top: 0;">✗ Matériel Déclaré Perdu</h3>
+                <table class="items">
+                  <thead>
+                    <tr>
+                      <th>Équipement</th>
+                      <th>Numéro de série</th>
+                      <th>Date d'emprunt</th>
+                      <th>Notes</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${lostItems.map(item => `
+                      <tr class="lost">
+                        <td>${item.checkout.equipment.name}</td>
+                        <td style="font-family: monospace;">${item.checkout.equipment.serialNumber}</td>
+                        <td>${new Date(item.checkout.checkout_date).toLocaleDateString('fr-FR')}</td>
+                        <td>${item.notes || '-'}</td>
+                      </tr>
+                    `).join('')}
+                  </tbody>
+                </table>
+              </div>
+            ` : ''}
+
+            <div class="signature">
+              <div class="signature-box">
+                <p><strong>Signature de l'emprunteur</strong></p>
+                <p style="font-size: 12px; color: #666;">Je confirme les opérations ci-dessus concernant le bon de sortie N° ${selectedNote.noteNumber}.</p>
+                <div class="signature-line"></div>
+                <p style="margin-top: 5px; font-size: 12px;">Date: _______________</p>
+              </div>
+              
+              <div class="signature-box">
+                <p><strong>Signature du responsable</strong></p>
+                <p style="font-size: 12px; color: #666;">Matériel vérifié et opérations validées.</p>
+                <div class="signature-line"></div>
+                <p style="margin-top: 5px; font-size: 12px;">Date: _______________</p>
+              </div>
             </div>
-          ` : ''}
 
-          <div class="signature">
-            <p>Je confirme les opérations ci-dessus concernant le bon de sortie N° ${selectedNote.noteNumber}.</p>
-            <p>Signature de l'utilisateur:</p>
-            <div class="signature-line"></div>
-            <p style="margin-top: 5px;">Date: _______________</p>
-          </div>
+            <div class="footer">
+              <p><strong>GO-Mat - Système de Gestion de Matériel</strong></p>
+              <p>Cette quittance confirme les opérations de retour pour le bon N° ${selectedNote.noteNumber}</p>
+            </div>
+          </body>
+        </html>
+      `;
 
-          <div class="footer">
-            <p>Cette quittance confirme les opérations de retour pour le bon N° ${selectedNote.noteNumber}</p>
-          </div>
-        </body>
-      </html>
-    `);
-    
-    printWindow.document.close();
-    printWindow.print();
+      // Ouvrir dans une nouvelle fenêtre avec des dimensions spécifiques
+      const printWindow = window.open('', '_blank', 'width=800,height=900,scrollbars=yes,resizable=yes');
+      
+      if (!printWindow) {
+        toast.error('Impossible d\'ouvrir la fenêtre d\'impression. Vérifiez que les popups ne sont pas bloquées.');
+        return;
+      }
+      
+      printWindow.document.write(printContent);
+      printWindow.document.close();
+      
+      // Attendre que le contenu soit chargé avant d'imprimer
+      printWindow.onload = () => {
+        setTimeout(() => {
+          printWindow.print();
+        }, 500);
+      };
+      
+    } catch (error) {
+      console.error('Error printing return:', error);
+      toast.error('Erreur lors de l\'impression');
+    }
   };
 
   const handleClose = () => {

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
 import { 
   LayoutDashboard, 
@@ -13,13 +13,36 @@ import {
 } from 'lucide-react';
 import { useApp } from '../../contexts/AppContext';
 import { useLanguage } from '../../contexts/LanguageContext';
+import { supabase } from '../../lib/supabase';
 
 const Sidebar: React.FC = () => {
   const { notifications } = useApp();
   const { t } = useLanguage();
   const [isOpen, setIsOpen] = useState(false);
+  const [companyLogo, setCompanyLogo] = useState('');
   
   const unreadNotifications = notifications.filter(notif => !notif.read).length;
+
+  useEffect(() => {
+    fetchCompanyLogo();
+  }, []);
+
+  const fetchCompanyLogo = async () => {
+    try {
+      const { data } = await supabase
+        .from('system_settings')
+        .select('value')
+        .eq('id', 'company_logo')
+        .single();
+
+      if (data?.value) {
+        setCompanyLogo(data.value);
+      }
+    } catch (error) {
+      // Logo not found, use default
+      console.log('No company logo found');
+    }
+  };
   
   const toggleSidebar = () => {
     setIsOpen(!isOpen);
@@ -54,11 +77,20 @@ const Sidebar: React.FC = () => {
         }`}
       >
         <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-          <div className="flex items-center gap-2 font-bold text-primary-700 dark:text-primary-300 text-xl">
-            <QrCode size={24} />
-            <span>GO-Mat</span>
+          <div className="flex flex-col items-center gap-3">
+            {companyLogo && (
+              <img
+                src={companyLogo}
+                alt="Logo de l'entreprise"
+                className="max-h-12 max-w-48 object-contain"
+              />
+            )}
+            <div className="flex items-center gap-2 font-bold text-primary-700 dark:text-primary-300 text-xl">
+              <QrCode size={24} />
+              <span>GO-Mat</span>
+            </div>
+            <p className="text-xs text-gray-500 dark:text-gray-400 text-center">Gestion de Matériel</p>
           </div>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Gestion de Matériel</p>
         </div>
         
         <nav className="py-4 px-2 flex flex-col gap-1">

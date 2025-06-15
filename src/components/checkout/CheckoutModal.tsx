@@ -4,7 +4,7 @@ import Button from '../common/Button';
 import QRCodeScanner from '../QRCode/QRCodeScanner';
 import { User, Equipment } from '../../types';
 import { supabase } from '../../lib/supabase';
-import { Search, UserPlus, Package, Plus, Trash2, Calendar, Printer, List, Filter, AlertTriangle } from 'lucide-react';
+import { Search, UserPlus, Package, Plus, Trash2, Calendar, Printer, List, Filter } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface CheckoutModalProps {
@@ -23,367 +23,12 @@ interface NewEquipment {
   description: string;
 }
 
-interface EquipmentWithStock extends Equipment {
-  realAvailableQuantity: number;
-  inMaintenanceQuantity: number;
-  checkedOutQuantity: number;
+interface StockInfo {
+  total: number;
+  borrowed: number;
+  maintenance: number;
+  available: number;
 }
-
-interface PrintPreviewModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  noteNumber: string;
-  selectedUser: User | null;
-  dueDate: string;
-  notes: string;
-  checkoutItems: CheckoutItem[];
-  newEquipment: NewEquipment[];
-}
-
-const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({ 
-  isOpen, 
-  onClose, 
-  noteNumber, 
-  selectedUser, 
-  dueDate, 
-  notes, 
-  checkoutItems, 
-  newEquipment 
-}) => {
-  const allItems = [
-    ...checkoutItems.map(item => ({ name: item.equipment.name, serialNumber: item.equipment.serialNumber, quantity: item.quantity })),
-    ...newEquipment.map(eq => ({ name: eq.name, serialNumber: eq.serialNumber, quantity: 1 }))
-  ];
-
-  const handlePrint = () => {
-    // Créer le contenu HTML pour l'impression
-    const printContent = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>Bon de Sortie ${noteNumber} - GO-Mat</title>
-          <style>
-            @page {
-              size: A4;
-              margin: 1cm;
-            }
-            @media print {
-              body { 
-                margin: 0; 
-                font-size: 12pt; 
-                color: #000 !important;
-                background: #fff !important;
-              }
-              .no-print { display: none !important; }
-              .page-break { page-break-after: always; }
-            }
-            body { 
-              font-family: Arial, sans-serif; 
-              margin: 20px; 
-              color: #000;
-              background: #fff;
-              line-height: 1.4;
-            }
-            .header { 
-              text-align: center; 
-              margin-bottom: 30px; 
-              border-bottom: 2px solid #333; 
-              padding-bottom: 10px; 
-            }
-            .note-number { 
-              font-size: 24px; 
-              font-weight: bold; 
-              color: #2563eb; 
-              margin-bottom: 10px; 
-            }
-            .info { 
-              margin-bottom: 20px; 
-              line-height: 1.6;
-            }
-            .items { 
-              width: 100%; 
-              border-collapse: collapse; 
-              margin-bottom: 30px; 
-            }
-            .items th, .items td { 
-              border: 1px solid #333; 
-              padding: 8px; 
-              text-align: left; 
-            }
-            .items th { 
-              background-color: #f2f2f2; 
-              font-weight: bold;
-            }
-            .signature { 
-              margin-top: 50px; 
-            }
-            .signature-line { 
-              border-bottom: 1px solid #333; 
-              width: 200px; 
-              margin-top: 30px; 
-            }
-            .footer { 
-              margin-top: 30px; 
-              text-align: center; 
-              font-size: 12px; 
-              color: #666; 
-            }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <h1>GO-Mat - Bon de Sortie</h1>
-            <div class="note-number">N° ${noteNumber}</div>
-            <p>Date d'émission: ${new Date().toLocaleDateString('fr-FR')}</p>
-          </div>
-          
-          <div class="info">
-            <p><strong>Utilisateur:</strong> ${selectedUser?.first_name} ${selectedUser?.last_name}</p>
-            <p><strong>Téléphone:</strong> ${selectedUser?.phone}</p>
-            <p><strong>Département:</strong> ${selectedUser?.department}</p>
-            <p><strong>Date de retour prévue:</strong> ${new Date(dueDate).toLocaleDateString('fr-FR')}</p>
-            ${notes ? `<p><strong>Notes:</strong> ${notes}</p>` : ''}
-          </div>
-
-          <table class="items">
-            <thead>
-              <tr>
-                <th>Équipement</th>
-                <th>Numéro de série</th>
-                <th>Quantité</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${allItems.map(item => `
-                <tr>
-                  <td>${item.name}</td>
-                  <td>${item.serialNumber}</td>
-                  <td>${item.quantity}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-
-          <div class="signature">
-            <p>Je reconnais avoir reçu le matériel ci-dessus et m'engage à le restituer en bon état.</p>
-            <p>Signature de l'utilisateur:</p>
-            <div class="signature-line"></div>
-            <p style="margin-top: 5px;">Date: _______________</p>
-          </div>
-
-          <div class="footer">
-            <p>Ce bon de sortie doit être conservé jusqu'au retour complet du matériel.</p>
-            <p>Pour tout retour, présentez ce bon ou indiquez le numéro: <strong>${noteNumber}</strong></p>
-          </div>
-
-          <!-- Deuxième copie -->
-          <div class="page-break"></div>
-          
-          <div class="header">
-            <h1>GO-Mat - Bon de Sortie (COPIE)</h1>
-            <div class="note-number">N° ${noteNumber}</div>
-            <p>Date d'émission: ${new Date().toLocaleDateString('fr-FR')}</p>
-          </div>
-          
-          <div class="info">
-            <p><strong>Utilisateur:</strong> ${selectedUser?.first_name} ${selectedUser?.last_name}</p>
-            <p><strong>Téléphone:</strong> ${selectedUser?.phone}</p>
-            <p><strong>Département:</strong> ${selectedUser?.department}</p>
-            <p><strong>Date de retour prévue:</strong> ${new Date(dueDate).toLocaleDateString('fr-FR')}</p>
-            ${notes ? `<p><strong>Notes:</strong> ${notes}</p>` : ''}
-          </div>
-
-          <table class="items">
-            <thead>
-              <tr>
-                <th>Équipement</th>
-                <th>Numéro de série</th>
-                <th>Quantité</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${allItems.map(item => `
-                <tr>
-                  <td>${item.name}</td>
-                  <td>${item.serialNumber}</td>
-                  <td>${item.quantity}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-
-          <div class="signature">
-            <p>Je reconnais avoir reçu le matériel ci-dessus et m'engage à le restituer en bon état.</p>
-            <p>Signature de l'utilisateur:</p>
-            <div class="signature-line"></div>
-            <p style="margin-top: 5px;">Date: _______________</p>
-          </div>
-
-          <div class="footer">
-            <p>Ce bon de sortie doit être conservé jusqu'au retour complet du matériel.</p>
-            <p>Pour tout retour, présentez ce bon ou indiquez le numéro: <strong>${noteNumber}</strong></p>
-          </div>
-        </body>
-      </html>
-    `;
-
-    // Créer un blob avec le contenu HTML
-    const blob = new Blob([printContent], { type: 'text/html' });
-    const url = URL.createObjectURL(blob);
-    
-    // Créer un iframe caché pour l'impression
-    const printFrame = document.createElement('iframe');
-    printFrame.style.position = 'absolute';
-    printFrame.style.top = '-9999px';
-    printFrame.style.left = '-9999px';
-    printFrame.style.width = '1px';
-    printFrame.style.height = '1px';
-    printFrame.style.border = 'none';
-    printFrame.style.visibility = 'hidden';
-    
-    document.body.appendChild(printFrame);
-    
-    printFrame.onload = () => {
-      try {
-        // Lancer l'impression
-        printFrame.contentWindow?.print();
-        
-        // Nettoyer après impression
-        setTimeout(() => {
-          if (document.body.contains(printFrame)) {
-            document.body.removeChild(printFrame);
-          }
-          URL.revokeObjectURL(url);
-        }, 1000);
-        
-      } catch (error) {
-        console.error('Erreur lors de l\'impression:', error);
-        toast.error('Erreur lors de l\'impression');
-        if (document.body.contains(printFrame)) {
-          document.body.removeChild(printFrame);
-        }
-        URL.revokeObjectURL(url);
-      }
-    };
-    
-    printFrame.src = url;
-  };
-
-  return (
-    <Modal
-      isOpen={isOpen}
-      onClose={onClose}
-      title={`Bon de sortie ${noteNumber}`}
-      size="xl"
-    >
-      <div className="space-y-6">
-        <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
-          <h3 className="text-lg font-medium text-green-800 dark:text-green-200 mb-2">
-            ✅ Bon de sortie créé avec succès !
-          </h3>
-          <p className="text-green-700 dark:text-green-300 text-sm">
-            Le bon de sortie N° <strong>{noteNumber}</strong> a été créé et enregistré dans la base de données.
-            Cliquez sur "Imprimer\" pour imprimer automatiquement 2 copies du bon.
-          </p>
-        </div>
-        
-        {/* Aperçu du bon de sortie */}
-        <div className="border rounded-lg overflow-hidden">
-          <div className="bg-gray-50 dark:bg-gray-800 px-4 py-2 border-b">
-            <h4 className="font-medium text-gray-900 dark:text-white">Aperçu du bon de sortie</h4>
-          </div>
-          
-          <div className="p-6 bg-white dark:bg-gray-100 max-h-96 overflow-y-auto" style={{ 
-            fontFamily: 'Arial, sans-serif',
-            fontSize: '14px',
-            lineHeight: '1.6',
-            color: '#000'
-          }}>
-            {/* Header */}
-            <div className="text-center mb-6 pb-3 border-b-2 border-gray-800">
-              <h1 className="text-xl font-bold mb-2 text-black">GO-Mat - Bon de Sortie</h1>
-              <div className="text-lg font-bold text-blue-600 mb-2">N° {noteNumber}</div>
-              <p className="text-sm text-black">Date d'émission: {new Date().toLocaleDateString('fr-FR')}</p>
-            </div>
-            
-            {/* Informations utilisateur */}
-            <div className="mb-6 text-black">
-              <p className="mb-1"><strong>Utilisateur:</strong> {selectedUser?.first_name} {selectedUser?.last_name}</p>
-              <p className="mb-1"><strong>Téléphone:</strong> {selectedUser?.phone}</p>
-              <p className="mb-1"><strong>Département:</strong> {selectedUser?.department}</p>
-              <p className="mb-1"><strong>Date de retour prévue:</strong> {new Date(dueDate).toLocaleDateString('fr-FR')}</p>
-              {notes && <p className="mb-1"><strong>Notes:</strong> {notes}</p>}
-            </div>
-
-            {/* Tableau des équipements */}
-            <table className="w-full border-collapse mb-6">
-              <thead>
-                <tr className="bg-gray-100">
-                  <th className="border border-gray-800 px-2 py-2 text-left font-bold text-black">Équipement</th>
-                  <th className="border border-gray-800 px-2 py-2 text-left font-bold text-black">Numéro de série</th>
-                  <th className="border border-gray-800 px-2 py-2 text-left font-bold text-black">Quantité</th>
-                </tr>
-              </thead>
-              <tbody>
-                {allItems.map((item, index) => (
-                  <tr key={index}>
-                    <td className="border border-gray-800 px-2 py-2 text-black">{item.name}</td>
-                    <td className="border border-gray-800 px-2 py-2 text-black">{item.serialNumber}</td>
-                    <td className="border border-gray-800 px-2 py-2 text-black">{item.quantity}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-
-            {/* Signature */}
-            <div className="mt-12 text-black">
-              <p className="mb-4">Je reconnais avoir reçu le matériel ci-dessus et m'engage à le restituer en bon état.</p>
-              <p className="mb-4">Signature de l'utilisateur:</p>
-              <div className="border-b border-gray-800 w-48 mb-2"></div>
-              <p className="text-sm">Date: _______________</p>
-            </div>
-
-            {/* Footer */}
-            <div className="mt-8 text-center text-xs text-gray-600">
-              <p>Ce bon de sortie doit être conservé jusqu'au retour complet du matériel.</p>
-              <p>Pour tout retour, présentez ce bon ou indiquez le numéro: <strong>{noteNumber}</strong></p>
-            </div>
-          </div>
-        </div>
-        
-        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <Printer size={18} className="text-blue-600 dark:text-blue-400" />
-            <h4 className="font-medium text-blue-800 dark:text-blue-200">Information d'impression</h4>
-          </div>
-          <p className="text-blue-700 dark:text-blue-300 text-sm">
-            L'impression générera automatiquement <strong>2 copies</strong> du bon de sortie :
-          </p>
-          <ul className="text-blue-700 dark:text-blue-300 text-sm mt-2 ml-4 list-disc">
-            <li>Une copie pour l'utilisateur</li>
-            <li>Une copie pour l'archive</li>
-          </ul>
-        </div>
-        
-        <div className="flex justify-between">
-          <Button
-            variant="outline"
-            onClick={onClose}
-          >
-            Fermer
-          </Button>
-          <Button
-            variant="primary"
-            icon={<Printer size={18} />}
-            onClick={handlePrint}
-          >
-            Imprimer (2 copies)
-          </Button>
-        </div>
-      </div>
-    </Modal>
-  );
-};
 
 const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
   const [step, setStep] = useState<'user' | 'equipment' | 'summary'>('user');
@@ -409,8 +54,8 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
   // Equipment states
   const [equipmentMode, setEquipmentMode] = useState<'scan' | 'list' | 'new'>('scan');
   const [showScanner, setShowScanner] = useState(false);
-  const [equipment, setEquipment] = useState<EquipmentWithStock[]>([]);
-  const [filteredEquipment, setFilteredEquipment] = useState<EquipmentWithStock[]>([]);
+  const [equipment, setEquipment] = useState<Equipment[]>([]);
+  const [filteredEquipment, setFilteredEquipment] = useState<Equipment[]>([]);
   const [equipmentSearch, setEquipmentSearch] = useState('');
   const [equipmentFilter, setEquipmentFilter] = useState('');
   const [showNewEquipmentForm, setShowNewEquipmentForm] = useState(false);
@@ -419,15 +64,12 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
     serialNumber: '',
     description: ''
   });
-
-  // Print preview states
-  const [showPrintPreview, setShowPrintPreview] = useState(false);
-  const [printNoteNumber, setPrintNoteNumber] = useState('');
+  const [stockInfo, setStockInfo] = useState<Record<string, StockInfo>>({});
 
   useEffect(() => {
     if (isOpen) {
       fetchUsers();
-      fetchEquipmentWithStock();
+      fetchEquipment();
       // Set default due date to 7 days from now
       const defaultDueDate = new Date();
       defaultDueDate.setDate(defaultDueDate.getDate() + 7);
@@ -468,10 +110,9 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
     }
   };
 
-  const fetchEquipmentWithStock = async () => {
+  const fetchEquipment = async () => {
     try {
-      // Récupérer tous les équipements avec leurs informations de base
-      const { data: equipmentData, error: equipmentError } = await supabase
+      const { data, error } = await supabase
         .from('equipment')
         .select(`
           *,
@@ -480,58 +121,65 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
         `)
         .order('name');
       
-      if (equipmentError) throw equipmentError;
+      if (error) throw error;
+      
+      // Transform data to match our interface
+      const transformedEquipment: Equipment[] = data?.map(eq => ({
+        id: eq.id,
+        name: eq.name,
+        description: eq.description || '',
+        category: eq.categories?.name || '',
+        serialNumber: eq.serial_number,
+        status: eq.status as Equipment['status'],
+        addedDate: eq.added_date || eq.created_at,
+        lastMaintenance: eq.last_maintenance,
+        imageUrl: eq.image_url,
+        supplier: eq.suppliers?.name || '',
+        location: eq.location || '',
+        articleNumber: eq.article_number,
+        qrType: eq.qr_type || 'individual',
+        totalQuantity: eq.total_quantity || 1,
+        availableQuantity: eq.available_quantity || 1
+      })) || [];
+      
+      setEquipment(transformedEquipment);
+      
+      // Calculate stock info for each equipment
+      await calculateStockInfo(transformedEquipment);
+    } catch (error) {
+      console.error('Error fetching equipment:', error);
+    }
+  };
 
-      // Récupérer les statistiques de checkout pour chaque équipement
-      const { data: checkoutStats, error: checkoutError } = await supabase
+  const calculateStockInfo = async (equipmentList: Equipment[]) => {
+    try {
+      // Fetch active checkouts
+      const { data: checkouts, error: checkoutError } = await supabase
         .from('checkouts')
-        .select('equipment_id, status')
-        .in('status', ['active', 'overdue']);
+        .select('equipment_id')
+        .eq('status', 'active');
 
       if (checkoutError) throw checkoutError;
 
-      // Calculer les quantités réelles pour chaque équipement
-      const equipmentWithStock: EquipmentWithStock[] = equipmentData?.map(eq => {
-        const totalQuantity = eq.total_quantity || 1;
-        
-        // Compter les équipements actuellement empruntés (active + overdue)
-        const checkedOutCount = checkoutStats?.filter(
-          checkout => checkout.equipment_id === eq.id && 
-          ['active', 'overdue'].includes(checkout.status)
-        ).length || 0;
+      const stockInfoMap: Record<string, StockInfo> = {};
 
-        // Compter les équipements en maintenance (statut maintenance)
-        const inMaintenanceCount = eq.status === 'maintenance' ? totalQuantity : 0;
+      equipmentList.forEach(eq => {
+        const total = eq.totalQuantity || 1;
+        const borrowed = checkouts?.filter(c => c.equipment_id === eq.id).length || 0;
+        const maintenance = eq.status === 'maintenance' ? 1 : 0;
+        const available = Math.max(0, total - borrowed - maintenance);
 
-        // Calculer la quantité réellement disponible
-        // Total - Emprunts actifs - En maintenance
-        const realAvailableQuantity = Math.max(0, totalQuantity - checkedOutCount - inMaintenanceCount);
-
-        return {
-          id: eq.id,
-          name: eq.name,
-          description: eq.description || '',
-          category: eq.categories?.name || '',
-          serialNumber: eq.serial_number,
-          status: eq.status as Equipment['status'],
-          addedDate: eq.added_date || eq.created_at,
-          lastMaintenance: eq.last_maintenance,
-          imageUrl: eq.image_url,
-          supplier: eq.suppliers?.name || '',
-          location: eq.location || '',
-          articleNumber: eq.article_number,
-          qrType: eq.qr_type || 'individual',
-          totalQuantity: totalQuantity,
-          availableQuantity: eq.available_quantity || 1, // Quantité stockée en base
-          realAvailableQuantity: realAvailableQuantity, // Quantité réellement disponible
-          inMaintenanceQuantity: inMaintenanceCount,
-          checkedOutQuantity: checkedOutCount
+        stockInfoMap[eq.id] = {
+          total,
+          borrowed,
+          maintenance,
+          available
         };
-      }) || [];
-      
-      setEquipment(equipmentWithStock);
+      });
+
+      setStockInfo(stockInfoMap);
     } catch (error) {
-      console.error('Error fetching equipment with stock:', error);
+      console.error('Error calculating stock info:', error);
     }
   };
 
@@ -549,17 +197,21 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
   const handleEquipmentScan = (scannedId: string) => {
     const equipmentItem = equipment.find(e => e.id === scannedId);
     if (equipmentItem) {
-      if (equipmentItem.realAvailableQuantity <= 0) {
-        toast.error(`${equipmentItem.name} n'est pas disponible (stock: ${equipmentItem.realAvailableQuantity})`);
+      const stock = stockInfo[equipmentItem.id];
+      if (!stock || stock.available === 0) {
+        toast.error('Cet équipement n\'est pas disponible');
         return;
       }
 
       const existingItem = checkoutItems.find(item => item.equipment.id === equipmentItem.id);
+      const currentQuantity = existingItem ? existingItem.quantity : 0;
+      
+      if (currentQuantity >= stock.available) {
+        toast.error('Quantité maximale atteinte pour cet équipement');
+        return;
+      }
+
       if (existingItem) {
-        if (existingItem.quantity >= equipmentItem.realAvailableQuantity) {
-          toast.error(`Quantité maximale atteinte pour ${equipmentItem.name}`);
-          return;
-        }
         setCheckoutItems(prev => 
           prev.map(item => 
             item.equipment.id === equipmentItem.id 
@@ -576,18 +228,22 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
     }
   };
 
-  const handleSelectEquipmentFromList = (equipmentItem: EquipmentWithStock) => {
-    if (equipmentItem.realAvailableQuantity <= 0) {
-      toast.error(`${equipmentItem.name} n'est pas disponible`);
+  const handleSelectEquipmentFromList = (equipmentItem: Equipment) => {
+    const stock = stockInfo[equipmentItem.id];
+    if (!stock || stock.available === 0) {
+      toast.error('Cet équipement n\'est pas disponible');
       return;
     }
 
     const existingItem = checkoutItems.find(item => item.equipment.id === equipmentItem.id);
+    const currentQuantity = existingItem ? existingItem.quantity : 0;
+    
+    if (currentQuantity >= stock.available) {
+      toast.error('Quantité maximale atteinte pour cet équipement');
+      return;
+    }
+
     if (existingItem) {
-      if (existingItem.quantity >= equipmentItem.realAvailableQuantity) {
-        toast.error(`Quantité maximale atteinte pour ${equipmentItem.name}`);
-        return;
-      }
       setCheckoutItems(prev => 
         prev.map(item => 
           item.equipment.id === equipmentItem.id 
@@ -642,45 +298,6 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
     setTempNewEquipment({ name: '', serialNumber: '', description: '' });
     setShowNewEquipmentForm(false);
     toast.success('Équipement ajouté à la liste');
-  };
-
-  // Fonction pour créer une notification de sortie
-  const createCheckoutNotification = async (deliveryNote: any, equipmentCount: number) => {
-    try {
-      // Créer une notification système pour le mouvement de sortie
-      const notificationData = {
-        type: 'checkout',
-        title: 'Nouveau bon de sortie créé',
-        message: `Bon N° ${deliveryNote.note_number} créé pour ${selectedUser?.first_name} ${selectedUser?.last_name} (${equipmentCount} équipement${equipmentCount > 1 ? 's' : ''})`,
-        priority: 'medium',
-        read: false,
-        related_data: {
-          delivery_note_id: deliveryNote.id,
-          note_number: deliveryNote.note_number,
-          user_name: `${selectedUser?.first_name} ${selectedUser?.last_name}`,
-          user_department: selectedUser?.department,
-          equipment_count: equipmentCount,
-          due_date: dueDate
-        }
-      };
-
-      // Dans un vrai système, on stockerait cette notification en base de données
-      // Pour cette démo, on l'ajoute au localStorage pour simulation
-      const existingNotifications = JSON.parse(localStorage.getItem('checkout_notifications') || '[]');
-      const newNotification = {
-        id: `checkout-${Date.now()}`,
-        ...notificationData,
-        date: new Date().toISOString()
-      };
-      
-      existingNotifications.unshift(newNotification);
-      localStorage.setItem('checkout_notifications', JSON.stringify(existingNotifications));
-
-      console.log('Notification de sortie créée:', newNotification);
-      
-    } catch (error) {
-      console.error('Erreur lors de la création de la notification:', error);
-    }
   };
 
   const handleCheckout = async () => {
@@ -782,7 +399,8 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
 
         // 5. Mettre à jour le statut et les quantités des équipements
         for (const item of checkoutItems) {
-          const newAvailableQuantity = Math.max(0, (item.equipment.availableQuantity || 1) - item.quantity);
+          const stock = stockInfo[item.equipment.id];
+          const newAvailableQuantity = Math.max(0, stock.available - item.quantity);
           const newStatus = newAvailableQuantity === 0 ? 'checked-out' : 'available';
           
           await supabase
@@ -795,21 +413,279 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
         }
       }
 
-      // 6. Créer la notification de sortie
-      const totalEquipmentCount = checkoutItems.reduce((sum, item) => sum + item.quantity, 0) + newEquipment.length;
-      await createCheckoutNotification(deliveryNote, totalEquipmentCount);
+      // 6. Créer une notification de sortie
+      const checkoutNotification = {
+        id: `checkout-${deliveryNote.id}`,
+        type: 'checkout',
+        title: 'Nouveau bon de sortie créé',
+        message: `Bon N° ${deliveryNote.note_number} créé pour ${selectedUser.first_name} ${selectedUser.last_name} (${checkoutRecords.length} équipement${checkoutRecords.length > 1 ? 's' : ''})`,
+        date: new Date().toISOString(),
+        priority: 'medium',
+        read: false,
+        relatedData: {
+          delivery_note_id: deliveryNote.id,
+          note_number: deliveryNote.note_number,
+          userName: `${selectedUser.first_name} ${selectedUser.last_name}`,
+          user_department: selectedUser.department,
+          equipment_count: checkoutRecords.length
+        }
+      };
+
+      // Sauvegarder la notification dans localStorage
+      const existingNotifications = JSON.parse(localStorage.getItem('checkout_notifications') || '[]');
+      existingNotifications.unshift(checkoutNotification);
+      localStorage.setItem('checkout_notifications', JSON.stringify(existingNotifications));
 
       toast.success(`Bon de sortie ${deliveryNote.note_number} créé avec succès`);
-      
-      // Afficher la popup d'aperçu et d'impression
-      setPrintNoteNumber(deliveryNote.note_number);
-      setShowPrintPreview(true);
-      
+      handlePrintCheckout(deliveryNote.note_number);
+      handleClose();
     } catch (error: any) {
       console.error('Error during checkout:', error);
       toast.error(error.message || 'Erreur lors de la sortie');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handlePrintCheckout = async (noteNumber: string) => {
+    try {
+      // Récupérer le logo depuis les paramètres système
+      const { data: logoSetting } = await supabase
+        .from('system_settings')
+        .select('value')
+        .eq('id', 'company_logo')
+        .single();
+
+      const logoUrl = logoSetting?.value || '';
+
+      const allItems = [
+        ...checkoutItems.map(item => ({ name: item.equipment.name, serialNumber: item.equipment.serialNumber, quantity: item.quantity })),
+        ...newEquipment.map(eq => ({ name: eq.name, serialNumber: eq.serialNumber, quantity: 1 }))
+      ];
+
+      const printContent = `
+        <html>
+          <head>
+            <title>Bon de Sortie ${noteNumber} - GO-Mat</title>
+            <style>
+              body { 
+                font-family: Arial, sans-serif; 
+                margin: 20px; 
+                color: #333;
+              }
+              .header { 
+                text-align: center; 
+                margin-bottom: 30px; 
+                border-bottom: 2px solid #333; 
+                padding-bottom: 20px; 
+              }
+              .logo {
+                max-height: 80px;
+                max-width: 200px;
+                margin-bottom: 10px;
+              }
+              .company-name {
+                font-size: 28px;
+                font-weight: bold;
+                color: #2563eb;
+                margin-bottom: 5px;
+              }
+              .subtitle {
+                font-size: 16px;
+                color: #666;
+                margin-bottom: 10px;
+              }
+              .note-number { 
+                font-size: 24px; 
+                font-weight: bold; 
+                color: #2563eb; 
+                margin-bottom: 10px; 
+              }
+              .info { 
+                margin-bottom: 20px; 
+                background: #f8f9fa;
+                padding: 15px;
+                border-radius: 8px;
+              }
+              .info-row {
+                display: flex;
+                margin-bottom: 8px;
+              }
+              .info-label {
+                font-weight: bold;
+                width: 150px;
+                color: #555;
+              }
+              .items { 
+                width: 100%; 
+                border-collapse: collapse; 
+                margin-bottom: 30px; 
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+              }
+              .items th, .items td { 
+                border: 1px solid #ddd; 
+                padding: 12px; 
+                text-align: left; 
+              }
+              .items th { 
+                background-color: #2563eb; 
+                color: white;
+                font-weight: bold;
+              }
+              .items tr:nth-child(even) {
+                background-color: #f8f9fa;
+              }
+              .signature { 
+                margin-top: 50px; 
+                display: flex;
+                justify-content: space-between;
+              }
+              .signature-box {
+                width: 45%;
+                text-align: center;
+              }
+              .signature-line { 
+                border-bottom: 2px solid #333; 
+                width: 100%; 
+                margin-top: 40px; 
+                margin-bottom: 10px;
+              }
+              .footer { 
+                margin-top: 40px; 
+                text-align: center; 
+                font-size: 12px; 
+                color: #666; 
+                border-top: 1px solid #ddd;
+                padding-top: 20px;
+              }
+              .important-note {
+                background: #fff3cd;
+                border: 1px solid #ffeaa7;
+                padding: 15px;
+                border-radius: 8px;
+                margin: 20px 0;
+              }
+              @media print {
+                body { margin: 0; }
+                .no-print { display: none; }
+              }
+            </style>
+          </head>
+          <body>
+            <div class="header">
+              ${logoUrl ? `<img src="${logoUrl}" alt="Logo" class="logo" />` : ''}
+              <div class="company-name">GO-Mat</div>
+              <div class="subtitle">Gestion de Matériel</div>
+              <div class="note-number">Bon de Sortie N° ${noteNumber}</div>
+              <p>Date d'émission: ${new Date().toLocaleDateString('fr-FR', { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+              })}</p>
+            </div>
+            
+            <div class="info">
+              <h3 style="margin-top: 0; color: #2563eb;">Informations de l'emprunteur</h3>
+              <div class="info-row">
+                <span class="info-label">Nom complet:</span>
+                <span>${selectedUser?.first_name} ${selectedUser?.last_name}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Téléphone:</span>
+                <span>${selectedUser?.phone}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Email:</span>
+                <span>${selectedUser?.email}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Département:</span>
+                <span>${selectedUser?.department}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Date de retour prévue:</span>
+                <span style="font-weight: bold; color: #dc2626;">${new Date(dueDate).toLocaleDateString('fr-FR')}</span>
+              </div>
+              ${notes ? `
+                <div class="info-row">
+                  <span class="info-label">Notes:</span>
+                  <span>${notes}</span>
+                </div>
+              ` : ''}
+            </div>
+
+            <h3 style="color: #2563eb; margin-bottom: 15px;">Matériel emprunté</h3>
+            <table class="items">
+              <thead>
+                <tr>
+                  <th style="width: 50%;">Équipement</th>
+                  <th style="width: 30%;">Numéro de série</th>
+                  <th style="width: 20%;">Quantité</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${allItems.map(item => `
+                  <tr>
+                    <td style="font-weight: 500;">${item.name}</td>
+                    <td style="font-family: monospace; color: #666;">${item.serialNumber}</td>
+                    <td style="text-align: center; font-weight: bold;">${item.quantity}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+
+            <div class="important-note">
+              <strong>⚠️ Important:</strong> Ce bon de sortie doit être conservé jusqu'au retour complet du matériel. 
+              En cas de perte, veuillez contacter immédiatement le service de gestion du matériel.
+            </div>
+
+            <div class="signature">
+              <div class="signature-box">
+                <p><strong>Signature de l'emprunteur</strong></p>
+                <p style="font-size: 12px; color: #666;">Je reconnais avoir reçu le matériel ci-dessus en bon état et m'engage à le restituer dans les mêmes conditions.</p>
+                <div class="signature-line"></div>
+                <p style="margin-top: 5px; font-size: 12px;">Date: _______________</p>
+              </div>
+              
+              <div class="signature-box">
+                <p><strong>Signature du responsable</strong></p>
+                <p style="font-size: 12px; color: #666;">Matériel vérifié et remis en bon état de fonctionnement.</p>
+                <div class="signature-line"></div>
+                <p style="margin-top: 5px; font-size: 12px;">Date: _______________</p>
+              </div>
+            </div>
+
+            <div class="footer">
+              <p><strong>GO-Mat - Système de Gestion de Matériel</strong></p>
+              <p>Pour tout retour, présentez ce bon ou indiquez le numéro: <strong>${noteNumber}</strong></p>
+              <p>En cas de problème, contactez le service de gestion du matériel.</p>
+            </div>
+          </body>
+        </html>
+      `;
+
+      // Ouvrir dans une nouvelle fenêtre avec des dimensions spécifiques
+      const printWindow = window.open('', '_blank', 'width=800,height=900,scrollbars=yes,resizable=yes');
+      
+      if (!printWindow) {
+        toast.error('Impossible d\'ouvrir la fenêtre d\'impression. Vérifiez que les popups ne sont pas bloquées.');
+        return;
+      }
+      
+      printWindow.document.write(printContent);
+      printWindow.document.close();
+      
+      // Attendre que le contenu soit chargé avant d'imprimer
+      printWindow.onload = () => {
+        setTimeout(() => {
+          printWindow.print();
+        }, 500);
+      };
+      
+    } catch (error) {
+      console.error('Error printing checkout:', error);
+      toast.error('Erreur lors de l\'impression');
     }
   };
 
@@ -828,8 +704,6 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
     setEquipmentFilter('');
     setNewUserData({ first_name: '', last_name: '', phone: '', email: '', department: '' });
     setTempNewEquipment({ name: '', serialNumber: '', description: '' });
-    setShowPrintPreview(false);
-    setPrintNoteNumber('');
     onClose();
   };
 
@@ -842,498 +716,487 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
   const categories = Array.from(new Set(equipment.map(eq => eq.category))).filter(Boolean);
 
   return (
-    <>
-      <Modal
-        isOpen={isOpen && !showPrintPreview}
-        onClose={handleClose}
-        title="Sortie de Matériel"
-        size="xl"
-      >
-        <div className="space-y-6">
-          {/* Progress indicator */}
-          <div className="flex items-center justify-center space-x-4">
-            <div className={`flex items-center ${step === 'user' ? 'text-primary-600' : 'text-gray-400'}`}>
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step === 'user' ? 'bg-primary-600 text-white' : 'bg-gray-200'}`}>1</div>
-              <span className="ml-2">Utilisateur</span>
-            </div>
-            <div className="w-8 h-px bg-gray-300"></div>
-            <div className={`flex items-center ${step === 'equipment' ? 'text-primary-600' : 'text-gray-400'}`}>
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step === 'equipment' ? 'bg-primary-600 text-white' : 'bg-gray-200'}`}>2</div>
-              <span className="ml-2">Équipements</span>
-            </div>
-            <div className="w-8 h-px bg-gray-300"></div>
-            <div className={`flex items-center ${step === 'summary' ? 'text-primary-600' : 'text-gray-400'}`}>
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step === 'summary' ? 'bg-primary-600 text-white' : 'bg-gray-200'}`}>3</div>
-              <span className="ml-2">Résumé</span>
-            </div>
+    <Modal
+      isOpen={isOpen}
+      onClose={handleClose}
+      title="Sortie de Matériel"
+      size="xl"
+    >
+      <div className="space-y-6">
+        {/* Progress indicator */}
+        <div className="flex items-center justify-center space-x-4">
+          <div className={`flex items-center ${step === 'user' ? 'text-primary-600' : 'text-gray-400'}`}>
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step === 'user' ? 'bg-primary-600 text-white' : 'bg-gray-200'}`}>1</div>
+            <span className="ml-2">Utilisateur</span>
           </div>
+          <div className="w-8 h-px bg-gray-300"></div>
+          <div className={`flex items-center ${step === 'equipment' ? 'text-primary-600' : 'text-gray-400'}`}>
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step === 'equipment' ? 'bg-primary-600 text-white' : 'bg-gray-200'}`}>2</div>
+            <span className="ml-2">Équipements</span>
+          </div>
+          <div className="w-8 h-px bg-gray-300"></div>
+          <div className={`flex items-center ${step === 'summary' ? 'text-primary-600' : 'text-gray-400'}`}>
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step === 'summary' ? 'bg-primary-600 text-white' : 'bg-gray-200'}`}>3</div>
+            <span className="ml-2">Résumé</span>
+          </div>
+        </div>
 
-          {/* Step 1: User Selection */}
-          {step === 'user' && (
-            <div className="space-y-4">
-              <div className="flex gap-3">
-                <Button
-                  variant={userSelectionMode === 'scan' ? 'primary' : 'outline'}
-                  icon={<Search size={18} />}
-                  onClick={() => setUserSelectionMode('scan')}
-                >
-                  Scanner Badge
-                </Button>
-                <Button
-                  variant={userSelectionMode === 'new' ? 'primary' : 'outline'}
-                  icon={<UserPlus size={18} />}
-                  onClick={() => setUserSelectionMode('new')}
-                >
-                  Nouvel Utilisateur
-                </Button>
-                <Button
-                  variant={userSelectionMode === 'list' ? 'primary' : 'outline'}
-                  icon={<List size={18} />}
-                  onClick={() => setUserSelectionMode('list')}
-                >
-                  Liste Utilisateurs
-                </Button>
+        {/* Step 1: User Selection */}
+        {step === 'user' && (
+          <div className="space-y-4">
+            <div className="flex gap-3">
+              <Button
+                variant={userSelectionMode === 'scan' ? 'primary' : 'outline'}
+                icon={<Search size={18} />}
+                onClick={() => setUserSelectionMode('scan')}
+              >
+                Scanner Badge
+              </Button>
+              <Button
+                variant={userSelectionMode === 'new' ? 'primary' : 'outline'}
+                icon={<UserPlus size={18} />}
+                onClick={() => setUserSelectionMode('new')}
+              >
+                Nouvel Utilisateur
+              </Button>
+              <Button
+                variant={userSelectionMode === 'list' ? 'primary' : 'outline'}
+                icon={<List size={18} />}
+                onClick={() => setUserSelectionMode('list')}
+              >
+                Liste Utilisateurs
+              </Button>
+            </div>
+
+            {userSelectionMode === 'scan' && (
+              <div className="border rounded-lg p-4">
+                <QRCodeScanner onScan={handleUserScan} />
               </div>
+            )}
 
-              {userSelectionMode === 'scan' && (
-                <div className="border rounded-lg p-4">
-                  <QRCodeScanner onScan={handleUserScan} />
+            {userSelectionMode === 'list' && (
+              <div>
+                <input
+                  type="text"
+                  placeholder="Rechercher un utilisateur..."
+                  value={userSearch}
+                  onChange={(e) => setUserSearch(e.target.value)}
+                  className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm mb-3"
+                />
+                
+                <div className="max-h-60 overflow-y-auto border rounded-md">
+                  {filteredUsers.map(user => (
+                    <div
+                      key={user.id}
+                      className="p-3 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer border-b last:border-b-0"
+                      onClick={() => {
+                        setSelectedUser(user);
+                        setStep('equipment');
+                      }}
+                    >
+                      <div className="font-medium">{user.first_name} {user.last_name}</div>
+                      <div className="text-sm text-gray-500">{user.phone} • {user.department}</div>
+                    </div>
+                  ))}
                 </div>
-              )}
+              </div>
+            )}
 
-              {userSelectionMode === 'list' && (
-                <div>
+            {userSelectionMode === 'new' && (
+              <div className="border rounded-lg p-4 space-y-4">
+                <h3 className="font-medium">Nouvel Utilisateur</h3>
+                <div className="grid grid-cols-2 gap-4">
                   <input
                     type="text"
-                    placeholder="Rechercher un utilisateur..."
-                    value={userSearch}
-                    onChange={(e) => setUserSearch(e.target.value)}
-                    className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm mb-3"
+                    placeholder="Prénom *"
+                    value={newUserData.first_name}
+                    onChange={(e) => setNewUserData(prev => ({ ...prev, first_name: e.target.value }))}
+                    className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm"
                   />
-                  
-                  <div className="max-h-60 overflow-y-auto border rounded-md">
-                    {filteredUsers.map(user => (
-                      <div
-                        key={user.id}
-                        className="p-3 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer border-b last:border-b-0"
-                        onClick={() => {
-                          setSelectedUser(user);
-                          setStep('equipment');
-                        }}
-                      >
-                        <div className="font-medium">{user.first_name} {user.last_name}</div>
-                        <div className="text-sm text-gray-500">{user.phone} • {user.department}</div>
-                      </div>
-                    ))}
-                  </div>
+                  <input
+                    type="text"
+                    placeholder="Nom *"
+                    value={newUserData.last_name}
+                    onChange={(e) => setNewUserData(prev => ({ ...prev, last_name: e.target.value }))}
+                    className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm"
+                  />
+                  <input
+                    type="tel"
+                    placeholder="Téléphone *"
+                    value={newUserData.phone}
+                    onChange={(e) => setNewUserData(prev => ({ ...prev, phone: e.target.value }))}
+                    className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm"
+                  />
+                  <input
+                    type="email"
+                    placeholder="Email"
+                    value={newUserData.email}
+                    onChange={(e) => setNewUserData(prev => ({ ...prev, email: e.target.value }))}
+                    className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Département"
+                    value={newUserData.department}
+                    onChange={(e) => setNewUserData(prev => ({ ...prev, department: e.target.value }))}
+                    className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm col-span-2"
+                  />
                 </div>
-              )}
-
-              {userSelectionMode === 'new' && (
-                <div className="border rounded-lg p-4 space-y-4">
-                  <h3 className="font-medium">Nouvel Utilisateur</h3>
-                  <div className="grid grid-cols-2 gap-4">
-                    <input
-                      type="text"
-                      placeholder="Prénom *"
-                      value={newUserData.first_name}
-                      onChange={(e) => setNewUserData(prev => ({ ...prev, first_name: e.target.value }))}
-                      className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm"
-                    />
-                    <input
-                      type="text"
-                      placeholder="Nom *"
-                      value={newUserData.last_name}
-                      onChange={(e) => setNewUserData(prev => ({ ...prev, last_name: e.target.value }))}
-                      className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm"
-                    />
-                    <input
-                      type="tel"
-                      placeholder="Téléphone *"
-                      value={newUserData.phone}
-                      onChange={(e) => setNewUserData(prev => ({ ...prev, phone: e.target.value }))}
-                      className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm"
-                    />
-                    <input
-                      type="email"
-                      placeholder="Email"
-                      value={newUserData.email}
-                      onChange={(e) => setNewUserData(prev => ({ ...prev, email: e.target.value }))}
-                      className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm"
-                    />
-                    <input
-                      type="text"
-                      placeholder="Département"
-                      value={newUserData.department}
-                      onChange={(e) => setNewUserData(prev => ({ ...prev, department: e.target.value }))}
-                      className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm col-span-2"
-                    />
-                  </div>
-                  <div className="flex gap-3">
-                    <Button
-                      variant="primary"
-                      onClick={handleCreateUser}
-                      disabled={isLoading}
-                    >
-                      Créer et Continuer
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={() => setUserSelectionMode('scan')}
-                    >
-                      Annuler
-                    </Button>
-                  </div>
-                </div>
-              )}
-
-              {selectedUser && (
-                <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
-                  <h3 className="font-medium text-green-800 dark:text-green-200">Utilisateur sélectionné</h3>
-                  <p className="text-green-700 dark:text-green-300">{selectedUser.first_name} {selectedUser.last_name} - {selectedUser.phone}</p>
+                <div className="flex gap-3">
                   <Button
                     variant="primary"
-                    onClick={() => setStep('equipment')}
-                    className="mt-2"
+                    onClick={handleCreateUser}
+                    disabled={isLoading}
                   >
-                    Continuer
+                    Créer et Continuer
                   </Button>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Step 2: Equipment Selection */}
-          {step === 'equipment' && (
-            <div className="space-y-4">
-              <div className="flex gap-3">
-                <Button
-                  variant={equipmentMode === 'scan' ? 'primary' : 'outline'}
-                  icon={<Package size={18} />}
-                  onClick={() => {
-                    setEquipmentMode('scan');
-                    setShowScanner(true);
-                  }}
-                >
-                  Scanner QR Code
-                </Button>
-                <Button
-                  variant={equipmentMode === 'list' ? 'primary' : 'outline'}
-                  icon={<List size={18} />}
-                  onClick={() => {
-                    setEquipmentMode('list');
-                    setShowScanner(false);
-                  }}
-                >
-                  Liste Matériel
-                </Button>
-                <Button
-                  variant={equipmentMode === 'new' ? 'primary' : 'outline'}
-                  icon={<Plus size={18} />}
-                  onClick={() => {
-                    setEquipmentMode('new');
-                    setShowScanner(false);
-                    setShowNewEquipmentForm(true);
-                  }}
-                >
-                  Ajouter Équipement
-                </Button>
-              </div>
-
-              {equipmentMode === 'scan' && showScanner && (
-                <div className="border rounded-lg p-4">
-                  <QRCodeScanner onScan={handleEquipmentScan} />
                   <Button
                     variant="outline"
-                    onClick={() => setShowScanner(false)}
-                    className="mt-2"
+                    onClick={() => setUserSelectionMode('scan')}
                   >
-                    Arrêter Scanner
+                    Annuler
                   </Button>
                 </div>
-              )}
+              </div>
+            )}
 
-              {equipmentMode === 'list' && (
-                <div className="space-y-4">
-                  <div className="flex gap-3">
-                    <input
-                      type="text"
-                      placeholder="Rechercher par nom ou description..."
-                      value={equipmentSearch}
-                      onChange={(e) => setEquipmentSearch(e.target.value)}
-                      className="flex-1 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm"
-                    />
-                    <select
-                      value={equipmentFilter}
-                      onChange={(e) => setEquipmentFilter(e.target.value)}
-                      className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm"
-                    >
-                      <option value="">Toutes catégories</option>
-                      {categories.map(category => (
-                        <option key={category} value={category}>{category}</option>
-                      ))}
-                    </select>
-                  </div>
+            {selectedUser && (
+              <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
+                <h3 className="font-medium text-green-800 dark:text-green-200">Utilisateur sélectionné</h3>
+                <p className="text-green-700 dark:text-green-300">{selectedUser.first_name} {selectedUser.last_name} - {selectedUser.phone}</p>
+                <Button
+                  variant="primary"
+                  onClick={() => setStep('equipment')}
+                  className="mt-2"
+                >
+                  Continuer
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
 
-                  <div className="max-h-60 overflow-y-auto border rounded-md">
-                    {filteredEquipment.map(eq => {
-                      const isUnavailable = eq.realAvailableQuantity <= 0;
-                      const currentlySelected = checkoutItems.find(item => item.equipment.id === eq.id)?.quantity || 0;
-                      const maxSelectable = eq.realAvailableQuantity - currentlySelected;
-                      
-                      return (
-                        <div
-                          key={eq.id}
-                          className={`p-3 border-b last:border-b-0 flex justify-between items-center transition-all ${
-                            isUnavailable 
-                              ? 'bg-gray-100 dark:bg-gray-800 opacity-50 cursor-not-allowed' 
-                              : 'hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer'
-                          }`}
-                          onClick={() => !isUnavailable && handleSelectEquipmentFromList(eq)}
-                        >
+        {/* Step 2: Equipment Selection */}
+        {step === 'equipment' && (
+          <div className="space-y-4">
+            <div className="flex gap-3">
+              <Button
+                variant={equipmentMode === 'scan' ? 'primary' : 'outline'}
+                icon={<Package size={18} />}
+                onClick={() => {
+                  setEquipmentMode('scan');
+                  setShowScanner(true);
+                }}
+              >
+                Scanner QR Code
+              </Button>
+              <Button
+                variant={equipmentMode === 'list' ? 'primary' : 'outline'}
+                icon={<List size={18} />}
+                onClick={() => {
+                  setEquipmentMode('list');
+                  setShowScanner(false);
+                }}
+              >
+                Liste Matériel
+              </Button>
+              <Button
+                variant={equipmentMode === 'new' ? 'primary' : 'outline'}
+                icon={<Plus size={18} />}
+                onClick={() => {
+                  setEquipmentMode('new');
+                  setShowScanner(false);
+                  setShowNewEquipmentForm(true);
+                }}
+              >
+                Ajouter Équipement
+              </Button>
+            </div>
+
+            {equipmentMode === 'scan' && showScanner && (
+              <div className="border rounded-lg p-4">
+                <QRCodeScanner onScan={handleEquipmentScan} />
+                <Button
+                  variant="outline"
+                  onClick={() => setShowScanner(false)}
+                  className="mt-2"
+                >
+                  Arrêter Scanner
+                </Button>
+              </div>
+            )}
+
+            {equipmentMode === 'list' && (
+              <div className="space-y-4">
+                <div className="flex gap-3">
+                  <input
+                    type="text"
+                    placeholder="Rechercher par nom ou description..."
+                    value={equipmentSearch}
+                    onChange={(e) => setEquipmentSearch(e.target.value)}
+                    className="flex-1 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm"
+                  />
+                  <select
+                    value={equipmentFilter}
+                    onChange={(e) => setEquipmentFilter(e.target.value)}
+                    className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm"
+                  >
+                    <option value="">Toutes catégories</option>
+                    {categories.map(category => (
+                      <option key={category} value={category}>{category}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="max-h-60 overflow-y-auto border rounded-md">
+                  {filteredEquipment.map(eq => {
+                    const stock = stockInfo[eq.id] || { total: 0, borrowed: 0, maintenance: 0, available: 0 };
+                    const isUnavailable = stock.available === 0;
+                    const currentQuantity = checkoutItems.find(item => item.equipment.id === eq.id)?.quantity || 0;
+                    const maxQuantity = Math.max(0, stock.available - currentQuantity);
+
+                    return (
+                      <div
+                        key={eq.id}
+                        className={`p-3 border-b last:border-b-0 transition-all ${
+                          isUnavailable 
+                            ? 'bg-gray-100 dark:bg-gray-800 opacity-60 cursor-not-allowed' 
+                            : 'hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer'
+                        }`}
+                      >
+                        <div className="flex justify-between items-start">
                           <div className="flex-1">
-                            <div className="flex items-center gap-2">
-                              <div className={`font-medium ${isUnavailable ? 'text-gray-400' : 'text-gray-900 dark:text-gray-100'}`}>
-                                {eq.name}
-                              </div>
+                            <div className="flex items-center gap-2 mb-1">
+                              <div className="font-medium">{eq.name}</div>
                               {isUnavailable && (
-                                <AlertTriangle size={16} className="text-red-500" />
+                                <span className="text-red-500 text-xs bg-red-100 dark:bg-red-900/30 px-2 py-1 rounded">
+                                  ⚠️ INDISPONIBLE
+                                </span>
                               )}
                             </div>
-                            <div className={`text-sm ${isUnavailable ? 'text-gray-400' : 'text-gray-500'}`}>
-                              {eq.serialNumber} • {eq.category}
-                            </div>
-                            <div className={`text-sm ${isUnavailable ? 'text-gray-400' : 'text-gray-400'}`}>
-                              {eq.description}
-                            </div>
+                            <div className="text-sm text-gray-500">{eq.serialNumber} • {eq.category}</div>
+                            <div className="text-sm text-gray-400">{eq.description}</div>
                             
                             {/* Informations de stock détaillées */}
                             <div className="flex items-center gap-4 mt-2 text-xs">
-                              <div className={`flex items-center gap-1 ${
-                                eq.realAvailableQuantity > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+                              <span className={`font-medium ${
+                                stock.available > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
                               }`}>
-                                <Package size={12} />
-                                <span className="font-medium">
-                                  Disponible: {eq.realAvailableQuantity}/{eq.totalQuantity}
+                                ✅ Disponible: {stock.available}/{stock.total}
+                              </span>
+                              {stock.borrowed > 0 && (
+                                <span className="text-orange-600 dark:text-orange-400">
+                                  🟠 Emprunté: {stock.borrowed}
                                 </span>
-                              </div>
-                              
-                              {eq.checkedOutQuantity > 0 && (
-                                <div className="text-orange-600 dark:text-orange-400">
-                                  Emprunté: {eq.checkedOutQuantity}
-                                </div>
                               )}
-                              
-                              {eq.inMaintenanceQuantity > 0 && (
-                                <div className="text-blue-600 dark:text-blue-400">
-                                  Maintenance: {eq.inMaintenanceQuantity}
-                                </div>
+                              {stock.maintenance > 0 && (
+                                <span className="text-blue-600 dark:text-blue-400">
+                                  🔵 Maintenance: {stock.maintenance}
+                                </span>
                               )}
-                              
-                              {currentlySelected > 0 && (
-                                <div className="text-purple-600 dark:text-purple-400 font-medium">
-                                  Sélectionné: {currentlySelected}
-                                </div>
+                              {currentQuantity > 0 && (
+                                <span className="text-purple-600 dark:text-purple-400">
+                                  🟣 Sélectionné: {currentQuantity}
+                                </span>
+                              )}
+                              {!isUnavailable && maxQuantity > 0 && (
+                                <span className="text-gray-600 dark:text-gray-400">
+                                  Max: {maxQuantity}
+                                </span>
+                              )}
+                              {maxQuantity === 0 && currentQuantity > 0 && (
+                                <span className="text-yellow-600 dark:text-yellow-400 font-medium">
+                                  Max atteint
+                                </span>
                               )}
                             </div>
                           </div>
                           
-                          <div className="flex items-center gap-2">
-                            {!isUnavailable && maxSelectable > 0 && (
-                              <div className="text-xs text-gray-500 mr-2">
-                                Max: {maxSelectable}
-                              </div>
+                          <div className="ml-4">
+                            {isUnavailable ? (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                disabled
+                                className="cursor-not-allowed opacity-50"
+                              >
+                                Indisponible
+                              </Button>
+                            ) : maxQuantity === 0 ? (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                disabled
+                                className="cursor-not-allowed opacity-50"
+                              >
+                                Max atteint
+                              </Button>
+                            ) : (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleSelectEquipmentFromList(eq)}
+                              >
+                                Ajouter
+                              </Button>
                             )}
-                            <Button
-                              variant={isUnavailable ? "outline" : "primary"}
-                              size="sm"
-                              disabled={isUnavailable || maxSelectable <= 0}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (!isUnavailable) {
-                                  handleSelectEquipmentFromList(eq);
-                                }
-                              }}
-                            >
-                              {isUnavailable ? 'Indisponible' : maxSelectable <= 0 ? 'Max atteint' : 'Ajouter'}
-                            </Button>
                           </div>
                         </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {showNewEquipmentForm && (
-                <div className="border rounded-lg p-4 space-y-4">
-                  <h3 className="font-medium">Nouvel Équipement</h3>
-                  <div className="grid grid-cols-2 gap-4">
-                    <input
-                      type="text"
-                      placeholder="Nom de l'équipement *"
-                      value={tempNewEquipment.name}
-                      onChange={(e) => setTempNewEquipment(prev => ({ ...prev, name: e.target.value }))}
-                      className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm"
-                    />
-                    <input
-                      type="text"
-                      placeholder="Numéro de série *"
-                      value={tempNewEquipment.serialNumber}
-                      onChange={(e) => setTempNewEquipment(prev => ({ ...prev, serialNumber: e.target.value }))}
-                      className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm"
-                    />
-                  </div>
-                  <textarea
-                    placeholder="Description"
-                    value={tempNewEquipment.description}
-                    onChange={(e) => setTempNewEquipment(prev => ({ ...prev, description: e.target.value }))}
-                    className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm"
-                    rows={2}
-                  />
-                  <div className="flex gap-3">
-                    <Button
-                      variant="primary"
-                      onClick={handleAddNewEquipment}
-                    >
-                      Ajouter à la Liste
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={() => setShowNewEquipmentForm(false)}
-                    >
-                      Annuler
-                    </Button>
-                  </div>
-                </div>
-              )}
-
-              {/* Equipment List */}
-              {(checkoutItems.length > 0 || newEquipment.length > 0) && (
-                <div className="border rounded-lg p-4">
-                  <h3 className="font-medium mb-3">Équipements sélectionnés</h3>
-                  <div className="space-y-2">
-                    {checkoutItems.map((item, index) => (
-                      <div key={index} className="flex justify-between items-center p-2 bg-gray-50 dark:bg-gray-800 rounded">
-                        <div>
-                          <span className="font-medium">{item.equipment.name}</span>
-                          <span className="text-sm text-gray-500 ml-2">({item.equipment.serialNumber})</span>
-                          <span className="text-sm text-gray-500 ml-2">Qté: {item.quantity}</span>
-                          <span className="text-xs text-green-600 dark:text-green-400 ml-2">
-                            (Dispo: {(item.equipment as EquipmentWithStock).realAvailableQuantity})
-                          </span>
-                        </div>
-                        <Button
-                          variant="danger"
-                          size="sm"
-                          icon={<Trash2 size={14} />}
-                          onClick={() => setCheckoutItems(prev => prev.filter((_, i) => i !== index))}
-                        />
                       </div>
-                    ))}
-                    {newEquipment.map((item, index) => (
-                      <div key={`new-${index}`} className="flex justify-between items-center p-2 bg-blue-50 dark:bg-blue-900/20 rounded">
-                        <div>
-                          <span className="font-medium">{item.name}</span>
-                          <span className="text-sm text-gray-500 ml-2">({item.serialNumber})</span>
-                          <span className="text-xs text-blue-600 dark:text-blue-400 ml-2">[Nouveau]</span>
-                        </div>
-                        <Button
-                          variant="danger"
-                          size="sm"
-                          icon={<Trash2 size={14} />}
-                          onClick={() => setNewEquipment(prev => prev.filter((_, i) => i !== index))}
-                        />
-                      </div>
-                    ))}
-                  </div>
+                    );
+                  })}
                 </div>
-              )}
-
-              {(checkoutItems.length > 0 || newEquipment.length > 0) && (
-                <Button
-                  variant="primary"
-                  onClick={() => setStep('summary')}
-                >
-                  Continuer vers le résumé
-                </Button>
-              )}
-            </div>
-          )}
-
-          {/* Step 3: Summary */}
-          {step === 'summary' && (
-            <div className="space-y-4">
-              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-                <h3 className="font-medium text-blue-800 dark:text-blue-200 mb-2">
-                  📋 Création du bon de sortie
-                </h3>
-                <p className="text-blue-700 dark:text-blue-300 text-sm">
-                  Un numéro de bon unique sera généré automatiquement pour faciliter le suivi et les retours.
-                  Le bon sera affiché dans une popup modale pour impression (2 copies automatiques).
-                  Une notification sera automatiquement créée pour tracer ce mouvement de sortie.
-                </p>
               </div>
+            )}
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-1">Date de retour prévue</label>
+            {showNewEquipmentForm && (
+              <div className="border rounded-lg p-4 space-y-4">
+                <h3 className="font-medium">Nouvel Équipement</h3>
+                <div className="grid grid-cols-2 gap-4">
                   <input
-                    type="date"
-                    value={dueDate}
-                    onChange={(e) => setDueDate(e.target.value)}
-                    className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm"
+                    type="text"
+                    placeholder="Nom de l'équipement *"
+                    value={tempNewEquipment.name}
+                    onChange={(e) => setTempNewEquipment(prev => ({ ...prev, name: e.target.value }))}
+                    className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Numéro de série *"
+                    value={tempNewEquipment.serialNumber}
+                    onChange={(e) => setTempNewEquipment(prev => ({ ...prev, serialNumber: e.target.value }))}
+                    className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm"
                   />
                 </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1">Notes</label>
                 <textarea
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Notes optionnelles..."
+                  placeholder="Description"
+                  value={tempNewEquipment.description}
+                  onChange={(e) => setTempNewEquipment(prev => ({ ...prev, description: e.target.value }))}
                   className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm"
-                  rows={3}
+                  rows={2}
+                />
+                <div className="flex gap-3">
+                  <Button
+                    variant="primary"
+                    onClick={handleAddNewEquipment}
+                  >
+                    Ajouter à la Liste
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowNewEquipmentForm(false)}
+                  >
+                    Annuler
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Equipment List */}
+            {(checkoutItems.length > 0 || newEquipment.length > 0) && (
+              <div className="border rounded-lg p-4">
+                <h3 className="font-medium mb-3">Équipements sélectionnés</h3>
+                <div className="space-y-2">
+                  {checkoutItems.map((item, index) => (
+                    <div key={index} className="flex justify-between items-center p-2 bg-gray-50 dark:bg-gray-800 rounded">
+                      <div>
+                        <span className="font-medium">{item.equipment.name}</span>
+                        <span className="text-sm text-gray-500 ml-2">({item.equipment.serialNumber})</span>
+                        <span className="text-sm text-gray-500 ml-2">Qté: {item.quantity}</span>
+                      </div>
+                      <Button
+                        variant="danger"
+                        size="sm"
+                        icon={<Trash2 size={14} />}
+                        onClick={() => setCheckoutItems(prev => prev.filter((_, i) => i !== index))}
+                      />
+                    </div>
+                  ))}
+                  {newEquipment.map((item, index) => (
+                    <div key={`new-${index}`} className="flex justify-between items-center p-2 bg-blue-50 dark:bg-blue-900/20 rounded">
+                      <div>
+                        <span className="font-medium">{item.name}</span>
+                        <span className="text-sm text-gray-500 ml-2">({item.serialNumber})</span>
+                        <span className="text-xs text-blue-600 dark:text-blue-400 ml-2">[Nouveau]</span>
+                      </div>
+                      <Button
+                        variant="danger"
+                        size="sm"
+                        icon={<Trash2 size={14} />}
+                        onClick={() => setNewEquipment(prev => prev.filter((_, i) => i !== index))}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {(checkoutItems.length > 0 || newEquipment.length > 0) && (
+              <Button
+                variant="primary"
+                onClick={() => setStep('summary')}
+              >
+                Continuer vers le résumé
+              </Button>
+            )}
+          </div>
+        )}
+
+        {/* Step 3: Summary */}
+        {step === 'summary' && (
+          <div className="space-y-4">
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+              <h3 className="font-medium text-blue-800 dark:text-blue-200 mb-2">
+                📋 Création du bon de sortie
+              </h3>
+              <p className="text-blue-700 dark:text-blue-300 text-sm">
+                Un numéro de bon unique sera généré automatiquement pour faciliter le suivi et les retours.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Date de retour prévue</label>
+                <input
+                  type="date"
+                  value={dueDate}
+                  onChange={(e) => setDueDate(e.target.value)}
+                  className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm"
                 />
               </div>
-
-              <div className="flex gap-3">
-                <Button
-                  variant="primary"
-                  icon={<Printer size={18} />}
-                  onClick={handleCheckout}
-                  disabled={isLoading}
-                >
-                  {isLoading ? 'Création en cours...' : 'Créer le Bon et Afficher l\'Aperçu'}
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => setStep('equipment')}
-                >
-                  Retour
-                </Button>
-              </div>
             </div>
-          )}
-        </div>
-      </Modal>
 
-      {/* Print Preview Modal */}
-      <PrintPreviewModal
-        isOpen={showPrintPreview}
-        onClose={() => {
-          setShowPrintPreview(false);
-          handleClose(); // Close the main modal after printing
-        }}
-        noteNumber={printNoteNumber}
-        selectedUser={selectedUser}
-        dueDate={dueDate}
-        notes={notes}
-        checkoutItems={checkoutItems}
-        newEquipment={newEquipment}
-      />
-    </>
+            <div>
+              <label className="block text-sm font-medium mb-1">Notes</label>
+              <textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Notes optionnelles..."
+                className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm"
+                rows={3}
+              />
+            </div>
+
+            <div className="flex gap-3">
+              <Button
+                variant="primary"
+                icon={<Printer size={18} />}
+                onClick={handleCheckout}
+                disabled={isLoading}
+              >
+                {isLoading ? 'Création en cours...' : 'Créer le Bon et Imprimer'}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setStep('equipment')}
+              >
+                Retour
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+    </Modal>
   );
 };
 

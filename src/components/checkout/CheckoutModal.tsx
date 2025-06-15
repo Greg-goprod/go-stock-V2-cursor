@@ -26,31 +26,163 @@ interface NewEquipment {
 interface PrintPreviewModalProps {
   isOpen: boolean;
   onClose: () => void;
-  content: string;
   noteNumber: string;
+  selectedUser: User | null;
+  dueDate: string;
+  notes: string;
+  checkoutItems: CheckoutItem[];
+  newEquipment: NewEquipment[];
 }
 
-const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({ isOpen, onClose, content, noteNumber }) => {
+const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({ 
+  isOpen, 
+  onClose, 
+  noteNumber, 
+  selectedUser, 
+  dueDate, 
+  notes, 
+  checkoutItems, 
+  newEquipment 
+}) => {
+  const allItems = [
+    ...checkoutItems.map(item => ({ name: item.equipment.name, serialNumber: item.equipment.serialNumber, quantity: item.quantity })),
+    ...newEquipment.map(eq => ({ name: eq.name, serialNumber: eq.serialNumber, quantity: 1 }))
+  ];
+
   const handlePrint = () => {
-    // Créer un iframe invisible pour l'impression
+    // Créer le contenu HTML pour l'impression
+    const printContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Bon de Sortie ${noteNumber} - GO-Mat</title>
+          <style>
+            @media print {
+              body { margin: 0; font-size: 12pt; }
+              .no-print { display: none !important; }
+            }
+            body { 
+              font-family: Arial, sans-serif; 
+              margin: 20px; 
+              color: #000;
+              background: #fff;
+              line-height: 1.4;
+            }
+            .header { 
+              text-align: center; 
+              margin-bottom: 30px; 
+              border-bottom: 2px solid #333; 
+              padding-bottom: 10px; 
+            }
+            .note-number { 
+              font-size: 24px; 
+              font-weight: bold; 
+              color: #2563eb; 
+              margin-bottom: 10px; 
+            }
+            .info { 
+              margin-bottom: 20px; 
+              line-height: 1.6;
+            }
+            .items { 
+              width: 100%; 
+              border-collapse: collapse; 
+              margin-bottom: 30px; 
+            }
+            .items th, .items td { 
+              border: 1px solid #ddd; 
+              padding: 8px; 
+              text-align: left; 
+            }
+            .items th { 
+              background-color: #f2f2f2; 
+              font-weight: bold;
+            }
+            .signature { 
+              margin-top: 50px; 
+            }
+            .signature-line { 
+              border-bottom: 1px solid #333; 
+              width: 200px; 
+              margin-top: 30px; 
+            }
+            .footer { 
+              margin-top: 30px; 
+              text-align: center; 
+              font-size: 12px; 
+              color: #666; 
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>GO-Mat - Bon de Sortie</h1>
+            <div class="note-number">N° ${noteNumber}</div>
+            <p>Date d'émission: ${new Date().toLocaleDateString('fr-FR')}</p>
+          </div>
+          
+          <div class="info">
+            <p><strong>Utilisateur:</strong> ${selectedUser?.first_name} ${selectedUser?.last_name}</p>
+            <p><strong>Téléphone:</strong> ${selectedUser?.phone}</p>
+            <p><strong>Département:</strong> ${selectedUser?.department}</p>
+            <p><strong>Date de retour prévue:</strong> ${new Date(dueDate).toLocaleDateString('fr-FR')}</p>
+            ${notes ? `<p><strong>Notes:</strong> ${notes}</p>` : ''}
+          </div>
+
+          <table class="items">
+            <thead>
+              <tr>
+                <th>Équipement</th>
+                <th>Numéro de série</th>
+                <th>Quantité</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${allItems.map(item => `
+                <tr>
+                  <td>${item.name}</td>
+                  <td>${item.serialNumber}</td>
+                  <td>${item.quantity}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+
+          <div class="signature">
+            <p>Je reconnais avoir reçu le matériel ci-dessus et m'engage à le restituer en bon état.</p>
+            <p>Signature de l'utilisateur:</p>
+            <div class="signature-line"></div>
+            <p style="margin-top: 5px;">Date: _______________</p>
+          </div>
+
+          <div class="footer">
+            <p>Ce bon de sortie doit être conservé jusqu'au retour complet du matériel.</p>
+            <p>Pour tout retour, présentez ce bon ou indiquez le numéro: <strong>${noteNumber}</strong></p>
+          </div>
+        </body>
+      </html>
+    `;
+
+    // Créer un iframe caché pour l'impression
     const iframe = document.createElement('iframe');
     iframe.style.position = 'absolute';
     iframe.style.top = '-9999px';
     iframe.style.left = '-9999px';
-    iframe.style.width = '0px';
-    iframe.style.height = '0px';
+    iframe.style.width = '1px';
+    iframe.style.height = '1px';
     iframe.style.border = 'none';
+    iframe.style.visibility = 'hidden';
     
     document.body.appendChild(iframe);
     
     const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
     if (iframeDoc) {
       iframeDoc.open();
-      iframeDoc.write(content);
+      iframeDoc.write(printContent);
       iframeDoc.close();
       
-      // Attendre que le contenu soit chargé
-      iframe.onload = () => {
+      // Attendre que le contenu soit chargé puis imprimer
+      setTimeout(() => {
         try {
           // Première impression
           iframe.contentWindow?.print();
@@ -59,53 +191,106 @@ const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({ isOpen, onClose, 
           setTimeout(() => {
             iframe.contentWindow?.print();
             
-            // Nettoyer l'iframe après impression
+            // Nettoyer l'iframe
             setTimeout(() => {
-              document.body.removeChild(iframe);
+              if (document.body.contains(iframe)) {
+                document.body.removeChild(iframe);
+              }
             }, 1000);
-          }, 500);
+          }, 1000);
           
         } catch (error) {
           console.error('Erreur lors de l\'impression:', error);
           toast.error('Erreur lors de l\'impression');
-          document.body.removeChild(iframe);
+          if (document.body.contains(iframe)) {
+            document.body.removeChild(iframe);
+          }
         }
-      };
+      }, 500);
     }
-  };
-
-  // Extraire le contenu HTML du body pour l'affichage dans la popup
-  const getDisplayContent = () => {
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(content, 'text/html');
-    const bodyContent = doc.body.innerHTML;
-    return bodyContent;
   };
 
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={`Aperçu du bon de sortie ${noteNumber}`}
+      title={`Bon de sortie ${noteNumber}`}
       size="xl"
     >
-      <div className="space-y-4">
-        <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3">
-          <p className="text-yellow-800 dark:text-yellow-200 text-sm">
-            📄 Aperçu du bon de sortie. Cliquez sur "Imprimer (2 copies)" pour lancer l'impression.
+      <div className="space-y-6">
+        <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
+          <h3 className="text-lg font-medium text-green-800 dark:text-green-200 mb-2">
+            ✅ Bon de sortie créé avec succès !
+          </h3>
+          <p className="text-green-700 dark:text-green-300 text-sm">
+            Le bon de sortie N° <strong>{noteNumber}</strong> a été créé et enregistré dans la base de données.
+            Vous pouvez maintenant l'imprimer en 2 exemplaires.
           </p>
         </div>
         
-        <div 
-          className="border rounded-lg p-6 bg-white max-h-96 overflow-y-auto"
-          style={{ 
+        {/* Aperçu du bon de sortie */}
+        <div className="border rounded-lg overflow-hidden">
+          <div className="bg-gray-50 dark:bg-gray-800 px-4 py-2 border-b">
+            <h4 className="font-medium text-gray-900 dark:text-white">Aperçu du bon de sortie</h4>
+          </div>
+          
+          <div className="p-6 bg-white max-h-96 overflow-y-auto" style={{ 
             fontFamily: 'Arial, sans-serif',
             fontSize: '14px',
             lineHeight: '1.6',
             color: '#000'
-          }}
-          dangerouslySetInnerHTML={{ __html: getDisplayContent() }}
-        />
+          }}>
+            {/* Header */}
+            <div className="text-center mb-6 pb-3 border-b-2 border-gray-800">
+              <h1 className="text-xl font-bold mb-2">GO-Mat - Bon de Sortie</h1>
+              <div className="text-lg font-bold text-blue-600 mb-2">N° {noteNumber}</div>
+              <p className="text-sm">Date d'émission: {new Date().toLocaleDateString('fr-FR')}</p>
+            </div>
+            
+            {/* Informations utilisateur */}
+            <div className="mb-6">
+              <p className="mb-1"><strong>Utilisateur:</strong> {selectedUser?.first_name} {selectedUser?.last_name}</p>
+              <p className="mb-1"><strong>Téléphone:</strong> {selectedUser?.phone}</p>
+              <p className="mb-1"><strong>Département:</strong> {selectedUser?.department}</p>
+              <p className="mb-1"><strong>Date de retour prévue:</strong> {new Date(dueDate).toLocaleDateString('fr-FR')}</p>
+              {notes && <p className="mb-1"><strong>Notes:</strong> {notes}</p>}
+            </div>
+
+            {/* Tableau des équipements */}
+            <table className="w-full border-collapse mb-6">
+              <thead>
+                <tr className="bg-gray-100">
+                  <th className="border border-gray-300 px-2 py-2 text-left font-bold">Équipement</th>
+                  <th className="border border-gray-300 px-2 py-2 text-left font-bold">Numéro de série</th>
+                  <th className="border border-gray-300 px-2 py-2 text-left font-bold">Quantité</th>
+                </tr>
+              </thead>
+              <tbody>
+                {allItems.map((item, index) => (
+                  <tr key={index}>
+                    <td className="border border-gray-300 px-2 py-2">{item.name}</td>
+                    <td className="border border-gray-300 px-2 py-2">{item.serialNumber}</td>
+                    <td className="border border-gray-300 px-2 py-2">{item.quantity}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            {/* Signature */}
+            <div className="mt-12">
+              <p className="mb-4">Je reconnais avoir reçu le matériel ci-dessus et m'engage à le restituer en bon état.</p>
+              <p className="mb-4">Signature de l'utilisateur:</p>
+              <div className="border-b border-gray-800 w-48 mb-2"></div>
+              <p className="text-sm">Date: _______________</p>
+            </div>
+
+            {/* Footer */}
+            <div className="mt-8 text-center text-xs text-gray-600">
+              <p>Ce bon de sortie doit être conservé jusqu'au retour complet du matériel.</p>
+              <p>Pour tout retour, présentez ce bon ou indiquez le numéro: <strong>{noteNumber}</strong></p>
+            </div>
+          </div>
+        </div>
         
         <div className="flex justify-between">
           <Button
@@ -114,15 +299,13 @@ const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({ isOpen, onClose, 
           >
             Fermer
           </Button>
-          <div className="flex gap-3">
-            <Button
-              variant="primary"
-              icon={<Printer size={18} />}
-              onClick={handlePrint}
-            >
-              Imprimer (2 copies)
-            </Button>
-          </div>
+          <Button
+            variant="primary"
+            icon={<Printer size={18} />}
+            onClick={handlePrint}
+          >
+            Imprimer (2 copies)
+          </Button>
         </div>
       </div>
     </Modal>
@@ -166,7 +349,6 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
 
   // Print preview states
   const [showPrintPreview, setShowPrintPreview] = useState(false);
-  const [printContent, setPrintContent] = useState('');
   const [printNoteNumber, setPrintNoteNumber] = useState('');
 
   useEffect(() => {
@@ -343,124 +525,6 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
     toast.success('Équipement ajouté à la liste');
   };
 
-  const generatePrintContent = (noteNumber: string) => {
-    const allItems = [
-      ...checkoutItems.map(item => ({ name: item.equipment.name, serialNumber: item.equipment.serialNumber, quantity: item.quantity })),
-      ...newEquipment.map(eq => ({ name: eq.name, serialNumber: eq.serialNumber, quantity: 1 }))
-    ];
-
-    return `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>Bon de Sortie ${noteNumber} - GO-Mat</title>
-          <style>
-            body { 
-              font-family: Arial, sans-serif; 
-              margin: 20px; 
-              color: #000;
-              background: #fff;
-            }
-            .header { 
-              text-align: center; 
-              margin-bottom: 30px; 
-              border-bottom: 2px solid #333; 
-              padding-bottom: 10px; 
-            }
-            .note-number { 
-              font-size: 24px; 
-              font-weight: bold; 
-              color: #2563eb; 
-              margin-bottom: 10px; 
-            }
-            .info { 
-              margin-bottom: 20px; 
-              line-height: 1.6;
-            }
-            .items { 
-              width: 100%; 
-              border-collapse: collapse; 
-              margin-bottom: 30px; 
-            }
-            .items th, .items td { 
-              border: 1px solid #ddd; 
-              padding: 8px; 
-              text-align: left; 
-            }
-            .items th { 
-              background-color: #f2f2f2; 
-              font-weight: bold;
-            }
-            .signature { 
-              margin-top: 50px; 
-            }
-            .signature-line { 
-              border-bottom: 1px solid #333; 
-              width: 200px; 
-              margin-top: 30px; 
-            }
-            .footer { 
-              margin-top: 30px; 
-              text-align: center; 
-              font-size: 12px; 
-              color: #666; 
-            }
-            @media print {
-              body { margin: 0; }
-              .no-print { display: none; }
-            }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <h1>GO-Mat - Bon de Sortie</h1>
-            <div class="note-number">N° ${noteNumber}</div>
-            <p>Date d'émission: ${new Date().toLocaleDateString('fr-FR')}</p>
-          </div>
-          
-          <div class="info">
-            <p><strong>Utilisateur:</strong> ${selectedUser?.first_name} ${selectedUser?.last_name}</p>
-            <p><strong>Téléphone:</strong> ${selectedUser?.phone}</p>
-            <p><strong>Département:</strong> ${selectedUser?.department}</p>
-            <p><strong>Date de retour prévue:</strong> ${new Date(dueDate).toLocaleDateString('fr-FR')}</p>
-            ${notes ? `<p><strong>Notes:</strong> ${notes}</p>` : ''}
-          </div>
-
-          <table class="items">
-            <thead>
-              <tr>
-                <th>Équipement</th>
-                <th>Numéro de série</th>
-                <th>Quantité</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${allItems.map(item => `
-                <tr>
-                  <td>${item.name}</td>
-                  <td>${item.serialNumber}</td>
-                  <td>${item.quantity}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-
-          <div class="signature">
-            <p>Je reconnais avoir reçu le matériel ci-dessus et m'engage à le restituer en bon état.</p>
-            <p>Signature de l'utilisateur:</p>
-            <div class="signature-line"></div>
-            <p style="margin-top: 5px;">Date: _______________</p>
-          </div>
-
-          <div class="footer">
-            <p>Ce bon de sortie doit être conservé jusqu'au retour complet du matériel.</p>
-            <p>Pour tout retour, présentez ce bon ou indiquez le numéro: <strong>${noteNumber}</strong></p>
-          </div>
-        </body>
-      </html>
-    `;
-  };
-
   const handleCheckout = async () => {
     if (!selectedUser || (checkoutItems.length === 0 && newEquipment.length === 0)) {
       toast.error('Utilisateur et équipements requis');
@@ -575,9 +639,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
 
       toast.success(`Bon de sortie ${deliveryNote.note_number} créé avec succès`);
       
-      // Préparer le contenu d'impression et afficher la popup
-      const content = generatePrintContent(deliveryNote.note_number);
-      setPrintContent(content);
+      // Afficher la popup d'aperçu et d'impression
       setPrintNoteNumber(deliveryNote.note_number);
       setShowPrintPreview(true);
       
@@ -605,7 +667,6 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
     setNewUserData({ first_name: '', last_name: '', phone: '', email: '', department: '' });
     setTempNewEquipment({ name: '', serialNumber: '', description: '' });
     setShowPrintPreview(false);
-    setPrintContent('');
     setPrintNoteNumber('');
     onClose();
   };
@@ -621,7 +682,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
   return (
     <>
       <Modal
-        isOpen={isOpen}
+        isOpen={isOpen && !showPrintPreview}
         onClose={handleClose}
         title="Sortie de Matériel"
         size="xl"
@@ -1040,8 +1101,12 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
           setShowPrintPreview(false);
           handleClose(); // Close the main modal after printing
         }}
-        content={printContent}
         noteNumber={printNoteNumber}
+        selectedUser={selectedUser}
+        dueDate={dueDate}
+        notes={notes}
+        checkoutItems={checkoutItems}
+        newEquipment={newEquipment}
       />
     </>
   );

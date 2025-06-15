@@ -277,7 +277,7 @@ const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({
           </h3>
           <p className="text-green-700 dark:text-green-300 text-sm">
             Le bon de sortie N° <strong>{noteNumber}</strong> a été créé et enregistré dans la base de données.
-            Cliquez sur "Imprimer" pour imprimer automatiquement 2 copies du bon.
+            Cliquez sur "Imprimer\" pour imprimer automatiquement 2 copies du bon.
           </p>
         </div>
         

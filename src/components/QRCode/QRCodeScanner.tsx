@@ -131,24 +131,23 @@ const QRCodeScanner: React.FC<QRCodeScannerProps> = ({ onScan, onError }) => {
 
   return (
     <div className="flex flex-col items-center space-y-4">
-      {/* Mode Douchette - VERSION ULTRA CLEAN SANS INTERFACE TECHNIQUE */}
+      {/* Mode Douchette - VERSION ULTRA CLEAN SANS AUCUNE INTERFACE TECHNIQUE */}
       {scanMode === 'barcode' && (
         <div className="w-full max-w-sm">
-          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-4">
+          {/* ✅ ZONE VERTE SIMPLIFIÉE - SANS DÉTAILS TECHNIQUES */}
+          <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4 mb-4">
             <div className="flex items-center gap-2 mb-2">
-              <Keyboard size={20} className="text-blue-600 dark:text-blue-400" />
-              <h3 className="font-black text-blue-800 dark:text-blue-200 uppercase tracking-wide">
-                SCAN AUTOMATIQUE ACTIF
+              <Keyboard size={20} className="text-green-600 dark:text-green-400" />
+              <h3 className="font-black text-green-800 dark:text-green-200 uppercase tracking-wide">
+                ✅ PRÊT POUR LE SCAN
               </h3>
             </div>
-            <p className="text-sm text-blue-700 dark:text-blue-300 font-medium">
-              ✅ Scannez directement avec votre douchette INATECK
-            </p>
-            <p className="text-xs text-blue-600 dark:text-blue-400 mt-1 font-medium">
-              Le curseur doit être dans le champ ci-dessous
+            <p className="text-sm text-green-700 dark:text-green-300 font-medium">
+              Scannez directement avec votre douchette
             </p>
           </div>
 
+          {/* ✅ CHAMP DE SCAN ULTRA-CLEAN */}
           <div className="relative">
             <input
               ref={inputRef}
@@ -156,7 +155,7 @@ const QRCodeScanner: React.FC<QRCodeScannerProps> = ({ onScan, onError }) => {
               value={scannedValue}
               onChange={handleInputChange}
               onKeyDown={handleBarcodeInput}
-              placeholder="Scannez un QR code avec votre douchette..."
+              placeholder="Scannez un QR code..."
               className={`w-full px-4 py-3 text-center border-2 border-dashed rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 font-mono text-lg focus:outline-none focus:ring-2 transition-all ${
                 scanStatus === 'success' 
                   ? 'border-green-400 dark:border-green-500 focus:border-green-500 focus:ring-green-200 dark:focus:ring-green-800'
@@ -178,43 +177,41 @@ const QRCodeScanner: React.FC<QRCodeScannerProps> = ({ onScan, onError }) => {
             </div>
           </div>
 
+          {/* ✅ FEEDBACK VISUEL SIMPLIFIÉ */}
           <div className="mt-3 text-center">
             <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">
-              🎯 Pointez votre douchette vers un QR code et appuyez sur le trigger
+              🎯 Pointez votre douchette vers un QR code
             </p>
             {scannedValue && (
               <p className="text-xs text-blue-600 dark:text-blue-400 font-bold mt-1">
-                ⚡ Données en cours: {scannedValue.substring(0, 30)}...
+                ⚡ Scan en cours...
               </p>
             )}
             {lastScannedValue && scanStatus === 'success' && (
               <div className="mt-2 p-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded">
                 <p className="text-xs text-green-700 dark:text-green-300 font-black uppercase tracking-wide">
-                  ✅ DERNIER SCAN RÉUSSI
-                </p>
-                <p className="text-xs text-green-600 dark:text-green-400 font-mono break-all">
-                  {lastScannedValue}
+                  ✅ SCAN RÉUSSI
                 </p>
               </div>
             )}
           </div>
 
-          {/* Bouton caméra en bas - DESIGN COHÉRENT */}
-          <div className="mt-4 text-center">
+          {/* ✅ BOUTON CAMÉRA DISCRET EN BAS */}
+          <div className="mt-6 text-center">
             <Button
               variant="outline"
               size="sm"
               icon={<Camera size={16} />}
               onClick={() => setScanMode('camera')}
-              className="font-black"
+              className="font-medium text-xs"
             >
-              UTILISER LA CAMÉRA
+              Utiliser la caméra
             </Button>
           </div>
         </div>
       )}
 
-      {/* Mode Caméra - DESIGN COHÉRENT */}
+      {/* Mode Caméra - DESIGN COHÉRENT MAIS MASQUÉ PAR DÉFAUT */}
       {scanMode === 'camera' && (
         <div className="w-full max-w-sm">
           <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg p-4 mb-4">

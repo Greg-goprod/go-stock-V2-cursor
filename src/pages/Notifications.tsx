@@ -11,7 +11,7 @@ import toast from 'react-hot-toast';
 
 interface NotificationItem {
   id: string;
-  type: 'overdue' | 'due_soon' | 'maintenance' | 'system';
+  type: 'overdue' | 'due_soon' | 'maintenance' | 'system' | 'checkout';
   title: string;
   message: string;
   date: string;
@@ -25,6 +25,10 @@ interface NotificationItem {
     checkoutId?: string;
     dueDate?: string;
     daysOverdue?: number;
+    delivery_note_id?: string;
+    note_number?: string;
+    user_department?: string;
+    equipment_count?: number;
   };
 }
 
@@ -32,10 +36,28 @@ const Notifications: React.FC = () => {
   const { t } = useLanguage();
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<'all' | 'unread' | 'read' | 'overdue' | 'maintenance'>('all');
+  const [filter, setFilter] = useState<'all' | 'unread' | 'read' | 'overdue' | 'maintenance' | 'checkout'>('all');
 
   useEffect(() => {
     generateNotifications();
+    
+    // Écouter les nouvelles notifications de sortie
+    const checkForNewCheckoutNotifications = () => {
+      const checkoutNotifications = JSON.parse(localStorage.getItem('checkout_notifications') || '[]');
+      if (checkoutNotifications.length > 0) {
+        // Intégrer les notifications de sortie
+        setNotifications(prev => {
+          const existingIds = new Set(prev.map(n => n.id));
+          const newNotifications = checkoutNotifications.filter((n: any) => !existingIds.has(n.id));
+          return [...newNotifications, ...prev];
+        });
+      }
+    };
+
+    // Vérifier périodiquement les nouvelles notifications
+    const interval = setInterval(checkForNewCheckoutNotifications, 2000);
+    
+    return () => clearInterval(interval);
   }, []);
 
   const generateNotifications = async () => {
@@ -148,20 +170,11 @@ const Notifications: React.FC = () => {
         });
       });
 
-      // 4. Ajouter quelques notifications système d'exemple
-      if (generatedNotifications.length === 0) {
-        generatedNotifications.push({
-          id: 'system-welcome',
-          type: 'system',
-          title: 'Système de notifications actif',
-          message: 'Le système de notifications surveille automatiquement les retards et les maintenances prolongées.',
-          date: new Date().toISOString(),
-          priority: 'low',
-          read: false
-        });
-      }
+      // 4. Récupérer les notifications de sortie depuis localStorage
+      const checkoutNotifications = JSON.parse(localStorage.getItem('checkout_notifications') || '[]');
+      generatedNotifications.push(...checkoutNotifications);
 
-      // Ajouter quelques notifications lues d'exemple pour démonstration
+      // 5. Ajouter quelques notifications lues d'exemple pour démonstration
       generatedNotifications.push(
         {
           id: 'read-example-1',
@@ -180,8 +193,36 @@ const Notifications: React.FC = () => {
           date: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(), // Il y a 1 jour
           priority: 'low',
           read: true
+        },
+        {
+          id: 'read-example-3',
+          type: 'checkout',
+          title: 'Notification lue - Bon de sortie traité',
+          message: 'Bon N° GOMAT-BON-20250101-0001 créé pour Marie Martin (3 équipements)',
+          date: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(), // Il y a 3 jours
+          priority: 'medium',
+          read: true,
+          relatedData: {
+            note_number: 'GOMAT-BON-20250101-0001',
+            userName: 'Marie Martin',
+            user_department: 'Informatique',
+            equipment_count: 3
+          }
         }
       );
+
+      // 6. Ajouter notification système si aucune notification
+      if (generatedNotifications.length === 0) {
+        generatedNotifications.push({
+          id: 'system-welcome',
+          type: 'system',
+          title: 'Système de notifications actif',
+          message: 'Le système de notifications surveille automatiquement les retards, les maintenances prolongées et les mouvements de sortie.',
+          date: new Date().toISOString(),
+          priority: 'low',
+          read: false
+        });
+      }
 
       // Trier par priorité et date
       generatedNotifications.sort((a, b) => {
@@ -230,6 +271,14 @@ const Notifications: React.FC = () => {
     setNotifications(prev =>
       prev.filter(notif => notif.id !== notificationId)
     );
+    
+    // Si c'est une notification de sortie, la supprimer aussi du localStorage
+    if (notificationId.startsWith('checkout-')) {
+      const checkoutNotifications = JSON.parse(localStorage.getItem('checkout_notifications') || '[]');
+      const updatedNotifications = checkoutNotifications.filter((n: any) => n.id !== notificationId);
+      localStorage.setItem('checkout_notifications', JSON.stringify(updatedNotifications));
+    }
+    
     toast.success('Notification supprimée');
   };
 
@@ -243,6 +292,8 @@ const Notifications: React.FC = () => {
         return notifications.filter(n => n.type === 'overdue');
       case 'maintenance':
         return notifications.filter(n => n.type === 'maintenance');
+      case 'checkout':
+        return notifications.filter(n => n.type === 'checkout');
       default:
         return notifications;
     }
@@ -256,6 +307,8 @@ const Notifications: React.FC = () => {
         return <Clock size={20} className="text-yellow-500" />;
       case 'maintenance':
         return <Package size={20} className="text-blue-500" />;
+      case 'checkout':
+        return <Package size={20} className="text-green-500" />;
       default:
         return <Bell size={20} className="text-gray-500" />;
     }
@@ -291,7 +344,7 @@ const Notifications: React.FC = () => {
         <div>
           <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Notifications</h1>
           <p className="text-gray-600 dark:text-gray-400 mt-1">
-            Événements spéciaux et rappels de retard de matériel
+            Événements spéciaux, rappels de retard et mouvements de matériel
           </p>
         </div>
         
@@ -339,6 +392,13 @@ const Notifications: React.FC = () => {
             Lues ({readCount})
           </Button>
           <Button
+            variant={filter === 'checkout' ? 'primary' : 'outline'}
+            size="sm"
+            onClick={() => setFilter('checkout')}
+          >
+            Sorties ({notifications.filter(n => n.type === 'checkout').length})
+          </Button>
+          <Button
             variant={filter === 'overdue' ? 'primary' : 'outline'}
             size="sm"
             onClick={() => setFilter('overdue')}
@@ -371,6 +431,8 @@ const Notifications: React.FC = () => {
                   ? 'Aucune notification non lue.'
                   : filter === 'read'
                   ? 'Aucune notification lue.'
+                  : filter === 'checkout'
+                  ? 'Aucune notification de sortie.'
                   : filter === 'overdue' 
                   ? 'Aucune notification de retard.' 
                   : 'Aucune notification de maintenance.'
@@ -456,6 +518,21 @@ const Notifications: React.FC = () => {
                         </div>
                       )}
                       
+                      {notification.relatedData?.note_number && (
+                        <div className="flex items-center gap-1">
+                          <Package size={12} />
+                          <span className="font-mono">{notification.relatedData.note_number}</span>
+                        </div>
+                      )}
+                      
+                      {notification.relatedData?.equipment_count && (
+                        <div className="flex items-center gap-1">
+                          <span className="text-blue-600 dark:text-blue-400 font-medium">
+                            {notification.relatedData.equipment_count} équipement{notification.relatedData.equipment_count > 1 ? 's' : ''}
+                          </span>
+                        </div>
+                      )}
+                      
                       {notification.relatedData?.daysOverdue && (
                         <div className="flex items-center gap-1">
                           <AlertTriangle size={12} />
@@ -508,7 +585,7 @@ const Notifications: React.FC = () => {
       {/* Statistiques */}
       {notifications.length > 0 && (
         <Card>
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
             <div className="text-center">
               <div className="text-2xl font-bold text-gray-900 dark:text-white">
                 {notifications.length}
@@ -533,6 +610,15 @@ const Notifications: React.FC = () => {
               </div>
               <div className="text-sm text-gray-500 dark:text-gray-400">
                 Lues
+              </div>
+            </div>
+            
+            <div className="text-center">
+              <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+                {notifications.filter(n => n.type === 'checkout').length}
+              </div>
+              <div className="text-sm text-gray-500 dark:text-gray-400">
+                Sorties
               </div>
             </div>
             

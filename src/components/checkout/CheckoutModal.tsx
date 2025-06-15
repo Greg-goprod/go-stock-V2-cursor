@@ -525,6 +525,45 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
     toast.success('Équipement ajouté à la liste');
   };
 
+  // Fonction pour créer une notification de sortie
+  const createCheckoutNotification = async (deliveryNote: any, equipmentCount: number) => {
+    try {
+      // Créer une notification système pour le mouvement de sortie
+      const notificationData = {
+        type: 'checkout',
+        title: 'Nouveau bon de sortie créé',
+        message: `Bon N° ${deliveryNote.note_number} créé pour ${selectedUser?.first_name} ${selectedUser?.last_name} (${equipmentCount} équipement${equipmentCount > 1 ? 's' : ''})`,
+        priority: 'medium',
+        read: false,
+        related_data: {
+          delivery_note_id: deliveryNote.id,
+          note_number: deliveryNote.note_number,
+          user_name: `${selectedUser?.first_name} ${selectedUser?.last_name}`,
+          user_department: selectedUser?.department,
+          equipment_count: equipmentCount,
+          due_date: dueDate
+        }
+      };
+
+      // Dans un vrai système, on stockerait cette notification en base de données
+      // Pour cette démo, on l'ajoute au localStorage pour simulation
+      const existingNotifications = JSON.parse(localStorage.getItem('checkout_notifications') || '[]');
+      const newNotification = {
+        id: `checkout-${Date.now()}`,
+        ...notificationData,
+        date: new Date().toISOString()
+      };
+      
+      existingNotifications.unshift(newNotification);
+      localStorage.setItem('checkout_notifications', JSON.stringify(existingNotifications));
+
+      console.log('Notification de sortie créée:', newNotification);
+      
+    } catch (error) {
+      console.error('Erreur lors de la création de la notification:', error);
+    }
+  };
+
   const handleCheckout = async () => {
     if (!selectedUser || (checkoutItems.length === 0 && newEquipment.length === 0)) {
       toast.error('Utilisateur et équipements requis');
@@ -636,6 +675,10 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
             .eq('id', item.equipment.id);
         }
       }
+
+      // 6. Créer la notification de sortie
+      const totalEquipmentCount = checkoutItems.reduce((sum, item) => sum + item.quantity, 0) + newEquipment.length;
+      await createCheckoutNotification(deliveryNote, totalEquipmentCount);
 
       toast.success(`Bon de sortie ${deliveryNote.note_number} créé avec succès`);
       
@@ -1047,6 +1090,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
                 <p className="text-blue-700 dark:text-blue-300 text-sm">
                   Un numéro de bon unique sera généré automatiquement pour faciliter le suivi et les retours.
                   Le bon sera affiché dans une popup pour impression (2 copies par défaut).
+                  Une notification sera automatiquement créée pour tracer ce mouvement de sortie.
                 </p>
               </div>
 

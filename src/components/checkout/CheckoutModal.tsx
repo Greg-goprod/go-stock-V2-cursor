@@ -48,8 +48,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
   const [notes, setNotes] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   
-  // User selection states
-  const [userSelectionMode, setUserSelectionMode] = useState<'scan' | 'new' | 'list'>('scan');
+  // User selection states - SUPPRESSION DU SCAN QR UTILISATEUR
   const [userSearch, setUserSearch] = useState('');
   const [users, setUsers] = useState<User[]>([]);
   const [newUserData, setNewUserData] = useState({
@@ -59,6 +58,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
     email: '',
     department: ''
   });
+  const [showNewUserForm, setShowNewUserForm] = useState(false);
   
   // Equipment states
   const [equipment, setEquipment] = useState<Equipment[]>([]);
@@ -164,17 +164,6 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
       setStockInfo(stockInfoMap);
     } catch (error) {
       console.error('Error calculating stock info:', error);
-    }
-  };
-
-  const handleUserScan = (scannedId: string) => {
-    const user = users.find(u => u.id === scannedId);
-    if (user) {
-      setSelectedUser(user);
-      setStep('equipment');
-      toast.success(`✅ Utilisateur: ${user.first_name} ${user.last_name}`);
-    } else {
-      toast.error('❌ Utilisateur non trouvé');
     }
   };
 
@@ -336,7 +325,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
       
       setSelectedUser(data);
       setStep('equipment');
-      setUserSelectionMode('scan');
+      setShowNewUserForm(false);
       toast.success('Utilisateur créé avec succès');
     } catch (error: any) {
       console.error('Error creating user:', error);
@@ -515,7 +504,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
             <title>Bon de Sortie ${noteNumber} - GO-Mat</title>
             <style>
               body { 
-                font-family: Arial, sans-serif; 
+                font-family: 'Roboto', Arial, sans-serif; 
                 margin: 20px; 
                 color: #333;
               }
@@ -532,20 +521,27 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
               }
               .company-name {
                 font-size: 28px;
-                font-weight: bold;
+                font-weight: 900;
                 color: #2563eb;
                 margin-bottom: 5px;
+                text-transform: uppercase;
+                letter-spacing: 2px;
               }
               .subtitle {
                 font-size: 16px;
                 color: #666;
                 margin-bottom: 10px;
+                font-weight: 500;
+                text-transform: uppercase;
+                letter-spacing: 1px;
               }
               .note-number { 
                 font-size: 24px; 
-                font-weight: bold; 
+                font-weight: 900; 
                 color: #2563eb; 
                 margin-bottom: 10px; 
+                text-transform: uppercase;
+                letter-spacing: 1px;
               }
               .info { 
                 margin-bottom: 20px; 
@@ -558,9 +554,12 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
                 margin-bottom: 8px;
               }
               .info-label {
-                font-weight: bold;
+                font-weight: 700;
                 width: 150px;
                 color: #555;
+                text-transform: uppercase;
+                font-size: 12px;
+                letter-spacing: 0.5px;
               }
               .items { 
                 width: 100%; 
@@ -576,7 +575,10 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
               .items th { 
                 background-color: #2563eb; 
                 color: white;
-                font-weight: bold;
+                font-weight: 900;
+                text-transform: uppercase;
+                letter-spacing: 1px;
+                font-size: 12px;
               }
               .items tr:nth-child(even) {
                 background-color: #f8f9fa;
@@ -603,6 +605,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
                 color: #666; 
                 border-top: 1px solid #ddd;
                 padding-top: 20px;
+                font-weight: 500;
               }
               .important-note {
                 background: #fff3cd;
@@ -610,6 +613,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
                 padding: 15px;
                 border-radius: 8px;
                 margin: 20px 0;
+                font-weight: 500;
               }
               @media print {
                 body { margin: 0; }
@@ -632,36 +636,36 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
             </div>
             
             <div class="info">
-              <h3 style="margin-top: 0; color: #2563eb;">Informations de l'emprunteur</h3>
+              <h3 style="margin-top: 0; color: #2563eb; font-weight: 900; text-transform: uppercase;">Informations de l'emprunteur</h3>
               <div class="info-row">
                 <span class="info-label">Nom complet:</span>
-                <span>${selectedUser?.first_name} ${selectedUser?.last_name}</span>
+                <span style="font-weight: 700;">${selectedUser?.first_name} ${selectedUser?.last_name}</span>
               </div>
               <div class="info-row">
                 <span class="info-label">Téléphone:</span>
-                <span>${selectedUser?.phone}</span>
+                <span style="font-weight: 500;">${selectedUser?.phone}</span>
               </div>
               <div class="info-row">
                 <span class="info-label">Email:</span>
-                <span>${selectedUser?.email}</span>
+                <span style="font-weight: 500;">${selectedUser?.email}</span>
               </div>
               <div class="info-row">
                 <span class="info-label">Département:</span>
-                <span>${selectedUser?.department}</span>
+                <span style="font-weight: 700;">${selectedUser?.department}</span>
               </div>
               <div class="info-row">
                 <span class="info-label">Date de retour prévue:</span>
-                <span style="font-weight: bold; color: #dc2626;">${new Date(dueDate).toLocaleDateString('fr-FR')}</span>
+                <span style="font-weight: 900; color: #dc2626;">${new Date(dueDate).toLocaleDateString('fr-FR')}</span>
               </div>
               ${notes ? `
                 <div class="info-row">
                   <span class="info-label">Notes:</span>
-                  <span>${notes}</span>
+                  <span style="font-weight: 500;">${notes}</span>
                 </div>
               ` : ''}
             </div>
 
-            <h3 style="color: #2563eb; margin-bottom: 15px;">Matériel emprunté</h3>
+            <h3 style="color: #2563eb; margin-bottom: 15px; font-weight: 900; text-transform: uppercase;">Matériel emprunté</h3>
             <table class="items">
               <thead>
                 <tr>
@@ -673,9 +677,9 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
               <tbody>
                 ${allItems.map(item => `
                   <tr>
-                    <td style="font-weight: 500;">${item.name}</td>
-                    <td style="font-family: monospace; color: #666;">${item.serialNumber}</td>
-                    <td style="text-align: center; font-weight: bold;">${item.quantity}</td>
+                    <td style="font-weight: 700;">${item.name}</td>
+                    <td style="font-family: monospace; color: #666; font-weight: 500;">${item.serialNumber}</td>
+                    <td style="text-align: center; font-weight: 900;">${item.quantity}</td>
                   </tr>
                 `).join('')}
               </tbody>
@@ -688,22 +692,22 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
 
             <div class="signature">
               <div class="signature-box">
-                <p><strong>Signature de l'emprunteur</strong></p>
-                <p style="font-size: 12px; color: #666;">Je reconnais avoir reçu le matériel ci-dessus en bon état et m'engage à le restituer dans les mêmes conditions.</p>
+                <p><strong style="text-transform: uppercase; font-weight: 900;">Signature de l'emprunteur</strong></p>
+                <p style="font-size: 12px; color: #666; font-weight: 500;">Je reconnais avoir reçu le matériel ci-dessus en bon état et m'engage à le restituer dans les mêmes conditions.</p>
                 <div class="signature-line"></div>
-                <p style="margin-top: 5px; font-size: 12px;">Date: _______________</p>
+                <p style="margin-top: 5px; font-size: 12px; font-weight: 700;">Date: _______________</p>
               </div>
               
               <div class="signature-box">
-                <p><strong>Signature du responsable</strong></p>
-                <p style="font-size: 12px; color: #666;">Matériel vérifié et remis en bon état de fonctionnement.</p>
+                <p><strong style="text-transform: uppercase; font-weight: 900;">Signature du responsable</strong></p>
+                <p style="font-size: 12px; color: #666; font-weight: 500;">Matériel vérifié et remis en bon état de fonctionnement.</p>
                 <div class="signature-line"></div>
-                <p style="margin-top: 5px; font-size: 12px;">Date: _______________</p>
+                <p style="margin-top: 5px; font-size: 12px; font-weight: 700;">Date: _______________</p>
               </div>
             </div>
 
             <div class="footer">
-              <p><strong>GO-Mat - Système de Gestion de Matériel</strong></p>
+              <p><strong style="font-weight: 900; text-transform: uppercase;">GO-Mat - Système de Gestion de Matériel</strong></p>
               <p>Pour tout retour, présentez ce bon ou indiquez le numéro: <strong>${noteNumber}</strong></p>
               <p>En cas de problème, contactez le service de gestion du matériel.</p>
             </div>
@@ -741,9 +745,9 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
     setCheckoutItems([]);
     setNewEquipment([]);
     setNotes('');
-    setUserSelectionMode('scan');
     setUserSearch('');
     setNewUserData({ first_name: '', last_name: '', phone: '', email: '', department: '' });
+    setShowNewUserForm(false);
     setScanHistory([]);
     setTotalScanned(0);
     setLastScannedEquipment(null);
@@ -766,152 +770,134 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
     <Modal
       isOpen={isOpen}
       onClose={handleClose}
-      title="🚀 SORTIE MATÉRIEL ULTRA-RAPIDE"
+      title="SORTIE MATÉRIEL"
       size="xl"
     >
       <div className="space-y-6">
-        {/* Progress indicator */}
+        {/* Progress indicator - DESIGN COHÉRENT */}
         <div className="flex items-center justify-center space-x-4">
           <div className={`flex items-center ${step === 'user' ? 'text-primary-600' : 'text-gray-400'}`}>
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step === 'user' ? 'bg-primary-600 text-white' : 'bg-gray-200'}`}>1</div>
-            <span className="ml-2 font-bold">UTILISATEUR</span>
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center font-black ${step === 'user' ? 'bg-primary-600 text-white' : 'bg-gray-200'}`}>1</div>
+            <span className="ml-2 font-black uppercase tracking-wide">UTILISATEUR</span>
           </div>
           <ArrowRight size={20} className="text-gray-300" />
           <div className={`flex items-center ${step === 'equipment' ? 'text-primary-600' : 'text-gray-400'}`}>
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step === 'equipment' ? 'bg-primary-600 text-white' : 'bg-gray-200'}`}>2</div>
-            <span className="ml-2 font-bold">SCAN MATÉRIEL</span>
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center font-black ${step === 'equipment' ? 'bg-primary-600 text-white' : 'bg-gray-200'}`}>2</div>
+            <span className="ml-2 font-black uppercase tracking-wide">SCAN MATÉRIEL</span>
           </div>
           <ArrowRight size={20} className="text-gray-300" />
           <div className={`flex items-center ${step === 'summary' ? 'text-primary-600' : 'text-gray-400'}`}>
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step === 'summary' ? 'bg-primary-600 text-white' : 'bg-gray-200'}`}>3</div>
-            <span className="ml-2 font-bold">FINALISER</span>
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center font-black ${step === 'summary' ? 'bg-primary-600 text-white' : 'bg-gray-200'}`}>3</div>
+            <span className="ml-2 font-black uppercase tracking-wide">FINALISER</span>
           </div>
         </div>
 
-        {/* Step 1: User Selection */}
+        {/* Step 1: User Selection - SANS SCAN QR */}
         {step === 'user' && (
           <div className="space-y-4">
             <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-              <h3 className="text-lg font-black text-blue-800 dark:text-blue-200 mb-2 uppercase">
-                🎯 ÉTAPE 1 : IDENTIFIER L'UTILISATEUR
+              <h3 className="text-lg font-black text-blue-800 dark:text-blue-200 mb-2 uppercase tracking-wide">
+                👤 SÉLECTIONNER L'UTILISATEUR
               </h3>
               <p className="text-blue-700 dark:text-blue-300 text-sm font-medium">
-                Scannez le badge utilisateur ou sélectionnez dans la liste
+                Choisissez un utilisateur existant ou créez-en un nouveau
               </p>
             </div>
 
-            <div className="flex gap-3">
-              <Button
-                variant={userSelectionMode === 'scan' ? 'primary' : 'outline'}
-                icon={<Search size={18} />}
-                onClick={() => setUserSelectionMode('scan')}
-                className="font-bold"
-              >
-                SCANNER BADGE
-              </Button>
-              <Button
-                variant={userSelectionMode === 'list' ? 'primary' : 'outline'}
-                icon={<List size={18} />}
-                onClick={() => setUserSelectionMode('list')}
-                className="font-bold"
-              >
-                LISTE UTILISATEURS
-              </Button>
-              <Button
-                variant={userSelectionMode === 'new' ? 'primary' : 'outline'}
-                icon={<UserPlus size={18} />}
-                onClick={() => setUserSelectionMode('new')}
-                className="font-bold"
-              >
-                NOUVEL UTILISATEUR
-              </Button>
-            </div>
-
-            {userSelectionMode === 'scan' && (
-              <div className="border rounded-lg p-4">
-                <QRCodeScanner onScan={handleUserScan} />
-              </div>
-            )}
-
-            {userSelectionMode === 'list' && (
-              <div>
+            {/* Recherche utilisateur */}
+            <div>
+              <div className="relative mb-3">
+                <Search size={20} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
                 <input
                   type="text"
-                  placeholder="🔍 Rechercher un utilisateur..."
+                  placeholder="Rechercher un utilisateur..."
                   value={userSearch}
                   onChange={(e) => setUserSearch(e.target.value)}
-                  className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm mb-3 font-medium"
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 font-medium focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 />
-                
-                <div className="max-h-60 overflow-y-auto border rounded-md">
-                  {filteredUsers.map(user => (
-                    <div
-                      key={user.id}
-                      className="p-3 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer border-b last:border-b-0 transition-colors"
-                      onClick={() => {
-                        setSelectedUser(user);
-                        setStep('equipment');
-                      }}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-primary-100 dark:bg-primary-900 text-primary-600 dark:text-primary-300 flex items-center justify-center">
-                          <span className="font-black text-sm">
-                            {user.first_name[0]}{user.last_name[0]}
-                          </span>
+              </div>
+              
+              <div className="max-h-60 overflow-y-auto border rounded-lg">
+                {filteredUsers.map(user => (
+                  <div
+                    key={user.id}
+                    className="p-3 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer border-b last:border-b-0 transition-colors"
+                    onClick={() => {
+                      setSelectedUser(user);
+                      setStep('equipment');
+                    }}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-primary-100 dark:bg-primary-900 text-primary-600 dark:text-primary-300 flex items-center justify-center">
+                        <span className="font-black text-sm">
+                          {user.first_name[0]}{user.last_name[0]}
+                        </span>
+                      </div>
+                      <div>
+                        <div className="font-black text-gray-900 dark:text-white">
+                          {user.first_name} {user.last_name}
                         </div>
-                        <div>
-                          <div className="font-bold text-gray-900 dark:text-white">
-                            {user.first_name} {user.last_name}
-                          </div>
-                          <div className="text-sm text-gray-500 dark:text-gray-400 font-medium">
-                            {user.phone} • {user.department}
-                          </div>
+                        <div className="text-sm text-gray-500 dark:text-gray-400 font-medium">
+                          {user.phone} • {user.department}
                         </div>
                       </div>
                     </div>
-                  ))}
-                </div>
+                  </div>
+                ))}
               </div>
-            )}
+            </div>
 
-            {userSelectionMode === 'new' && (
-              <div className="border rounded-lg p-4 space-y-4">
-                <h3 className="font-black text-gray-900 dark:text-white uppercase">CRÉER UN NOUVEL UTILISATEUR</h3>
+            {/* Bouton nouvel utilisateur */}
+            <div className="flex justify-center">
+              <Button
+                variant="outline"
+                icon={<UserPlus size={18} />}
+                onClick={() => setShowNewUserForm(!showNewUserForm)}
+                className="font-black"
+              >
+                CRÉER UN NOUVEL UTILISATEUR
+              </Button>
+            </div>
+
+            {/* Formulaire nouvel utilisateur */}
+            {showNewUserForm && (
+              <div className="border rounded-lg p-4 space-y-4 bg-gray-50 dark:bg-gray-800">
+                <h3 className="font-black text-gray-900 dark:text-white uppercase tracking-wide">CRÉER UN NOUVEL UTILISATEUR</h3>
                 <div className="grid grid-cols-2 gap-4">
                   <input
                     type="text"
                     placeholder="Prénom *"
                     value={newUserData.first_name}
                     onChange={(e) => setNewUserData(prev => ({ ...prev, first_name: e.target.value }))}
-                    className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm font-medium"
+                    className="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm font-medium"
                   />
                   <input
                     type="text"
                     placeholder="Nom *"
                     value={newUserData.last_name}
                     onChange={(e) => setNewUserData(prev => ({ ...prev, last_name: e.target.value }))}
-                    className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm font-medium"
+                    className="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm font-medium"
                   />
                   <input
                     type="tel"
                     placeholder="Téléphone *"
                     value={newUserData.phone}
                     onChange={(e) => setNewUserData(prev => ({ ...prev, phone: e.target.value }))}
-                    className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm font-medium"
+                    className="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm font-medium"
                   />
                   <input
                     type="email"
                     placeholder="Email"
                     value={newUserData.email}
                     onChange={(e) => setNewUserData(prev => ({ ...prev, email: e.target.value }))}
-                    className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm font-medium"
+                    className="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm font-medium"
                   />
                   <input
                     type="text"
                     placeholder="Département"
                     value={newUserData.department}
                     onChange={(e) => setNewUserData(prev => ({ ...prev, department: e.target.value }))}
-                    className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm font-medium col-span-2"
+                    className="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm font-medium col-span-2"
                   />
                 </div>
                 <div className="flex gap-3">
@@ -919,14 +905,14 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
                     variant="primary"
                     onClick={handleCreateUser}
                     disabled={isLoading}
-                    className="font-bold"
+                    className="font-black"
                   >
                     {isLoading ? 'CRÉATION...' : 'CRÉER ET CONTINUER'}
                   </Button>
                   <Button
                     variant="outline"
-                    onClick={() => setUserSelectionMode('scan')}
-                    className="font-bold"
+                    onClick={() => setShowNewUserForm(false)}
+                    className="font-black"
                   >
                     ANNULER
                   </Button>
@@ -934,14 +920,15 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
               </div>
             )}
 
+            {/* Utilisateur sélectionné */}
             {selectedUser && (
               <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <CheckCircle size={24} className="text-green-600 dark:text-green-400" />
                     <div>
-                      <h3 className="font-black text-green-800 dark:text-green-200 uppercase">
-                        ✅ UTILISATEUR SÉLECTIONNÉ
+                      <h3 className="font-black text-green-800 dark:text-green-200 uppercase tracking-wide">
+                        UTILISATEUR SÉLECTIONNÉ
                       </h3>
                       <p className="text-green-700 dark:text-green-300 font-bold">
                         {selectedUser.first_name} {selectedUser.last_name} • {selectedUser.department}
@@ -951,7 +938,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
                   <Button
                     variant="success"
                     onClick={() => setStep('equipment')}
-                    className="font-bold"
+                    className="font-black"
                     icon={<ArrowRight size={18} />}
                   >
                     CONTINUER
@@ -966,38 +953,38 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
         {step === 'equipment' && (
           <div className="space-y-4">
             <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
-              <h3 className="text-lg font-black text-green-800 dark:text-green-200 mb-2 uppercase">
-                🎯 ÉTAPE 2 : SCAN AUTOMATIQUE DU MATÉRIEL
+              <h3 className="text-lg font-black text-green-800 dark:text-green-200 mb-2 uppercase tracking-wide">
+                📦 SCAN AUTOMATIQUE DU MATÉRIEL
               </h3>
               <p className="text-green-700 dark:text-green-300 text-sm font-medium">
-                ⚡ Scannez directement avec votre douchette - Pas besoin de cliquer !
+                Scannez directement avec votre douchette - Le scan démarre automatiquement !
               </p>
             </div>
 
-            {/* Statistiques de scan en temps réel */}
+            {/* Statistiques de scan en temps réel - DESIGN COHÉRENT */}
             <div className="grid grid-cols-3 gap-4">
               <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 text-center">
                 <div className="text-2xl font-black text-blue-600 dark:text-blue-400">
                   {totalScanned}
                 </div>
-                <div className="text-sm font-bold text-blue-800 dark:text-blue-200 uppercase">
-                  Articles scannés
+                <div className="text-sm font-black text-blue-800 dark:text-blue-200 uppercase tracking-wide">
+                  SCANNÉS
                 </div>
               </div>
               <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4 text-center">
                 <div className="text-2xl font-black text-green-600 dark:text-green-400">
                   {checkoutItems.reduce((sum, item) => sum + item.quantity, 0)}
                 </div>
-                <div className="text-sm font-bold text-green-800 dark:text-green-200 uppercase">
-                  Articles ajoutés
+                <div className="text-sm font-black text-green-800 dark:text-green-200 uppercase tracking-wide">
+                  AJOUTÉS
                 </div>
               </div>
-              <div className="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg p-4 text-center">
-                <div className="text-2xl font-black text-purple-600 dark:text-purple-400">
+              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 text-center">
+                <div className="text-2xl font-black text-red-600 dark:text-red-400">
                   {scanHistory.filter(h => h.status === 'error').length}
                 </div>
-                <div className="text-sm font-bold text-purple-800 dark:text-purple-200 uppercase">
-                  Erreurs
+                <div className="text-sm font-black text-red-800 dark:text-red-200 uppercase tracking-wide">
+                  ERREURS
                 </div>
               </div>
             </div>
@@ -1008,8 +995,8 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
                 <div className="flex items-center gap-3">
                   <Package size={24} className="text-yellow-600 dark:text-yellow-400" />
                   <div>
-                    <h4 className="font-black text-yellow-800 dark:text-yellow-200 uppercase">
-                      🎯 DERNIER ARTICLE SCANNÉ
+                    <h4 className="font-black text-yellow-800 dark:text-yellow-200 uppercase tracking-wide">
+                      DERNIER ARTICLE SCANNÉ
                     </h4>
                     <p className="text-yellow-700 dark:text-yellow-300 font-bold">
                       {lastScannedEquipment.name}
@@ -1031,14 +1018,14 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
             {scanHistory.length > 0 && (
               <div className="border rounded-lg p-4">
                 <div className="flex justify-between items-center mb-3">
-                  <h4 className="font-black text-gray-900 dark:text-white uppercase">
-                    📋 HISTORIQUE DES SCANS ({scanHistory.length})
+                  <h4 className="font-black text-gray-900 dark:text-white uppercase tracking-wide">
+                    HISTORIQUE DES SCANS ({scanHistory.length})
                   </h4>
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={clearScanHistory}
-                    className="font-bold"
+                    className="font-black"
                   >
                     EFFACER
                   </Button>
@@ -1060,14 +1047,14 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
                           <AlertTriangle size={16} className="text-red-600 dark:text-red-400" />
                         )}
                         <div>
-                          <span className={`font-bold ${
+                          <span className={`font-black ${
                             scan.status === 'success' 
                               ? 'text-green-800 dark:text-green-200' 
                               : 'text-red-800 dark:text-red-200'
                           }`}>
                             {scan.equipmentName || 'Matériel inconnu'}
                           </span>
-                          <span className={`ml-2 text-xs ${
+                          <span className={`ml-2 text-xs font-medium ${
                             scan.status === 'success' 
                               ? 'text-green-600 dark:text-green-400' 
                               : 'text-red-600 dark:text-red-400'
@@ -1089,8 +1076,8 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
             {/* Liste du matériel sélectionné */}
             {checkoutItems.length > 0 && (
               <div className="border rounded-lg p-4">
-                <h3 className="font-black text-gray-900 dark:text-white mb-3 uppercase">
-                  ✅ MATÉRIEL SÉLECTIONNÉ ({checkoutItems.length})
+                <h3 className="font-black text-gray-900 dark:text-white mb-3 uppercase tracking-wide">
+                  MATÉRIEL SÉLECTIONNÉ ({checkoutItems.length})
                 </h3>
                 <div className="space-y-2">
                   {checkoutItems.map((item, index) => (
@@ -1098,7 +1085,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
                       <div className="flex items-center gap-3">
                         <Package size={20} className="text-blue-600 dark:text-blue-400" />
                         <div>
-                          <span className="font-bold text-gray-900 dark:text-white">
+                          <span className="font-black text-gray-900 dark:text-white">
                             {item.equipment.name}
                           </span>
                           <div className="text-sm text-gray-500 dark:text-gray-400 font-medium">
@@ -1138,8 +1125,8 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
         {step === 'summary' && (
           <div className="space-y-4">
             <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-              <h3 className="font-black text-blue-800 dark:text-blue-200 mb-2 uppercase">
-                📋 ÉTAPE 3 : FINALISATION DU BON DE SORTIE
+              <h3 className="font-black text-blue-800 dark:text-blue-200 mb-2 uppercase tracking-wide">
+                📋 FINALISATION DU BON DE SORTIE
               </h3>
               <p className="text-blue-700 dark:text-blue-300 text-sm font-medium">
                 Un numéro de bon unique sera généré automatiquement
@@ -1148,27 +1135,27 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-black text-gray-700 dark:text-gray-300 mb-1 uppercase">
+                <label className="block text-sm font-black text-gray-700 dark:text-gray-300 mb-1 uppercase tracking-wide">
                   Date de retour prévue
                 </label>
                 <input
                   type="date"
                   value={dueDate}
                   onChange={(e) => setDueDate(e.target.value)}
-                  className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 font-medium"
+                  className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 font-medium"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-black text-gray-700 dark:text-gray-300 mb-1 uppercase">
+              <label className="block text-sm font-black text-gray-700 dark:text-gray-300 mb-1 uppercase tracking-wide">
                 Notes (optionnel)
               </label>
               <textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder="Notes optionnelles..."
-                className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 font-medium"
+                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 font-medium"
                 rows={3}
               />
             </div>
@@ -1177,7 +1164,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
               <Button
                 variant="outline"
                 onClick={() => setStep('equipment')}
-                className="font-bold"
+                className="font-black"
               >
                 ← RETOUR AU SCAN
               </Button>

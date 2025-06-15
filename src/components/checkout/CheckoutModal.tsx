@@ -185,13 +185,16 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
 
   const handleUserScan = (scannedId: string) => {
     console.log('🔍 Recherche utilisateur avec ID:', scannedId);
+    console.log('🔍 Type:', typeof scannedId, 'Longueur:', scannedId.length);
     
     // Recherche par ID exact
     let user = users.find(u => u.id === scannedId);
+    console.log('🔍 Recherche par ID exact:', user ? '✅ Trouvé' : '❌ Non trouvé');
     
     if (!user) {
       // Recherche par email
       user = users.find(u => u.email.toLowerCase() === scannedId.toLowerCase());
+      console.log('🔍 Recherche par email:', user ? '✅ Trouvé' : '❌ Non trouvé');
     }
     
     if (!user) {
@@ -201,6 +204,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
         `${u.first_name} ${u.last_name}`.toLowerCase() === searchTerm ||
         `${u.last_name} ${u.first_name}`.toLowerCase() === searchTerm
       );
+      console.log('🔍 Recherche par nom:', user ? '✅ Trouvé' : '❌ Non trouvé');
     }
     
     if (user) {
@@ -209,43 +213,76 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
       toast.success(`Utilisateur sélectionné: ${user.first_name} ${user.last_name}`);
       console.log('✅ Utilisateur trouvé:', user);
     } else {
-      console.log('❌ Utilisateur non trouvé. Valeur scannée:', scannedId);
-      console.log('📋 Utilisateurs disponibles:', users.map(u => ({ id: u.id, name: `${u.first_name} ${u.last_name}`, email: u.email })));
+      console.log('❌ Utilisateur non trouvé. Valeur scannée:', JSON.stringify(scannedId));
+      console.log('📋 Utilisateurs disponibles:', users.map(u => ({ 
+        id: u.id, 
+        name: `${u.first_name} ${u.last_name}`, 
+        email: u.email 
+      })));
       toast.error(`Utilisateur non trouvé pour: "${scannedId}"`);
     }
   };
 
   const handleEquipmentScan = (scannedId: string) => {
-    console.log('🔍 Recherche équipement avec ID:', scannedId);
+    console.log('🔍 RECHERCHE ÉQUIPEMENT DÉTAILLÉE');
+    console.log('🔍 Valeur scannée:', JSON.stringify(scannedId));
+    console.log('🔍 Type:', typeof scannedId, 'Longueur:', scannedId.length);
+    console.log('🔍 Caractères spéciaux:', scannedId.split('').map(c => c.charCodeAt(0)));
+    
+    // Nettoyer la valeur scannée
+    const cleanId = scannedId.trim().replace(/[\r\n\t]/g, '');
+    console.log('🧹 Valeur nettoyée:', JSON.stringify(cleanId));
     
     // Recherche par ID exact
-    let equipmentItem = equipment.find(e => e.id === scannedId);
+    let equipmentItem = equipment.find(e => e.id === cleanId);
+    console.log('🔍 Recherche par ID exact:', equipmentItem ? '✅ Trouvé' : '❌ Non trouvé');
     
     if (!equipmentItem) {
       // Recherche par numéro d'article
-      equipmentItem = equipment.find(e => e.articleNumber === scannedId);
+      equipmentItem = equipment.find(e => e.articleNumber === cleanId);
+      console.log('🔍 Recherche par article number:', equipmentItem ? '✅ Trouvé' : '❌ Non trouvé');
     }
     
     if (!equipmentItem) {
       // Recherche par numéro de série
-      equipmentItem = equipment.find(e => e.serialNumber === scannedId);
+      equipmentItem = equipment.find(e => e.serialNumber === cleanId);
+      console.log('🔍 Recherche par serial number:', equipmentItem ? '✅ Trouvé' : '❌ Non trouvé');
     }
     
     if (!equipmentItem) {
       // Recherche par nom (partiel)
-      const searchTerm = scannedId.toLowerCase();
+      const searchTerm = cleanId.toLowerCase();
       equipmentItem = equipment.find(e => 
         e.name.toLowerCase().includes(searchTerm) ||
         e.description.toLowerCase().includes(searchTerm)
       );
+      console.log('🔍 Recherche par nom/description:', equipmentItem ? '✅ Trouvé' : '❌ Non trouvé');
+    }
+    
+    if (!equipmentItem) {
+      // Recherche insensible à la casse dans tous les champs
+      const searchTerm = cleanId.toLowerCase();
+      equipmentItem = equipment.find(e => 
+        e.id.toLowerCase() === searchTerm ||
+        (e.articleNumber && e.articleNumber.toLowerCase() === searchTerm) ||
+        e.serialNumber.toLowerCase() === searchTerm ||
+        e.name.toLowerCase() === searchTerm
+      );
+      console.log('🔍 Recherche insensible à la casse:', equipmentItem ? '✅ Trouvé' : '❌ Non trouvé');
     }
     
     if (equipmentItem) {
-      console.log('✅ Équipement trouvé:', equipmentItem);
+      console.log('✅ Équipement trouvé:', {
+        id: equipmentItem.id,
+        name: equipmentItem.name,
+        articleNumber: equipmentItem.articleNumber,
+        serialNumber: equipmentItem.serialNumber
+      });
       
       const stock = stockInfo[equipmentItem.id];
       if (!stock || stock.available === 0) {
         toast.error('Ce matériel n\'est pas disponible');
+        console.log('❌ Stock non disponible:', stock);
         return;
       }
 
@@ -254,6 +291,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
       
       if (currentQuantity >= stock.available) {
         toast.error('Quantité maximale atteinte pour ce matériel');
+        console.log('❌ Quantité max atteinte');
         return;
       }
 
@@ -270,14 +308,29 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
       }
       toast.success(`${equipmentItem.name} ajouté`);
     } else {
-      console.log('❌ Équipement non trouvé. Valeur scannée:', scannedId);
-      console.log('📋 Équipements disponibles:', equipment.map(e => ({ 
-        id: e.id, 
-        name: e.name, 
-        articleNumber: e.articleNumber, 
-        serialNumber: e.serialNumber 
-      })));
-      toast.error(`Matériel non trouvé pour: "${scannedId}"`);
+      console.log('❌ ÉQUIPEMENT NON TROUVÉ');
+      console.log('📋 Équipements disponibles:');
+      equipment.forEach((e, index) => {
+        console.log(`  ${index + 1}. ID: ${e.id}`);
+        console.log(`     Nom: ${e.name}`);
+        console.log(`     Article: ${e.articleNumber || 'N/A'}`);
+        console.log(`     Série: ${e.serialNumber}`);
+        console.log(`     ---`);
+      });
+      
+      // Suggestions de correspondances partielles
+      const partialMatches = equipment.filter(e => 
+        e.name.toLowerCase().includes(cleanId.toLowerCase()) ||
+        e.serialNumber.toLowerCase().includes(cleanId.toLowerCase()) ||
+        (e.articleNumber && e.articleNumber.toLowerCase().includes(cleanId.toLowerCase()))
+      );
+      
+      if (partialMatches.length > 0) {
+        console.log('🔍 Correspondances partielles trouvées:', partialMatches.map(e => e.name));
+        toast.error(`Matériel non trouvé pour: "${cleanId}". Correspondances partielles: ${partialMatches.map(e => e.name).join(', ')}`);
+      } else {
+        toast.error(`Matériel non trouvé pour: "${cleanId}". Vérifiez que le QR code correspond à un équipement existant.`);
+      }
     }
   };
 

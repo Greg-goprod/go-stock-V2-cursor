@@ -4,7 +4,7 @@ import Button from '../common/Button';
 import QRCodeScanner from '../QRCode/QRCodeScanner';
 import { User, Equipment } from '../../types';
 import { supabase } from '../../lib/supabase';
-import { Search, UserPlus, Package, Plus, Trash2, Calendar, Printer, List, Filter } from 'lucide-react';
+import { Search, UserPlus, Package, Plus, Trash2, Calendar, Printer, List, Filter, AlertTriangle } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface CheckoutModalProps {
@@ -21,6 +21,12 @@ interface NewEquipment {
   name: string;
   serialNumber: string;
   description: string;
+}
+
+interface EquipmentWithStock extends Equipment {
+  realAvailableQuantity: number;
+  inMaintenanceQuantity: number;
+  checkedOutQuantity: number;
 }
 
 interface PrintPreviewModalProps {
@@ -403,8 +409,8 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
   // Equipment states
   const [equipmentMode, setEquipmentMode] = useState<'scan' | 'list' | 'new'>('scan');
   const [showScanner, setShowScanner] = useState(false);
-  const [equipment, setEquipment] = useState<Equipment[]>([]);
-  const [filteredEquipment, setFilteredEquipment] = useState<Equipment[]>([]);
+  const [equipment, setEquipment] = useState<EquipmentWithStock[]>([]);
+  const [filteredEquipment, setFilteredEquipment] = useState<EquipmentWithStock[]>([]);
   const [equipmentSearch, setEquipmentSearch] = useState('');
   const [equipmentFilter, setEquipmentFilter] = useState('');
   const [showNewEquipmentForm, setShowNewEquipmentForm] = useState(false);
@@ -421,7 +427,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
   useEffect(() => {
     if (isOpen) {
       fetchUsers();
-      fetchEquipment();
+      fetchEquipmentWithStock();
       // Set default due date to 7 days from now
       const defaultDueDate = new Date();
       defaultDueDate.setDate(defaultDueDate.getDate() + 7);
@@ -462,42 +468,70 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
     }
   };
 
-  const fetchEquipment = async () => {
+  const fetchEquipmentWithStock = async () => {
     try {
-      const { data, error } = await supabase
+      // Récupérer tous les équipements avec leurs informations de base
+      const { data: equipmentData, error: equipmentError } = await supabase
         .from('equipment')
         .select(`
           *,
           categories(id, name),
           suppliers(id, name)
         `)
-        .eq('status', 'available')
         .order('name');
       
-      if (error) throw error;
+      if (equipmentError) throw equipmentError;
+
+      // Récupérer les statistiques de checkout pour chaque équipement
+      const { data: checkoutStats, error: checkoutError } = await supabase
+        .from('checkouts')
+        .select('equipment_id, status')
+        .in('status', ['active', 'overdue']);
+
+      if (checkoutError) throw checkoutError;
+
+      // Calculer les quantités réelles pour chaque équipement
+      const equipmentWithStock: EquipmentWithStock[] = equipmentData?.map(eq => {
+        const totalQuantity = eq.total_quantity || 1;
+        
+        // Compter les équipements actuellement empruntés (active + overdue)
+        const checkedOutCount = checkoutStats?.filter(
+          checkout => checkout.equipment_id === eq.id && 
+          ['active', 'overdue'].includes(checkout.status)
+        ).length || 0;
+
+        // Compter les équipements en maintenance (statut maintenance)
+        const inMaintenanceCount = eq.status === 'maintenance' ? totalQuantity : 0;
+
+        // Calculer la quantité réellement disponible
+        // Total - Emprunts actifs - En maintenance
+        const realAvailableQuantity = Math.max(0, totalQuantity - checkedOutCount - inMaintenanceCount);
+
+        return {
+          id: eq.id,
+          name: eq.name,
+          description: eq.description || '',
+          category: eq.categories?.name || '',
+          serialNumber: eq.serial_number,
+          status: eq.status as Equipment['status'],
+          addedDate: eq.added_date || eq.created_at,
+          lastMaintenance: eq.last_maintenance,
+          imageUrl: eq.image_url,
+          supplier: eq.suppliers?.name || '',
+          location: eq.location || '',
+          articleNumber: eq.article_number,
+          qrType: eq.qr_type || 'individual',
+          totalQuantity: totalQuantity,
+          availableQuantity: eq.available_quantity || 1, // Quantité stockée en base
+          realAvailableQuantity: realAvailableQuantity, // Quantité réellement disponible
+          inMaintenanceQuantity: inMaintenanceCount,
+          checkedOutQuantity: checkedOutCount
+        };
+      }) || [];
       
-      // Transform data to match our interface
-      const transformedEquipment: Equipment[] = data?.map(eq => ({
-        id: eq.id,
-        name: eq.name,
-        description: eq.description || '',
-        category: eq.categories?.name || '',
-        serialNumber: eq.serial_number,
-        status: eq.status as Equipment['status'],
-        addedDate: eq.added_date || eq.created_at,
-        lastMaintenance: eq.last_maintenance,
-        imageUrl: eq.image_url,
-        supplier: eq.suppliers?.name || '',
-        location: eq.location || '',
-        articleNumber: eq.article_number,
-        qrType: eq.qr_type || 'individual',
-        totalQuantity: eq.total_quantity || 1,
-        availableQuantity: eq.available_quantity || 1
-      })) || [];
-      
-      setEquipment(transformedEquipment);
+      setEquipment(equipmentWithStock);
     } catch (error) {
-      console.error('Error fetching equipment:', error);
+      console.error('Error fetching equipment with stock:', error);
     }
   };
 
@@ -515,8 +549,17 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
   const handleEquipmentScan = (scannedId: string) => {
     const equipmentItem = equipment.find(e => e.id === scannedId);
     if (equipmentItem) {
+      if (equipmentItem.realAvailableQuantity <= 0) {
+        toast.error(`${equipmentItem.name} n'est pas disponible (stock: ${equipmentItem.realAvailableQuantity})`);
+        return;
+      }
+
       const existingItem = checkoutItems.find(item => item.equipment.id === equipmentItem.id);
       if (existingItem) {
+        if (existingItem.quantity >= equipmentItem.realAvailableQuantity) {
+          toast.error(`Quantité maximale atteinte pour ${equipmentItem.name}`);
+          return;
+        }
         setCheckoutItems(prev => 
           prev.map(item => 
             item.equipment.id === equipmentItem.id 
@@ -529,13 +572,22 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
       }
       toast.success(`${equipmentItem.name} ajouté`);
     } else {
-      toast.error('Équipement non trouvé ou non disponible');
+      toast.error('Équipement non trouvé');
     }
   };
 
-  const handleSelectEquipmentFromList = (equipmentItem: Equipment) => {
+  const handleSelectEquipmentFromList = (equipmentItem: EquipmentWithStock) => {
+    if (equipmentItem.realAvailableQuantity <= 0) {
+      toast.error(`${equipmentItem.name} n'est pas disponible`);
+      return;
+    }
+
     const existingItem = checkoutItems.find(item => item.equipment.id === equipmentItem.id);
     if (existingItem) {
+      if (existingItem.quantity >= equipmentItem.realAvailableQuantity) {
+        toast.error(`Quantité maximale atteinte pour ${equipmentItem.name}`);
+        return;
+      }
       setCheckoutItems(prev => 
         prev.map(item => 
           item.equipment.id === equipmentItem.id 
@@ -1024,32 +1076,91 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
                   </div>
 
                   <div className="max-h-60 overflow-y-auto border rounded-md">
-                    {filteredEquipment.map(eq => (
-                      <div
-                        key={eq.id}
-                        className="p-3 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer border-b last:border-b-0 flex justify-between items-center"
-                        onClick={() => handleSelectEquipmentFromList(eq)}
-                      >
-                        <div>
-                          <div className="font-medium">{eq.name}</div>
-                          <div className="text-sm text-gray-500">{eq.serialNumber} • {eq.category}</div>
-                          <div className="text-sm text-gray-400">{eq.description}</div>
-                          <div className="text-xs text-gray-500">
-                            Stock: {eq.availableQuantity}/{eq.totalQuantity}
+                    {filteredEquipment.map(eq => {
+                      const isUnavailable = eq.realAvailableQuantity <= 0;
+                      const currentlySelected = checkoutItems.find(item => item.equipment.id === eq.id)?.quantity || 0;
+                      const maxSelectable = eq.realAvailableQuantity - currentlySelected;
+                      
+                      return (
+                        <div
+                          key={eq.id}
+                          className={`p-3 border-b last:border-b-0 flex justify-between items-center transition-all ${
+                            isUnavailable 
+                              ? 'bg-gray-100 dark:bg-gray-800 opacity-50 cursor-not-allowed' 
+                              : 'hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer'
+                          }`}
+                          onClick={() => !isUnavailable && handleSelectEquipmentFromList(eq)}
+                        >
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <div className={`font-medium ${isUnavailable ? 'text-gray-400' : 'text-gray-900 dark:text-gray-100'}`}>
+                                {eq.name}
+                              </div>
+                              {isUnavailable && (
+                                <AlertTriangle size={16} className="text-red-500" />
+                              )}
+                            </div>
+                            <div className={`text-sm ${isUnavailable ? 'text-gray-400' : 'text-gray-500'}`}>
+                              {eq.serialNumber} • {eq.category}
+                            </div>
+                            <div className={`text-sm ${isUnavailable ? 'text-gray-400' : 'text-gray-400'}`}>
+                              {eq.description}
+                            </div>
+                            
+                            {/* Informations de stock détaillées */}
+                            <div className="flex items-center gap-4 mt-2 text-xs">
+                              <div className={`flex items-center gap-1 ${
+                                eq.realAvailableQuantity > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+                              }`}>
+                                <Package size={12} />
+                                <span className="font-medium">
+                                  Disponible: {eq.realAvailableQuantity}/{eq.totalQuantity}
+                                </span>
+                              </div>
+                              
+                              {eq.checkedOutQuantity > 0 && (
+                                <div className="text-orange-600 dark:text-orange-400">
+                                  Emprunté: {eq.checkedOutQuantity}
+                                </div>
+                              )}
+                              
+                              {eq.inMaintenanceQuantity > 0 && (
+                                <div className="text-blue-600 dark:text-blue-400">
+                                  Maintenance: {eq.inMaintenanceQuantity}
+                                </div>
+                              )}
+                              
+                              {currentlySelected > 0 && (
+                                <div className="text-purple-600 dark:text-purple-400 font-medium">
+                                  Sélectionné: {currentlySelected}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center gap-2">
+                            {!isUnavailable && maxSelectable > 0 && (
+                              <div className="text-xs text-gray-500 mr-2">
+                                Max: {maxSelectable}
+                              </div>
+                            )}
+                            <Button
+                              variant={isUnavailable ? "outline" : "primary"}
+                              size="sm"
+                              disabled={isUnavailable || maxSelectable <= 0}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (!isUnavailable) {
+                                  handleSelectEquipmentFromList(eq);
+                                }
+                              }}
+                            >
+                              {isUnavailable ? 'Indisponible' : maxSelectable <= 0 ? 'Max atteint' : 'Ajouter'}
+                            </Button>
                           </div>
                         </div>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleSelectEquipmentFromList(eq);
-                          }}
-                        >
-                          Ajouter
-                        </Button>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -1108,6 +1219,9 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
                           <span className="font-medium">{item.equipment.name}</span>
                           <span className="text-sm text-gray-500 ml-2">({item.equipment.serialNumber})</span>
                           <span className="text-sm text-gray-500 ml-2">Qté: {item.quantity}</span>
+                          <span className="text-xs text-green-600 dark:text-green-400 ml-2">
+                            (Dispo: {(item.equipment as EquipmentWithStock).realAvailableQuantity})
+                          </span>
                         </div>
                         <Button
                           variant="danger"

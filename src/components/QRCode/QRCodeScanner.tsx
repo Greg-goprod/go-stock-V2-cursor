@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import Button from '../common/Button';
-import { QrCode, Camera, Keyboard } from 'lucide-react';
+import { QrCode, Camera, Keyboard, AlertCircle, CheckCircle } from 'lucide-react';
 
 interface QRCodeScannerProps {
   onScan: (decodedText: string) => void;
@@ -12,6 +12,8 @@ const QRCodeScanner: React.FC<QRCodeScannerProps> = ({ onScan, onError }) => {
   const [isScanning, setIsScanning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [scannedValue, setScannedValue] = useState('');
+  const [lastScannedValue, setLastScannedValue] = useState('');
+  const [scanStatus, setScanStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const inputRef = useRef<HTMLInputElement>(null);
   const scannerRef = useRef<any>(null);
   const scannerDivId = 'qr-reader';
@@ -29,8 +31,24 @@ const QRCodeScanner: React.FC<QRCodeScannerProps> = ({ onScan, onError }) => {
       const value = scannedValue.trim();
       if (value) {
         console.log('🔍 QR Code scanné par douchette:', value);
-        onScan(value);
+        console.log('🔍 Longueur:', value.length);
+        console.log('🔍 Caractères spéciaux:', JSON.stringify(value));
+        
+        setLastScannedValue(value);
+        setScanStatus('success');
+        
+        // Nettoyer la valeur (supprimer espaces, caractères invisibles)
+        const cleanValue = value.replace(/[\r\n\t\s]/g, '').trim();
+        console.log('🧹 Valeur nettoyée:', cleanValue);
+        
+        onScan(cleanValue);
         setScannedValue(''); // Reset pour le prochain scan
+        
+        // Reset du statut après 3 secondes
+        setTimeout(() => {
+          setScanStatus('idle');
+        }, 3000);
+        
         // Re-focus pour le prochain scan
         setTimeout(() => {
           if (inputRef.current) {
@@ -43,6 +61,7 @@ const QRCodeScanner: React.FC<QRCodeScannerProps> = ({ onScan, onError }) => {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setScannedValue(e.target.value);
+    setScanStatus('idle');
   };
 
   // Scanner caméra (code existant)
@@ -93,7 +112,9 @@ const QRCodeScanner: React.FC<QRCodeScannerProps> = ({ onScan, onError }) => {
   };
 
   const handleScanSuccess = async (decodedText: string) => {
-    onScan(decodedText);
+    const cleanValue = decodedText.replace(/[\r\n\t\s]/g, '').trim();
+    console.log('🧹 Valeur caméra nettoyée:', cleanValue);
+    onScan(cleanValue);
     await stopCameraScanning();
   };
 
@@ -168,12 +189,24 @@ const QRCodeScanner: React.FC<QRCodeScannerProps> = ({ onScan, onError }) => {
               onChange={handleInputChange}
               onKeyDown={handleBarcodeInput}
               placeholder="Scannez un QR code avec votre douchette..."
-              className="w-full px-4 py-3 text-center border-2 border-dashed border-primary-300 dark:border-primary-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 font-mono text-lg focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-200 dark:focus:ring-primary-800"
+              className={`w-full px-4 py-3 text-center border-2 border-dashed rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 font-mono text-lg focus:outline-none focus:ring-2 transition-all ${
+                scanStatus === 'success' 
+                  ? 'border-green-400 dark:border-green-500 focus:border-green-500 focus:ring-green-200 dark:focus:ring-green-800'
+                  : scanStatus === 'error'
+                  ? 'border-red-400 dark:border-red-500 focus:border-red-500 focus:ring-red-200 dark:focus:ring-red-800'
+                  : 'border-primary-300 dark:border-primary-600 focus:border-primary-500 focus:ring-primary-200 dark:focus:ring-primary-800'
+              }`}
               autoComplete="off"
               autoFocus
             />
             <div className="absolute inset-y-0 right-0 flex items-center pr-3">
-              <QrCode size={20} className="text-gray-400" />
+              {scanStatus === 'success' ? (
+                <CheckCircle size={20} className="text-green-500" />
+              ) : scanStatus === 'error' ? (
+                <AlertCircle size={20} className="text-red-500" />
+              ) : (
+                <QrCode size={20} className="text-gray-400" />
+              )}
             </div>
           </div>
 
@@ -182,10 +215,33 @@ const QRCodeScanner: React.FC<QRCodeScannerProps> = ({ onScan, onError }) => {
               🎯 Pointez votre douchette vers un QR code et appuyez sur le trigger
             </p>
             {scannedValue && (
-              <p className="text-xs text-green-600 dark:text-green-400 font-bold mt-1">
-                ⚡ Données reçues: {scannedValue.substring(0, 20)}...
+              <p className="text-xs text-blue-600 dark:text-blue-400 font-bold mt-1">
+                ⚡ Données en cours: {scannedValue.substring(0, 30)}...
               </p>
             )}
+            {lastScannedValue && scanStatus === 'success' && (
+              <div className="mt-2 p-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded">
+                <p className="text-xs text-green-700 dark:text-green-300 font-bold">
+                  ✅ DERNIER SCAN RÉUSSI
+                </p>
+                <p className="text-xs text-green-600 dark:text-green-400 font-mono break-all">
+                  {lastScannedValue}
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Debug info */}
+          <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border">
+            <h4 className="text-xs font-bold text-gray-700 dark:text-gray-300 mb-2 uppercase">
+              🔧 DEBUG INFO
+            </h4>
+            <div className="space-y-1 text-xs text-gray-600 dark:text-gray-400">
+              <p><strong>Mode:</strong> Douchette USB</p>
+              <p><strong>Statut:</strong> {scanStatus === 'idle' ? 'En attente' : scanStatus === 'success' ? 'Succès' : 'Erreur'}</p>
+              <p><strong>Dernière valeur:</strong> {lastScannedValue || 'Aucune'}</p>
+              <p><strong>Longueur:</strong> {lastScannedValue.length || 0} caractères</p>
+            </div>
           </div>
         </div>
       )}

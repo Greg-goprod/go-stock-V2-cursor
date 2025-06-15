@@ -184,19 +184,65 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
   };
 
   const handleUserScan = (scannedId: string) => {
-    const user = users.find(u => u.id === scannedId);
+    console.log('🔍 Recherche utilisateur avec ID:', scannedId);
+    
+    // Recherche par ID exact
+    let user = users.find(u => u.id === scannedId);
+    
+    if (!user) {
+      // Recherche par email
+      user = users.find(u => u.email.toLowerCase() === scannedId.toLowerCase());
+    }
+    
+    if (!user) {
+      // Recherche par nom complet
+      const searchTerm = scannedId.toLowerCase();
+      user = users.find(u => 
+        `${u.first_name} ${u.last_name}`.toLowerCase() === searchTerm ||
+        `${u.last_name} ${u.first_name}`.toLowerCase() === searchTerm
+      );
+    }
+    
     if (user) {
       setSelectedUser(user);
       setStep('equipment');
       toast.success(`Utilisateur sélectionné: ${user.first_name} ${user.last_name}`);
+      console.log('✅ Utilisateur trouvé:', user);
     } else {
-      toast.error('Utilisateur non trouvé');
+      console.log('❌ Utilisateur non trouvé. Valeur scannée:', scannedId);
+      console.log('📋 Utilisateurs disponibles:', users.map(u => ({ id: u.id, name: `${u.first_name} ${u.last_name}`, email: u.email })));
+      toast.error(`Utilisateur non trouvé pour: "${scannedId}"`);
     }
   };
 
   const handleEquipmentScan = (scannedId: string) => {
-    const equipmentItem = equipment.find(e => e.id === scannedId);
+    console.log('🔍 Recherche équipement avec ID:', scannedId);
+    
+    // Recherche par ID exact
+    let equipmentItem = equipment.find(e => e.id === scannedId);
+    
+    if (!equipmentItem) {
+      // Recherche par numéro d'article
+      equipmentItem = equipment.find(e => e.articleNumber === scannedId);
+    }
+    
+    if (!equipmentItem) {
+      // Recherche par numéro de série
+      equipmentItem = equipment.find(e => e.serialNumber === scannedId);
+    }
+    
+    if (!equipmentItem) {
+      // Recherche par nom (partiel)
+      const searchTerm = scannedId.toLowerCase();
+      equipmentItem = equipment.find(e => 
+        e.name.toLowerCase().includes(searchTerm) ||
+        e.description.toLowerCase().includes(searchTerm)
+      );
+    }
+    
     if (equipmentItem) {
+      console.log('✅ Équipement trouvé:', equipmentItem);
+      
       const stock = stockInfo[equipmentItem.id];
       if (!stock || stock.available === 0) {
         toast.error('Ce matériel n\'est pas disponible');
@@ -224,7 +270,14 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
       }
       toast.success(`${equipmentItem.name} ajouté`);
     } else {
-      toast.error('Matériel non trouvé');
+      console.log('❌ Équipement non trouvé. Valeur scannée:', scannedId);
+      console.log('📋 Équipements disponibles:', equipment.map(e => ({ 
+        id: e.id, 
+        name: e.name, 
+        articleNumber: e.articleNumber, 
+        serialNumber: e.serialNumber 
+      })));
+      toast.error(`Matériel non trouvé pour: "${scannedId}"`);
     }
   };
 

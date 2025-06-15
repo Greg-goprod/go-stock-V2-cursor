@@ -97,6 +97,14 @@ export interface EquipmentGroup {
   createdAt: string;
 }
 
+export interface Department {
+  id: string;
+  name: string;
+  description?: string;
+  color: string;
+  createdAt: string;
+}
+
 export interface StatusConfig {
   id: string;
   name: string;

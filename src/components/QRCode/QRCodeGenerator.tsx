@@ -25,6 +25,9 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
         <html>
           <head>
             <title>Étiquette QR Code - ${title}</title>
+            <link rel="preconnect" href="https://fonts.googleapis.com">
+            <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+            <link href="https://fonts.googleapis.com/css2?family=Roboto:ital,0,1;wght@100;300;400;500;700;900&display=swap" rel="stylesheet">
             <style>
               * {
                 margin: 0;
@@ -33,10 +36,11 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
               }
               
               body {
-                font-family: 'Arial', sans-serif;
-                background: white;
+                font-family: 'Roboto', 'Arial', sans-serif;
+                background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
                 padding: 0;
                 margin: 0;
+                min-height: 100vh;
               }
               
               /* Styles pour étiquettes 40x30mm */
@@ -99,18 +103,20 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
               
               .title-40x30 {
                 font-size: 6pt;
-                font-weight: bold;
+                font-weight: 900;
                 text-align: center;
                 line-height: 1.1;
                 color: #000;
                 max-height: 4mm;
                 overflow: hidden;
                 word-wrap: break-word;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
               }
               
               .title-40-round {
                 font-size: 4pt;
-                font-weight: bold;
+                font-weight: 900;
                 text-align: center;
                 line-height: 1;
                 color: #000;
@@ -118,17 +124,21 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
                 overflow: hidden;
                 word-wrap: break-word;
                 margin-top: 0.5mm;
+                text-transform: uppercase;
+                letter-spacing: 0.3px;
               }
               
               .title-30 {
                 font-size: 5pt;
-                font-weight: bold;
+                font-weight: 900;
                 line-height: 1;
                 color: #000;
                 flex: 1;
                 margin-left: 1mm;
                 word-wrap: break-word;
                 overflow: hidden;
+                text-transform: uppercase;
+                letter-spacing: 0.3px;
               }
               
               .subtitle {
@@ -136,6 +146,7 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
                 color: #666;
                 text-align: center;
                 margin-top: 0.5mm;
+                font-weight: 500;
               }
               
               .subtitle-round {
@@ -144,69 +155,193 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
                 text-align: center;
                 margin-top: 0.2mm;
                 line-height: 1;
+                font-weight: 500;
               }
               
               .controls {
-                margin: 10mm;
+                margin: 20px;
                 text-align: center;
-                border: 1px solid #ddd;
-                padding: 20px;
+                border: 2px solid #e2e8f0;
+                padding: 30px;
+                border-radius: 16px;
+                background: white;
+                box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+                max-width: 800px;
+                margin: 20px auto;
+              }
+              
+              .header {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 15px;
+                margin-bottom: 30px;
+                padding-bottom: 20px;
+                border-bottom: 2px solid #e2e8f0;
+              }
+              
+              .logo {
+                width: 32px;
+                height: 32px;
+                background: #2563eb;
                 border-radius: 8px;
-                background: #f9f9f9;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                color: white;
+                font-weight: 900;
+                font-size: 14px;
+              }
+              
+              .header-title {
+                color: #2563eb;
+                font-size: 28px;
+                font-weight: 900;
+                text-transform: uppercase;
+                letter-spacing: 2px;
+              }
+              
+              .subtitle-header {
+                color: #64748b;
+                font-size: 14px;
+                font-weight: 500;
+                text-transform: uppercase;
+                letter-spacing: 1px;
+                margin-top: 5px;
+              }
+              
+              .section-title {
+                color: #2563eb;
+                font-size: 20px;
+                font-weight: 900;
+                margin-bottom: 20px;
+                text-transform: uppercase;
+                letter-spacing: 1px;
               }
               
               .btn {
                 background: #2563eb;
                 color: white;
                 border: none;
-                padding: 8px 16px;
-                margin: 5px;
-                border-radius: 4px;
+                padding: 12px 24px;
+                margin: 8px;
+                border-radius: 8px;
                 cursor: pointer;
                 font-size: 14px;
-                font-weight: bold;
-                transition: all 0.2s;
+                font-weight: 900;
+                text-transform: uppercase;
+                letter-spacing: 1px;
+                transition: all 0.2s ease;
+                box-shadow: 0 4px 6px rgba(37, 99, 235, 0.2);
+                font-family: 'Roboto', sans-serif;
               }
               
               .btn:hover {
                 background: #1d4ed8;
-                transform: scale(1.02);
+                transform: translateY(-2px);
+                box-shadow: 0 6px 12px rgba(37, 99, 235, 0.3);
+              }
+              
+              .btn:active {
+                transform: translateY(0);
               }
               
               .btn-round {
                 background: #10b981;
+                box-shadow: 0 4px 6px rgba(16, 185, 129, 0.2);
               }
               
               .btn-round:hover {
                 background: #059669;
+                box-shadow: 0 6px 12px rgba(16, 185, 129, 0.3);
               }
               
               .btn-40x30 {
                 background: #8b5cf6;
+                box-shadow: 0 4px 6px rgba(139, 92, 246, 0.2);
               }
               
               .btn-40x30:hover {
                 background: #7c3aed;
+                box-shadow: 0 6px 12px rgba(139, 92, 246, 0.3);
               }
               
               .btn-print {
                 background: #059669;
                 font-size: 16px;
-                padding: 12px 24px;
-                margin: 10px 5px;
+                padding: 16px 32px;
+                margin: 15px 8px;
+                box-shadow: 0 4px 6px rgba(5, 150, 105, 0.2);
+              }
+              
+              .btn-print:hover {
+                background: #047857;
+                box-shadow: 0 6px 12px rgba(5, 150, 105, 0.3);
               }
               
               .btn-close {
                 background: #dc2626;
                 font-size: 16px;
-                padding: 12px 24px;
-                margin: 10px 5px;
+                padding: 16px 32px;
+                margin: 15px 8px;
+                box-shadow: 0 4px 6px rgba(220, 38, 38, 0.2);
+              }
+              
+              .btn-close:hover {
+                background: #b91c1c;
+                box-shadow: 0 6px 12px rgba(220, 38, 38, 0.3);
+              }
+              
+              .format-buttons {
+                display: flex;
+                flex-wrap: wrap;
+                justify-content: center;
+                gap: 10px;
+                margin: 25px 0;
+              }
+              
+              .action-buttons {
+                display: flex;
+                justify-content: center;
+                gap: 15px;
+                margin: 30px 0;
+                padding-top: 20px;
+                border-top: 1px solid #e2e8f0;
+              }
+              
+              .tip {
+                background: #f0f9ff;
+                border: 1px solid #bae6fd;
+                border-radius: 8px;
+                padding: 15px;
+                margin-top: 20px;
+                color: #0369a1;
+                font-size: 13px;
+                font-weight: 500;
+                display: flex;
+                align-items: center;
+                gap: 10px;
+              }
+              
+              .tip-icon {
+                background: #0ea5e9;
+                color: white;
+                border-radius: 50%;
+                width: 20px;
+                height: 20px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 12px;
+                font-weight: 900;
+                flex-shrink: 0;
               }
               
               @media print {
                 body {
                   margin: 0;
                   padding: 0;
+                  background: white;
                 }
                 .controls {
                   display: none;
@@ -225,18 +360,43 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
           </head>
           <body>
             <div class="controls">
-              <h2 style="color: #2563eb; margin-bottom: 20px;">🏷️ Choisissez le format d'étiquette</h2>
-              <div style="margin: 20px 0;">
-                <button class="btn btn-40x30" onclick="showFormat('40x30')">📐 Étiquette 40x30mm</button>
-                <button class="btn btn-round" onclick="showFormat('40x40-round')">⭕ QR 30x30mm dans rond Ø40mm</button>
-                <button class="btn" onclick="showFormat('30x20')">📏 Étiquette 30x20mm</button>
+              <div class="header">
+                <div class="logo">QR</div>
+                <div>
+                  <div class="header-title">GO-Mat</div>
+                  <div class="subtitle-header">Gestion de Matériel</div>
+                </div>
               </div>
-              <div style="margin: 20px 0;">
-                <button class="btn btn-print" onclick="window.print()">🖨️ IMPRIMER</button>
-                <button class="btn btn-close" onclick="window.close()">❌ FERMER</button>
+              
+              <div class="section-title">🏷️ Choisissez le format d'étiquette</div>
+              
+              <div class="format-buttons">
+                <button class="btn btn-40x30" onclick="showFormat('40x30')">
+                  📐 Étiquette 40x30mm
+                </button>
+                <button class="btn btn-round" onclick="showFormat('40x40-round')">
+                  ⭕ QR 30x30mm dans rond Ø40mm
+                </button>
+                <button class="btn" onclick="showFormat('30x20')">
+                  📏 Étiquette 30x20mm
+                </button>
               </div>
-              <div style="margin-top: 15px; font-size: 12px; color: #666;">
-                💡 <strong>Astuce :</strong> L'étiquette s'imprimera sans bordure pour un rendu professionnel
+              
+              <div class="action-buttons">
+                <button class="btn btn-print" onclick="window.print()">
+                  🖨️ IMPRIMER
+                </button>
+                <button class="btn btn-close" onclick="window.close()">
+                  ❌ FERMER
+                </button>
+              </div>
+              
+              <div class="tip">
+                <div class="tip-icon">💡</div>
+                <div>
+                  <strong>ASTUCE :</strong> L'étiquette s'imprimera sans bordure pour un rendu professionnel. 
+                  Assurez-vous que votre imprimante supporte l'impression sans marge.
+                </div>
               </div>
             </div>
             
@@ -257,7 +417,7 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
             <!-- Format 30x20mm -->
             <div id="format-30x20" class="label-30x20" style="display: none;">
               <img src="${qrCodeDataURL}" alt="QR Code" class="qr-code-30" />
-              <div class="title-30">${title}${subtitle ? `<br><span style="font-size: 4pt; color: #666;">${subtitle}</span>` : ''}</div>
+              <div class="title-30">${title}${subtitle ? `<br><span style="font-size: 4pt; color: #666; font-weight: 500;">${subtitle}</span>` : ''}</div>
             </div>
             
             <script>
@@ -280,20 +440,31 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
                 // Mettre en évidence le bouton sélectionné
                 const buttons = document.querySelectorAll('.btn:not(.btn-print):not(.btn-close)');
                 buttons.forEach(btn => {
-                  btn.style.opacity = '0.7';
-                  btn.style.transform = 'scale(1)';
+                  btn.style.opacity = '0.6';
+                  btn.style.transform = 'scale(0.95)';
+                  btn.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.1)';
                 });
                 
                 // Trouver et mettre en évidence le bouton correspondant
+                let selectedButton;
                 if (format === '40x30') {
-                  buttons[0].style.opacity = '1';
-                  buttons[0].style.transform = 'scale(1.05)';
+                  selectedButton = buttons[0];
                 } else if (format === '40x40-round') {
-                  buttons[1].style.opacity = '1';
-                  buttons[1].style.transform = 'scale(1.05)';
+                  selectedButton = buttons[1];
                 } else if (format === '30x20') {
-                  buttons[2].style.opacity = '1';
-                  buttons[2].style.transform = 'scale(1.05)';
+                  selectedButton = buttons[2];
+                }
+                
+                if (selectedButton) {
+                  selectedButton.style.opacity = '1';
+                  selectedButton.style.transform = 'scale(1.05)';
+                  if (format === '40x30') {
+                    selectedButton.style.boxShadow = '0 6px 12px rgba(139, 92, 246, 0.4)';
+                  } else if (format === '40x40-round') {
+                    selectedButton.style.boxShadow = '0 6px 12px rgba(16, 185, 129, 0.4)';
+                  } else {
+                    selectedButton.style.boxShadow = '0 6px 12px rgba(37, 99, 235, 0.4)';
+                  }
                 }
               }
               
@@ -306,7 +477,7 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
         </html>
       `;
 
-      // Ouvrir dans une nouvelle FENÊTRE
+      // Ouvrir dans une nouvelle FENÊTRE avec des dimensions optimisées
       const printWindow = window.open('', 'printQRLabel', 'width=900,height=700,scrollbars=yes,resizable=yes,toolbar=no,menubar=no,location=no,status=no');
       
       if (!printWindow) {
@@ -398,7 +569,7 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
           includeMargin={true}
         />
       </div>
-      <h3 className="mt-3 font-bold text-gray-800 dark:text-gray-100 text-center uppercase tracking-wide">
+      <h3 className="mt-3 font-black text-gray-800 dark:text-gray-100 text-center uppercase tracking-wide">
         {title}
       </h3>
       {subtitle && (

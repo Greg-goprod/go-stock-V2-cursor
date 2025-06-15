@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import Badge from '../components/common/Badge';
-import { Plus, Filter, Import, QrCode, LayoutGrid, List, ArrowUpDown, Pencil, Trash2, Package } from 'lucide-react';
+import { Plus, Filter, Import, QrCode, LayoutGrid, List, ArrowUpDown, Pencil, Trash2, Package, Printer } from 'lucide-react';
 import QRCodeGenerator from '../components/QRCode/QRCodeGenerator';
 import Modal from '../components/common/Modal';
 import FilterPanel, { FilterOption } from '../components/common/FilterPanel';
@@ -29,6 +29,7 @@ const EquipmentPage: React.FC = () => {
   const [selectedEquipment, setSelectedEquipment] = useState<string | null>(null);
   const [selectedInstance, setSelectedInstance] = useState<EquipmentInstance | null>(null);
   const [showQRModal, setShowQRModal] = useState(false);
+  const [showQRPrintModal, setShowQRPrintModal] = useState(false);
   const [sortField, setSortField] = useState<SortField>('name');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const [showFilters, setShowFilters] = useState(false);
@@ -166,6 +167,11 @@ const EquipmentPage: React.FC = () => {
     setShowQRModal(true);
   };
 
+  const handleShowQRPrint = (equipmentId: string) => {
+    setSelectedEquipment(equipmentId);
+    setShowQRPrintModal(true);
+  };
+
   const handleSort = (field: SortField) => {
     if (sortField === field) {
       setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
@@ -193,6 +199,232 @@ const EquipmentPage: React.FC = () => {
   const getAvailableInstancesCount = (equipmentId: string) => {
     const equipmentInstances = getEquipmentInstances(equipmentId);
     return equipmentInstances.filter(instance => instance.status === 'available').length;
+  };
+
+  const handlePrintAllQRCodes = async (equipment: Equipment) => {
+    try {
+      // Récupérer le logo depuis les paramètres système
+      const { data: logoSetting } = await supabase
+        .from('system_settings')
+        .select('value')
+        .eq('id', 'company_logo')
+        .maybeSingle();
+
+      const logoUrl = logoSetting?.value || '';
+
+      if (equipment.qrType === 'individual' && equipment.totalQuantity > 1) {
+        // Récupérer les instances pour ce matériel
+        const { data: equipmentInstances, error } = await supabase
+          .from('equipment_instances')
+          .select('*')
+          .eq('equipment_id', equipment.id)
+          .order('instance_number');
+
+        if (error) throw error;
+
+        const printContent = `
+          <html>
+            <head>
+              <title>QR Codes - ${equipment.name}</title>
+              <style>
+                body { 
+                  font-family: Arial, sans-serif; 
+                  margin: 20px; 
+                  color: #333;
+                }
+                .header { 
+                  text-align: center; 
+                  margin-bottom: 30px; 
+                  border-bottom: 2px solid #333; 
+                  padding-bottom: 20px; 
+                }
+                .logo {
+                  max-height: 60px;
+                  max-width: 150px;
+                  margin-bottom: 10px;
+                }
+                .qr-grid {
+                  display: grid;
+                  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                  gap: 20px;
+                  margin-top: 20px;
+                }
+                .qr-item {
+                  border: 2px solid #333;
+                  padding: 15px;
+                  text-align: center;
+                  border-radius: 8px;
+                  page-break-inside: avoid;
+                }
+                .qr-code {
+                  margin-bottom: 10px;
+                }
+                .qr-title {
+                  font-weight: bold;
+                  margin-bottom: 5px;
+                  font-size: 14px;
+                }
+                .qr-subtitle {
+                  font-size: 12px;
+                  color: #666;
+                  margin-bottom: 5px;
+                }
+                .qr-id {
+                  font-family: monospace;
+                  font-size: 10px;
+                  color: #999;
+                }
+                @media print {
+                  body { margin: 0; }
+                  .qr-grid { 
+                    grid-template-columns: repeat(3, 1fr); 
+                  }
+                }
+              </style>
+            </head>
+            <body>
+              <div class="header">
+                ${logoUrl ? `<img src="${logoUrl}" alt="Logo" class="logo" />` : ''}
+                <h1>QR Codes - ${equipment.name}</h1>
+                <p>Article: ${equipment.articleNumber} • Total: ${equipmentInstances?.length || 0} instances</p>
+              </div>
+              
+              <div class="qr-grid">
+                ${equipmentInstances?.map(instance => `
+                  <div class="qr-item">
+                    <div class="qr-code">
+                      <div style="width: 128px; height: 128px; margin: 0 auto; border: 1px solid #ddd; display: flex; align-items: center; justify-content: center; background: #f9f9f9;">
+                        QR Code
+                      </div>
+                    </div>
+                    <div class="qr-title">${equipment.name}</div>
+                    <div class="qr-subtitle">Instance #${instance.instance_number}</div>
+                    <div class="qr-id">${instance.qr_code}</div>
+                  </div>
+                `).join('')}
+              </div>
+            </body>
+          </html>
+        `;
+
+        const printWindow = window.open('', '_blank', 'width=800,height=900,scrollbars=yes,resizable=yes');
+        
+        if (!printWindow) {
+          toast.error('Impossible d\'ouvrir la fenêtre d\'impression');
+          return;
+        }
+        
+        printWindow.document.write(printContent);
+        printWindow.document.close();
+        
+        printWindow.onload = () => {
+          setTimeout(() => {
+            printWindow.print();
+          }, 500);
+        };
+
+      } else {
+        // QR code unique pour le lot
+        const printContent = `
+          <html>
+            <head>
+              <title>QR Code - ${equipment.name}</title>
+              <style>
+                body { 
+                  font-family: Arial, sans-serif; 
+                  margin: 20px; 
+                  color: #333;
+                  text-align: center;
+                }
+                .header { 
+                  margin-bottom: 30px; 
+                  border-bottom: 2px solid #333; 
+                  padding-bottom: 20px; 
+                }
+                .logo {
+                  max-height: 60px;
+                  max-width: 150px;
+                  margin-bottom: 10px;
+                }
+                .qr-container {
+                  border: 2px solid #333;
+                  padding: 30px;
+                  display: inline-block;
+                  border-radius: 8px;
+                  margin: 20px;
+                }
+                .qr-code {
+                  margin-bottom: 20px;
+                }
+                .qr-title {
+                  font-weight: bold;
+                  margin-bottom: 10px;
+                  font-size: 18px;
+                }
+                .qr-subtitle {
+                  font-size: 14px;
+                  color: #666;
+                  margin-bottom: 10px;
+                }
+                .qr-id {
+                  font-family: monospace;
+                  font-size: 12px;
+                  color: #999;
+                }
+                .quantity-info {
+                  margin-top: 15px;
+                  padding: 10px;
+                  background: #f0f0f0;
+                  border-radius: 4px;
+                  font-size: 14px;
+                }
+              </style>
+            </head>
+            <body>
+              <div class="header">
+                ${logoUrl ? `<img src="${logoUrl}" alt="Logo" class="logo" />` : ''}
+                <h1>QR Code - ${equipment.name}</h1>
+              </div>
+              
+              <div class="qr-container">
+                <div class="qr-code">
+                  <div style="width: 200px; height: 200px; margin: 0 auto; border: 1px solid #ddd; display: flex; align-items: center; justify-content: center; background: #f9f9f9;">
+                    QR Code
+                  </div>
+                </div>
+                <div class="qr-title">${equipment.name}</div>
+                <div class="qr-subtitle">${equipment.articleNumber}</div>
+                <div class="qr-id">${equipment.id}</div>
+                <div class="quantity-info">
+                  <strong>Quantité totale: ${equipment.totalQuantity}</strong><br>
+                  QR Code unique pour tout le lot
+                </div>
+              </div>
+            </body>
+          </html>
+        `;
+
+        const printWindow = window.open('', '_blank', 'width=800,height=900,scrollbars=yes,resizable=yes');
+        
+        if (!printWindow) {
+          toast.error('Impossible d\'ouvrir la fenêtre d\'impression');
+          return;
+        }
+        
+        printWindow.document.write(printContent);
+        printWindow.document.close();
+        
+        printWindow.onload = () => {
+          setTimeout(() => {
+            printWindow.print();
+          }, 500);
+        };
+      }
+
+    } catch (error) {
+      console.error('Error printing QR codes:', error);
+      toast.error('Erreur lors de l\'impression des QR codes');
+    }
   };
 
   const filterOptions: FilterOption[] = [
@@ -385,6 +617,9 @@ const EquipmentPage: React.FC = () => {
                       {item.qrType === 'batch' && totalCount > 1 && (
                         <span className="text-xs text-gray-500 dark:text-gray-400">(lot)</span>
                       )}
+                      {item.qrType === 'individual' && totalCount > 1 && (
+                        <span className="text-xs text-blue-500 dark:text-blue-400">(indiv.)</span>
+                      )}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
@@ -406,6 +641,14 @@ const EquipmentPage: React.FC = () => {
                       onClick={() => handleShowQR(item.id)}
                     >
                       QR Code
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      icon={<Printer size={16} />}
+                      onClick={() => handlePrintAllQRCodes(item)}
+                    >
+                      Imprimer
                     </Button>
                     <Button
                       variant="outline"
@@ -468,6 +711,15 @@ const EquipmentPage: React.FC = () => {
                      item.status === 'maintenance' ? 'Maint.' : 'Retiré'}
                   </Badge>
                 </div>
+
+                {/* Badge de type QR */}
+                {totalCount > 1 && (
+                  <div className="absolute top-1 left-1">
+                    <Badge variant={item.qrType === 'individual' ? 'info' : 'neutral'}>
+                      {item.qrType === 'individual' ? 'QR Indiv.' : 'QR Lot'}
+                    </Badge>
+                  </div>
+                )}
               </div>
 
               {/* Informations principales */}
@@ -523,6 +775,15 @@ const EquipmentPage: React.FC = () => {
                   className="text-xs px-2 py-1"
                 >
                   QR
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  icon={<Printer size={14} />}
+                  onClick={() => handlePrintAllQRCodes(item)}
+                  className="text-xs px-2 py-1"
+                >
+                  Print
                 </Button>
                 <div className="flex gap-1">
                   <Button

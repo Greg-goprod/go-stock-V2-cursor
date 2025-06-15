@@ -132,7 +132,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ isOpen, onClose }
           instances.push({
             equipment_id: equipment.id,
             instance_number: i,
-            qr_code: `${equipment.id}-${i}`,
+            qr_code: `${equipment.article_number}-${String(i).padStart(3, '0')}`,
             status: 'available'
           });
         }
@@ -461,17 +461,30 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ isOpen, onClose }
             </div>
           </div>
 
-          {quantityData.qrType === 'individual' && quantityData.totalQuantity > 1 && (
+          {quantityData.qrType === 'individual' && formData.available_quantity > 1 && (
             <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
               <div className="flex items-start gap-2">
                 <Package size={18} className="text-yellow-600 dark:text-yellow-400 mt-0.5" />
                 <div>
                   <h4 className="font-medium text-yellow-800 dark:text-yellow-200">
-                    {quantityData.totalQuantity} instances seront créées
+                    {formData.available_quantity} instances seront créées
                   </h4>
                   <p className="text-sm text-yellow-700 dark:text-yellow-300 mt-1">
                     Chaque pièce aura son propre QR code et pourra être suivie individuellement.
                   </p>
+                  <div className="mt-2 text-xs text-yellow-600 dark:text-yellow-400">
+                    <p>QR codes générés :</p>
+                    <ul className="list-disc list-inside mt-1">
+                      {Array.from({ length: Math.min(formData.available_quantity, 3) }, (_, i) => (
+                        <li key={i} className="font-mono">
+                          [ARTICLE-NUMBER]-{String(i + 1).padStart(3, '0')}
+                        </li>
+                      ))}
+                      {formData.available_quantity > 3 && (
+                        <li className="italic">... et {formData.available_quantity - 3} autres</li>
+                      )}
+                    </ul>
+                  </div>
                 </div>
               </div>
             </div>

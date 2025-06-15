@@ -33,7 +33,7 @@ const Sidebar: React.FC = () => {
         .from('system_settings')
         .select('value')
         .eq('id', 'company_logo')
-        .single();
+        .maybeSingle();
 
       if (data?.value) {
         setCompanyLogo(data.value);

@@ -454,7 +454,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
         .from('system_settings')
         .select('value')
         .eq('id', 'company_logo')
-        .single();
+        .maybeSingle();
 
       const logoUrl = logoSetting?.value || '';
 

@@ -43,18 +43,24 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
                 min-height: 100vh;
               }
               
-              /* ✅ ÉTIQUETTE 40x30mm - DIMENSIONS CORRIGÉES POUR UTILISER TOUTE LA SURFACE */
+              /* ✅ ÉTIQUETTE 40x30mm - CORRECTION DÉFINITIVE POUR UTILISER TOUTE LA SURFACE */
               .label-40x30 {
-                width: 40mm;
-                height: 30mm;
-                padding: 1mm;
-                display: flex;
-                align-items: center;
-                justify-content: flex-start;
+                width: 40mm !important;
+                height: 30mm !important;
+                max-width: 40mm !important;
+                max-height: 30mm !important;
+                min-width: 40mm !important;
+                min-height: 30mm !important;
+                padding: 0.5mm !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: flex-start !important;
                 page-break-after: always;
                 background: white;
                 border: 1px solid #e5e7eb;
-                gap: 1mm;
+                gap: 0.5mm !important;
+                overflow: hidden !important;
+                position: relative;
               }
               
               /* Styles pour étiquettes 40x40mm avec texte en dessous */
@@ -97,12 +103,17 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
                 background: white;
               }
               
-              /* ✅ QR CODE 40x30mm - UTILISE VRAIMENT 28mm DE HAUTEUR (30mm - 2mm padding) */
+              /* ✅ QR CODE 40x30mm - UTILISE VRAIMENT TOUTE LA HAUTEUR DISPONIBLE (29mm) */
               .qr-code-40x30 {
-                width: 28mm;
-                height: 28mm;
-                flex-shrink: 0;
-                object-fit: contain;
+                width: 29mm !important;
+                height: 29mm !important;
+                max-width: 29mm !important;
+                max-height: 29mm !important;
+                min-width: 29mm !important;
+                min-height: 29mm !important;
+                flex-shrink: 0 !important;
+                object-fit: contain !important;
+                display: block !important;
               }
               
               /* QR code pour étiquette 40x40mm avec texte en dessous */
@@ -131,22 +142,29 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
                 height: 16mm;
               }
               
-              /* ✅ TEXTE 40x30mm - UTILISE L'ESPACE RESTANT (40mm - 28mm QR - 2mm padding - 1mm gap = 9mm) */
+              /* ✅ TEXTE 40x30mm - UTILISE L'ESPACE RESTANT EXACT (40mm - 29mm QR - 1mm padding = 10mm) */
               .title-40x30 {
-                font-size: 6pt;
-                font-weight: 900;
-                line-height: 1.1;
-                color: #000;
-                flex: 1;
-                word-wrap: break-word;
-                overflow: hidden;
-                text-transform: uppercase;
-                letter-spacing: 0.2px;
-                display: flex;
-                flex-direction: column;
-                justify-content: center;
-                max-width: 9mm;
-                height: 100%;
+                width: 10mm !important;
+                max-width: 10mm !important;
+                min-width: 10mm !important;
+                height: 29mm !important;
+                max-height: 29mm !important;
+                font-size: 6pt !important;
+                font-weight: 900 !important;
+                line-height: 1.0 !important;
+                color: #000 !important;
+                word-wrap: break-word !important;
+                overflow: hidden !important;
+                text-transform: uppercase !important;
+                letter-spacing: 0.1px !important;
+                display: flex !important;
+                flex-direction: column !important;
+                justify-content: center !important;
+                align-items: flex-start !important;
+                text-align: left !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                flex-shrink: 0 !important;
               }
               
               /* Titre pour étiquette 40x40mm avec texte en dessous */
@@ -198,12 +216,14 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
               
               /* ✅ SOUS-TITRE 40x30mm - OPTIMISÉ POUR L'ESPACE DISPONIBLE */
               .subtitle-40x30 {
-                font-size: 4pt;
-                color: #666;
-                margin-top: 0.5mm;
-                font-weight: 500;
-                line-height: 1.0;
-                word-wrap: break-word;
+                font-size: 4pt !important;
+                color: #666 !important;
+                margin-top: 0.5mm !important;
+                font-weight: 500 !important;
+                line-height: 1.0 !important;
+                word-wrap: break-word !important;
+                overflow: hidden !important;
+                display: block !important;
               }
               
               /* Sous-titre pour étiquette 40x40mm avec texte en dessous */
@@ -454,7 +474,7 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
               
               <div class="format-buttons">
                 <button class="btn btn-40x30" onclick="showFormat('40x30')">
-                  📐 Étiquette 40x30mm (QR 28mm + texte 9mm)
+                  📐 Étiquette 40x30mm (QR 29mm + texte 10mm)
                 </button>
                 <button class="btn btn-40x40-text" onclick="showFormat('40x40-text-below')">
                   📄 Étiquette 40x40mm (texte en dessous)
@@ -479,12 +499,12 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
               <div class="tip">
                 <div class="tip-icon">✅</div>
                 <div>
-                  <strong>CORRIGÉ :</strong> L'étiquette 40x30mm utilise maintenant TOUTE la surface disponible - QR code de 28mm + zone texte de 9mm pour un usage optimal de l'espace !
+                  <strong>CORRECTION DÉFINITIVE :</strong> L'étiquette 40x30mm utilise maintenant EXACTEMENT toute la surface - QR code de 29mm + zone texte de 10mm avec dimensions forcées par !important !
                 </div>
               </div>
             </div>
             
-            <!-- ✅ FORMAT 40x30mm - UTILISE VRAIMENT TOUTE LA SURFACE 40x30mm -->
+            <!-- ✅ FORMAT 40x30mm - UTILISE EXACTEMENT TOUTE LA SURFACE 40x30mm -->
             <div id="format-40x30" class="label-40x30" style="display: none;">
               <img src="${qrCodeDataURL}" alt="QR Code" class="qr-code-40x30" />
               <div class="title-40x30">

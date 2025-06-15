@@ -137,11 +137,11 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ isOpen, onClose }
         if (instancesError) throw instancesError;
       }
 
-      toast.success(`Équipement ajouté avec succès${quantityData.totalQuantity > 1 ? ` (${quantityData.totalQuantity} pièces)` : ''}`);
+      toast.success(`Matériel ajouté avec succès${quantityData.totalQuantity > 1 ? ` (${quantityData.totalQuantity} pièces)` : ''}`);
       onClose();
     } catch (error: any) {
       console.error('Error adding equipment:', error);
-      toast.error(error.message || 'Erreur lors de l\'ajout de l\'équipement');
+      toast.error(error.message || 'Erreur lors de l\'ajout du matériel');
     } finally {
       setIsLoading(false);
     }
@@ -166,7 +166,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ isOpen, onClose }
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={step === 'basic' ? "Ajouter un Équipement" : "Configuration des Quantités"}
+      title={step === 'basic' ? "Ajouter du Matériel" : "Configuration des Quantités"}
       size="lg"
     >
       {step === 'basic' ? (
@@ -330,7 +330,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ isOpen, onClose }
               Configuration des quantités et QR codes
             </h3>
             <p className="text-blue-700 dark:text-blue-300 text-sm">
-              Définissez comment gérer les quantités et les QR codes pour cet équipement.
+              Définissez comment gérer les quantités et les QR codes pour ce matériel.
             </p>
           </div>
 
@@ -459,7 +459,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ isOpen, onClose }
                 onClick={handleFinalSubmit}
                 disabled={isLoading}
               >
-                {isLoading ? 'Création en cours...' : 'Créer l\'équipement'}
+                {isLoading ? 'Création en cours...' : 'Créer le matériel'}
               </Button>
             </div>
           </div>

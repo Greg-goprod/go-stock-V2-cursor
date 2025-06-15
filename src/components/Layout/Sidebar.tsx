@@ -101,7 +101,7 @@ const Sidebar: React.FC = () => {
           
           <NavLink to="/equipment" className={navLinkClass} onClick={() => setIsOpen(false)}>
             <Package size={20} />
-            <span>{t('equipment')}</span>
+            <span>Matériel</span>
           </NavLink>
           
           <NavLink to="/users" className={navLinkClass} onClick={() => setIsOpen(false)}>

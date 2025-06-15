@@ -199,7 +199,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
     if (equipmentItem) {
       const stock = stockInfo[equipmentItem.id];
       if (!stock || stock.available === 0) {
-        toast.error('Cet équipement n\'est pas disponible');
+        toast.error('Ce matériel n\'est pas disponible');
         return;
       }
 
@@ -207,7 +207,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
       const currentQuantity = existingItem ? existingItem.quantity : 0;
       
       if (currentQuantity >= stock.available) {
-        toast.error('Quantité maximale atteinte pour cet équipement');
+        toast.error('Quantité maximale atteinte pour ce matériel');
         return;
       }
 
@@ -224,14 +224,14 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
       }
       toast.success(`${equipmentItem.name} ajouté`);
     } else {
-      toast.error('Équipement non trouvé');
+      toast.error('Matériel non trouvé');
     }
   };
 
   const handleSelectEquipmentFromList = (equipmentItem: Equipment) => {
     const stock = stockInfo[equipmentItem.id];
     if (!stock || stock.available === 0) {
-      toast.error('Cet équipement n\'est pas disponible');
+      toast.error('Ce matériel n\'est pas disponible');
       return;
     }
 
@@ -239,7 +239,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
     const currentQuantity = existingItem ? existingItem.quantity : 0;
     
     if (currentQuantity >= stock.available) {
-      toast.error('Quantité maximale atteinte pour cet équipement');
+      toast.error('Quantité maximale atteinte pour ce matériel');
       return;
     }
 
@@ -297,12 +297,12 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
     setNewEquipment(prev => [...prev, tempNewEquipment]);
     setTempNewEquipment({ name: '', serialNumber: '', description: '' });
     setShowNewEquipmentForm(false);
-    toast.success('Équipement ajouté à la liste');
+    toast.success('Matériel ajouté à la liste');
   };
 
   const handleCheckout = async () => {
     if (!selectedUser || (checkoutItems.length === 0 && newEquipment.length === 0)) {
-      toast.error('Utilisateur et équipements requis');
+      toast.error('Utilisateur et matériel requis');
       return;
     }
 
@@ -418,7 +418,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
         id: `checkout-${deliveryNote.id}`,
         type: 'checkout',
         title: 'Nouveau bon de sortie créé',
-        message: `Bon N° ${deliveryNote.note_number} créé pour ${selectedUser.first_name} ${selectedUser.last_name} (${checkoutRecords.length} équipement${checkoutRecords.length > 1 ? 's' : ''})`,
+        message: `Bon N° ${deliveryNote.note_number} créé pour ${selectedUser.first_name} ${selectedUser.last_name} (${checkoutRecords.length} matériel${checkoutRecords.length > 1 ? 's' : ''})`,
         date: new Date().toISOString(),
         priority: 'medium',
         read: false,
@@ -619,7 +619,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
             <table class="items">
               <thead>
                 <tr>
-                  <th style="width: 50%;">Équipement</th>
+                  <th style="width: 50%;">Matériel</th>
                   <th style="width: 30%;">Numéro de série</th>
                   <th style="width: 20%;">Quantité</th>
                 </tr>
@@ -732,7 +732,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
           <div className="w-8 h-px bg-gray-300"></div>
           <div className={`flex items-center ${step === 'equipment' ? 'text-primary-600' : 'text-gray-400'}`}>
             <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step === 'equipment' ? 'bg-primary-600 text-white' : 'bg-gray-200'}`}>2</div>
-            <span className="ml-2">Équipements</span>
+            <span className="ml-2">Matériel</span>
           </div>
           <div className="w-8 h-px bg-gray-300"></div>
           <div className={`flex items-center ${step === 'summary' ? 'text-primary-600' : 'text-gray-400'}`}>
@@ -909,7 +909,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
                   setShowNewEquipmentForm(true);
                 }}
               >
-                Ajouter Équipement
+                Ajouter Matériel
               </Button>
             </div>
 
@@ -1051,11 +1051,11 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
 
             {showNewEquipmentForm && (
               <div className="border rounded-lg p-4 space-y-4">
-                <h3 className="font-medium">Nouvel Équipement</h3>
+                <h3 className="font-medium">Nouveau Matériel</h3>
                 <div className="grid grid-cols-2 gap-4">
                   <input
                     type="text"
-                    placeholder="Nom de l'équipement *"
+                    placeholder="Nom du matériel *"
                     value={tempNewEquipment.name}
                     onChange={(e) => setTempNewEquipment(prev => ({ ...prev, name: e.target.value }))}
                     className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm"
@@ -1095,7 +1095,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
             {/* Equipment List */}
             {(checkoutItems.length > 0 || newEquipment.length > 0) && (
               <div className="border rounded-lg p-4">
-                <h3 className="font-medium mb-3">Équipements sélectionnés</h3>
+                <h3 className="font-medium mb-3">Matériel sélectionné</h3>
                 <div className="space-y-2">
                   {checkoutItems.map((item, index) => (
                     <div key={index} className="flex justify-between items-center p-2 bg-gray-50 dark:bg-gray-800 rounded">

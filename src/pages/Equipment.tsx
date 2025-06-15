@@ -15,7 +15,7 @@ import { supabase } from '../lib/supabase';
 import toast from 'react-hot-toast';
 
 type ViewMode = 'grid' | 'list';
-type SortField = 'name' | 'status' | 'serial_number' | 'category';
+type SortField = 'name' | 'status' | 'serial_number' | 'category' | 'group';
 type SortDirection = 'asc' | 'desc';
 
 const EquipmentPage: React.FC = () => {
@@ -141,7 +141,7 @@ const EquipmentPage: React.FC = () => {
       if (checkoutError) throw checkoutError;
 
       if (checkouts && checkouts.length > 0) {
-        toast.error('Impossible de supprimer un équipement actuellement emprunté');
+        toast.error('Impossible de supprimer un matériel actuellement emprunté');
         return;
       }
 
@@ -153,7 +153,7 @@ const EquipmentPage: React.FC = () => {
       if (error) throw error;
 
       setEquipment(prev => prev.filter(eq => eq.id !== equipmentToDelete.id));
-      toast.success('Équipement supprimé avec succès');
+      toast.success('Matériel supprimé avec succès');
     } catch (error: any) {
       console.error('Error deleting equipment:', error);
       toast.error(error.message || 'Erreur lors de la suppression');
@@ -234,6 +234,8 @@ const EquipmentPage: React.FC = () => {
         return a.serialNumber.localeCompare(b.serialNumber) * direction;
       case 'category':
         return a.category.localeCompare(b.category) * direction;
+      case 'group':
+        return a.group.localeCompare(b.group) * direction;
       default:
         return 0;
     }
@@ -265,7 +267,7 @@ const EquipmentPage: React.FC = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-gray-500 dark:text-gray-400">Chargement des équipements...</div>
+        <div className="text-gray-500 dark:text-gray-400">Chargement du matériel...</div>
       </div>
     );
   }
@@ -303,6 +305,15 @@ const EquipmentPage: React.FC = () => {
               >
                 <div className="flex items-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   Catégorie
+                  <ArrowUpDown size={14} className="ml-1 opacity-0 group-hover:opacity-100" />
+                </div>
+              </th>
+              <th 
+                className="px-6 py-3 text-left cursor-pointer group"
+                onClick={() => handleSort('group')}
+              >
+                <div className="flex items-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  Groupe
                   <ArrowUpDown size={14} className="ml-1 opacity-0 group-hover:opacity-100" />
                 </div>
               </th>
@@ -354,6 +365,13 @@ const EquipmentPage: React.FC = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                     {item.category}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                    {item.group && (
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200">
+                        {item.group}
+                      </span>
+                    )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center gap-2">
@@ -468,6 +486,11 @@ const EquipmentPage: React.FC = () => {
                     {item.category}
                   </p>
                 )}
+                {item.group && (
+                  <p className="text-xs text-blue-600 dark:text-blue-400 font-medium">
+                    📁 {item.group}
+                  </p>
+                )}
                 {item.location && (
                   <p className="text-xs text-gray-500 dark:text-gray-400">
                     📍 {item.location}
@@ -569,7 +592,7 @@ const EquipmentPage: React.FC = () => {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Équipements</h1>
+        <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Matériel</h1>
         
         <div className="flex gap-3">
           <div className="flex rounded-lg border border-gray-200 dark:border-gray-700">
@@ -609,7 +632,7 @@ const EquipmentPage: React.FC = () => {
             icon={<Plus size={18} />}
             onClick={() => setShowAddModal(true)}
           >
-            Ajouter Équipement
+            Ajouter Matériel
           </Button>
         </div>
       </div>
@@ -619,17 +642,17 @@ const EquipmentPage: React.FC = () => {
           <div className="text-center py-12">
             <Package size={48} className="mx-auto text-gray-400 mb-4" />
             <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-              Aucun équipement
+              Aucun matériel
             </h3>
             <p className="text-gray-500 dark:text-gray-400 mb-4">
-              Commencez par ajouter votre premier équipement.
+              Commencez par ajouter votre premier matériel.
             </p>
             <Button
               variant="primary"
               icon={<Plus size={18} />}
               onClick={() => setShowAddModal(true)}
             >
-              Ajouter un équipement
+              Ajouter du matériel
             </Button>
           </div>
         </Card>
@@ -641,7 +664,7 @@ const EquipmentPage: React.FC = () => {
             <Card>
               <div className="text-center py-8">
                 <p className="text-gray-500 dark:text-gray-400">
-                  Aucun équipement ne correspond aux filtres sélectionnés.
+                  Aucun matériel ne correspond aux filtres sélectionnés.
                 </p>
               </div>
             </Card>
@@ -652,7 +675,7 @@ const EquipmentPage: React.FC = () => {
       <Modal
         isOpen={showQRModal}
         onClose={() => setShowQRModal(false)}
-        title="QR Code Équipement"
+        title="QR Code Matériel"
         size="sm"
       >
         {selectedEquipment && (
@@ -692,7 +715,7 @@ const EquipmentPage: React.FC = () => {
         onClose={() => setShowDeleteConfirm(false)}
         onConfirm={handleDeleteConfirm}
         title="Confirmer la suppression"
-        message={`Êtes-vous sûr de vouloir supprimer l'équipement "${equipmentToDelete?.name}" ? Cette action est irréversible.`}
+        message={`Êtes-vous sûr de vouloir supprimer le matériel "${equipmentToDelete?.name}" ? Cette action est irréversible.`}
         confirmLabel="Supprimer"
         cancelLabel="Annuler"
       />

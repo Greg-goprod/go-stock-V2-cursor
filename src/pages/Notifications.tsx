@@ -32,7 +32,7 @@ const Notifications: React.FC = () => {
   const { t } = useLanguage();
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<'all' | 'unread' | 'overdue' | 'maintenance'>('all');
+  const [filter, setFilter] = useState<'all' | 'unread' | 'read' | 'overdue' | 'maintenance'>('all');
 
   useEffect(() => {
     generateNotifications();
@@ -161,6 +161,28 @@ const Notifications: React.FC = () => {
         });
       }
 
+      // Ajouter quelques notifications lues d'exemple pour démonstration
+      generatedNotifications.push(
+        {
+          id: 'read-example-1',
+          type: 'system',
+          title: 'Notification lue - Maintenance terminée',
+          message: 'La maintenance de l\'imprimante HP LaserJet a été terminée avec succès.',
+          date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(), // Il y a 2 jours
+          priority: 'medium',
+          read: true
+        },
+        {
+          id: 'read-example-2',
+          type: 'due_soon',
+          title: 'Notification lue - Retour effectué',
+          message: 'L\'ordinateur portable Dell a été retourné par Jean Dupont.',
+          date: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(), // Il y a 1 jour
+          priority: 'low',
+          read: true
+        }
+      );
+
       // Trier par priorité et date
       generatedNotifications.sort((a, b) => {
         const priorityOrder = { high: 3, medium: 2, low: 1 };
@@ -185,6 +207,16 @@ const Notifications: React.FC = () => {
         notif.id === notificationId ? { ...notif, read: true } : notif
       )
     );
+    toast.success('Notification marquée comme lue');
+  };
+
+  const markAsUnread = (notificationId: string) => {
+    setNotifications(prev =>
+      prev.map(notif =>
+        notif.id === notificationId ? { ...notif, read: false } : notif
+      )
+    );
+    toast.success('Notification marquée comme non lue');
   };
 
   const markAllAsRead = () => {
@@ -205,6 +237,8 @@ const Notifications: React.FC = () => {
     switch (filter) {
       case 'unread':
         return notifications.filter(n => !n.read);
+      case 'read':
+        return notifications.filter(n => n.read);
       case 'overdue':
         return notifications.filter(n => n.type === 'overdue');
       case 'maintenance':
@@ -227,19 +261,21 @@ const Notifications: React.FC = () => {
     }
   };
 
-  const getPriorityColor = (priority: string) => {
+  const getPriorityColor = (priority: string, isRead: boolean) => {
+    const opacity = isRead ? 'opacity-60' : '';
     switch (priority) {
       case 'high':
-        return 'border-l-red-500 bg-red-50 dark:bg-red-900/10';
+        return `border-l-red-500 bg-red-50 dark:bg-red-900/10 ${opacity}`;
       case 'medium':
-        return 'border-l-yellow-500 bg-yellow-50 dark:bg-yellow-900/10';
+        return `border-l-yellow-500 bg-yellow-50 dark:bg-yellow-900/10 ${opacity}`;
       default:
-        return 'border-l-blue-500 bg-blue-50 dark:bg-blue-900/10';
+        return `border-l-blue-500 bg-blue-50 dark:bg-blue-900/10 ${opacity}`;
     }
   };
 
   const filteredNotifications = getFilteredNotifications();
   const unreadCount = notifications.filter(n => !n.read).length;
+  const readCount = notifications.filter(n => n.read).length;
 
   if (loading) {
     return (
@@ -296,6 +332,13 @@ const Notifications: React.FC = () => {
             Non lues ({unreadCount})
           </Button>
           <Button
+            variant={filter === 'read' ? 'primary' : 'outline'}
+            size="sm"
+            onClick={() => setFilter('read')}
+          >
+            Lues ({readCount})
+          </Button>
+          <Button
             variant={filter === 'overdue' ? 'primary' : 'outline'}
             size="sm"
             onClick={() => setFilter('overdue')}
@@ -324,7 +367,13 @@ const Notifications: React.FC = () => {
               <p className="text-gray-500 dark:text-gray-400">
                 {filter === 'all' 
                   ? 'Aucune notification pour le moment.'
-                  : `Aucune notification ${filter === 'unread' ? 'non lue' : filter === 'overdue' ? 'de retard' : 'de maintenance'}.`
+                  : filter === 'unread' 
+                  ? 'Aucune notification non lue.'
+                  : filter === 'read'
+                  ? 'Aucune notification lue.'
+                  : filter === 'overdue' 
+                  ? 'Aucune notification de retard.' 
+                  : 'Aucune notification de maintenance.'
                 }
               </p>
             </div>
@@ -334,10 +383,10 @@ const Notifications: React.FC = () => {
             <div
               key={notification.id}
               className={`border-l-4 rounded-lg p-4 transition-all duration-200 hover:shadow-md ${
-                getPriorityColor(notification.priority)
+                getPriorityColor(notification.priority, notification.read)
               } ${
                 notification.read 
-                  ? 'opacity-75' 
+                  ? 'bg-opacity-50 dark:bg-opacity-30' 
                   : 'shadow-sm'
               }`}
             >
@@ -367,7 +416,12 @@ const Notifications: React.FC = () => {
                          notification.priority === 'medium' ? 'Important' : 'Info'}
                       </Badge>
                       
-                      {!notification.read && (
+                      {notification.read ? (
+                        <div className="flex items-center gap-1">
+                          <CheckCircle size={16} className="text-green-500" />
+                          <span className="text-xs text-green-600 dark:text-green-400 font-medium">Lue</span>
+                        </div>
+                      ) : (
                         <div className="w-2 h-2 bg-primary-500 rounded-full"></div>
                       )}
                     </div>
@@ -415,7 +469,17 @@ const Notifications: React.FC = () => {
                 </div>
                 
                 <div className="flex items-center gap-2 ml-4">
-                  {!notification.read && (
+                  {notification.read ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      icon={<MarkAsRead size={14} />}
+                      onClick={() => markAsUnread(notification.id)}
+                      className="text-xs"
+                    >
+                      Marquer non lue
+                    </Button>
+                  ) : (
                     <Button
                       variant="outline"
                       size="sm"
@@ -423,7 +487,7 @@ const Notifications: React.FC = () => {
                       onClick={() => markAsRead(notification.id)}
                       className="text-xs"
                     >
-                      Marquer comme lu
+                      Marquer comme lue
                     </Button>
                   )}
                   
@@ -444,13 +508,31 @@ const Notifications: React.FC = () => {
       {/* Statistiques */}
       {notifications.length > 0 && (
         <Card>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
             <div className="text-center">
               <div className="text-2xl font-bold text-gray-900 dark:text-white">
                 {notifications.length}
               </div>
               <div className="text-sm text-gray-500 dark:text-gray-400">
                 Total notifications
+              </div>
+            </div>
+            
+            <div className="text-center">
+              <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                {unreadCount}
+              </div>
+              <div className="text-sm text-gray-500 dark:text-gray-400">
+                Non lues
+              </div>
+            </div>
+            
+            <div className="text-center">
+              <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+                {readCount}
+              </div>
+              <div className="text-sm text-gray-500 dark:text-gray-400">
+                Lues
               </div>
             </div>
             
@@ -469,15 +551,6 @@ const Notifications: React.FC = () => {
               </div>
               <div className="text-sm text-gray-500 dark:text-gray-400">
                 Échéances proches
-              </div>
-            </div>
-            
-            <div className="text-center">
-              <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                {notifications.filter(n => n.type === 'maintenance').length}
-              </div>
-              <div className="text-sm text-gray-500 dark:text-gray-400">
-                Maintenances
               </div>
             </div>
           </div>

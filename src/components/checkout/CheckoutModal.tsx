@@ -184,43 +184,60 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
   };
 
   const handleUserScan = (scannedId: string) => {
-    console.log('🔍 Recherche utilisateur avec ID:', scannedId);
-    console.log('🔍 Type:', typeof scannedId, 'Longueur:', scannedId.length);
-    
-    // Recherche par ID exact
-    let user = users.find(u => u.id === scannedId);
-    console.log('🔍 Recherche par ID exact:', user ? '✅ Trouvé' : '❌ Non trouvé');
-    
-    if (!user) {
-      // Recherche par email
-      user = users.find(u => u.email.toLowerCase() === scannedId.toLowerCase());
-      console.log('🔍 Recherche par email:', user ? '✅ Trouvé' : '❌ Non trouvé');
-    }
-    
-    if (!user) {
-      // Recherche par nom complet
-      const searchTerm = scannedId.toLowerCase();
-      user = users.find(u => 
-        `${u.first_name} ${u.last_name}`.toLowerCase() === searchTerm ||
-        `${u.last_name} ${u.first_name}`.toLowerCase() === searchTerm
-      );
-      console.log('🔍 Recherche par nom:', user ? '✅ Trouvé' : '❌ Non trouvé');
-    }
-    
+    const user = users.find(u => u.id === scannedId);
     if (user) {
       setSelectedUser(user);
       setStep('equipment');
       toast.success(`Utilisateur sélectionné: ${user.first_name} ${user.last_name}`);
-      console.log('✅ Utilisateur trouvé:', user);
     } else {
-      console.log('❌ Utilisateur non trouvé. Valeur scannée:', JSON.stringify(scannedId));
-      console.log('📋 Utilisateurs disponibles:', users.map(u => ({ 
-        id: u.id, 
-        name: `${u.first_name} ${u.last_name}`, 
-        email: u.email 
-      })));
-      toast.error(`Utilisateur non trouvé pour: "${scannedId}"`);
+      toast.error('Utilisateur non trouvé');
     }
+  };
+
+  // 🎯 FONCTION AMÉLIORÉE POUR GÉRER LES DIFFÉRENTS FORMATS DE QR CODES
+  const normalizeQRCode = (qrCode: string): string[] => {
+    const cleaned = qrCode.trim();
+    
+    // Générer toutes les variantes possibles du QR code
+    const variants = [
+      cleaned, // Original
+      cleaned.replace(/'/g, '-'), // Remplacer apostrophes par tirets
+      cleaned.replace(/-/g, "'"), // Remplacer tirets par apostrophes
+      cleaned.replace(/['-]/g, ''), // Supprimer tous les séparateurs
+      cleaned.replace(/['-]/g, '_'), // Remplacer par underscores
+    ];
+
+    // Pour les QR codes avec format ART'YYYYMMDD'NNNN'NNN
+    if (cleaned.includes("'")) {
+      // Extraire les parties et reconstruire avec tirets
+      const parts = cleaned.split("'");
+      if (parts.length >= 3) {
+        const reconstructed = `${parts[0]}-${parts[1]}-${parts[2]}`;
+        variants.push(reconstructed);
+        
+        // Version sans la dernière partie (instance)
+        if (parts.length >= 4) {
+          variants.push(`${parts[0]}-${parts[1]}-${parts[2]}`);
+        }
+      }
+    }
+
+    // Pour les QR codes avec format ART-YYYYMMDD-NNNN-NNN
+    if (cleaned.includes("-")) {
+      const parts = cleaned.split("-");
+      if (parts.length >= 3) {
+        const reconstructed = `${parts[0]}'${parts[1]}'${parts[2]}`;
+        variants.push(reconstructed);
+        
+        // Version sans la dernière partie (instance)
+        if (parts.length >= 4) {
+          variants.push(`${parts[0]}'${parts[1]}'${parts[2]}`);
+        }
+      }
+    }
+
+    // Supprimer les doublons et retourner
+    return [...new Set(variants)];
   };
 
   const handleEquipmentScan = (scannedId: string) => {
@@ -230,106 +247,140 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
     console.log('🔍 Caractères spéciaux:', scannedId.split('').map(c => c.charCodeAt(0)));
     
     // Nettoyer la valeur scannée
-    const cleanId = scannedId.trim().replace(/[\r\n\t]/g, '');
-    console.log('🧹 Valeur nettoyée:', JSON.stringify(cleanId));
-    
-    // Recherche par ID exact
-    let equipmentItem = equipment.find(e => e.id === cleanId);
-    console.log('🔍 Recherche par ID exact:', equipmentItem ? '✅ Trouvé' : '❌ Non trouvé');
-    
-    if (!equipmentItem) {
-      // Recherche par numéro d'article
-      equipmentItem = equipment.find(e => e.articleNumber === cleanId);
-      console.log('🔍 Recherche par article number:', equipmentItem ? '✅ Trouvé' : '❌ Non trouvé');
-    }
-    
-    if (!equipmentItem) {
-      // Recherche par numéro de série
-      equipmentItem = equipment.find(e => e.serialNumber === cleanId);
-      console.log('🔍 Recherche par serial number:', equipmentItem ? '✅ Trouvé' : '❌ Non trouvé');
-    }
-    
-    if (!equipmentItem) {
-      // Recherche par nom (partiel)
-      const searchTerm = cleanId.toLowerCase();
-      equipmentItem = equipment.find(e => 
-        e.name.toLowerCase().includes(searchTerm) ||
-        e.description.toLowerCase().includes(searchTerm)
-      );
-      console.log('🔍 Recherche par nom/description:', equipmentItem ? '✅ Trouvé' : '❌ Non trouvé');
-    }
-    
-    if (!equipmentItem) {
-      // Recherche insensible à la casse dans tous les champs
-      const searchTerm = cleanId.toLowerCase();
-      equipmentItem = equipment.find(e => 
-        e.id.toLowerCase() === searchTerm ||
-        (e.articleNumber && e.articleNumber.toLowerCase() === searchTerm) ||
-        e.serialNumber.toLowerCase() === searchTerm ||
-        e.name.toLowerCase() === searchTerm
-      );
-      console.log('🔍 Recherche insensible à la casse:', equipmentItem ? '✅ Trouvé' : '❌ Non trouvé');
-    }
-    
+    const cleanedId = scannedId.replace(/[\r\n\t\s]/g, '').trim();
+    console.log('🧹 Valeur nettoyée:', JSON.stringify(cleanedId));
+
+    // Générer toutes les variantes possibles
+    const qrVariants = normalizeQRCode(cleanedId);
+    console.log('🔄 Variantes générées:', qrVariants);
+
+    let equipmentItem: Equipment | undefined;
+
+    // 1. Recherche par ID exact
+    equipmentItem = equipment.find(e => e.id === cleanedId);
     if (equipmentItem) {
-      console.log('✅ Équipement trouvé:', {
-        id: equipmentItem.id,
-        name: equipmentItem.name,
-        articleNumber: equipmentItem.articleNumber,
-        serialNumber: equipmentItem.serialNumber
-      });
-      
+      console.log('✅ Trouvé par ID exact:', equipmentItem.name);
+    } else {
+      console.log('🔍 Recherche par ID exact: ❌ Non trouvé');
+    }
+
+    // 2. Recherche par toutes les variantes de QR code dans article_number
+    if (!equipmentItem) {
+      for (const variant of qrVariants) {
+        equipmentItem = equipment.find(e => e.articleNumber === variant);
+        if (equipmentItem) {
+          console.log(`✅ Trouvé par article number (variante: "${variant}"):`, equipmentItem.name);
+          break;
+        }
+      }
+      if (!equipmentItem) {
+        console.log('🔍 Recherche par article number (toutes variantes): ❌ Non trouvé');
+      }
+    }
+
+    // 3. Recherche par serial number avec variantes
+    if (!equipmentItem) {
+      for (const variant of qrVariants) {
+        equipmentItem = equipment.find(e => e.serialNumber === variant);
+        if (equipmentItem) {
+          console.log(`✅ Trouvé par serial number (variante: "${variant}"):`, equipmentItem.name);
+          break;
+        }
+      }
+      if (!equipmentItem) {
+        console.log('🔍 Recherche par serial number (toutes variantes): ❌ Non trouvé');
+      }
+    }
+
+    // 4. Recherche partielle dans nom/description
+    if (!equipmentItem) {
+      equipmentItem = equipment.find(e => 
+        e.name.toLowerCase().includes(cleanedId.toLowerCase()) ||
+        e.description.toLowerCase().includes(cleanedId.toLowerCase())
+      );
+      if (equipmentItem) {
+        console.log('✅ Trouvé par recherche partielle nom/description:', equipmentItem.name);
+      } else {
+        console.log('🔍 Recherche par nom/description: ❌ Non trouvé');
+      }
+    }
+
+    // 5. Recherche insensible à la casse sur tous les champs
+    if (!equipmentItem) {
+      for (const variant of qrVariants) {
+        equipmentItem = equipment.find(e => 
+          e.id.toLowerCase() === variant.toLowerCase() ||
+          (e.articleNumber || '').toLowerCase() === variant.toLowerCase() ||
+          e.serialNumber.toLowerCase() === variant.toLowerCase()
+        );
+        if (equipmentItem) {
+          console.log(`✅ Trouvé par recherche insensible à la casse (variante: "${variant}"):`, equipmentItem.name);
+          break;
+        }
+      }
+      if (!equipmentItem) {
+        console.log('🔍 Recherche insensible à la casse: ❌ Non trouvé');
+      }
+    }
+
+    if (equipmentItem) {
       const stock = stockInfo[equipmentItem.id];
       if (!stock || stock.available === 0) {
         toast.error('Ce matériel n\'est pas disponible');
-        console.log('❌ Stock non disponible:', stock);
         return;
       }
 
-      const existingItem = checkoutItems.find(item => item.equipment.id === equipmentItem.id);
+      const existingItem = checkoutItems.find(item => item.equipment.id === equipmentItem!.id);
       const currentQuantity = existingItem ? existingItem.quantity : 0;
       
       if (currentQuantity >= stock.available) {
         toast.error('Quantité maximale atteinte pour ce matériel');
-        console.log('❌ Quantité max atteinte');
         return;
       }
 
       if (existingItem) {
         setCheckoutItems(prev => 
           prev.map(item => 
-            item.equipment.id === equipmentItem.id 
+            item.equipment.id === equipmentItem!.id 
               ? { ...item, quantity: item.quantity + 1 }
               : item
           )
         );
       } else {
-        setCheckoutItems(prev => [...prev, { equipment: equipmentItem, quantity: 1 }]);
+        setCheckoutItems(prev => [...prev, { equipment: equipmentItem!, quantity: 1 }]);
       }
       toast.success(`${equipmentItem.name} ajouté`);
     } else {
       console.log('❌ ÉQUIPEMENT NON TROUVÉ');
       console.log('📋 Équipements disponibles:');
-      equipment.forEach((e, index) => {
-        console.log(`  ${index + 1}. ID: ${e.id}`);
-        console.log(`     Nom: ${e.name}`);
-        console.log(`     Article: ${e.articleNumber || 'N/A'}`);
-        console.log(`     Série: ${e.serialNumber}`);
+      equipment.forEach((eq, index) => {
+        console.log(`  ${index + 1}. ID: ${eq.id}`);
+        console.log(`     Nom: ${eq.name}`);
+        console.log(`     Article: ${eq.articleNumber}`);
+        console.log(`     Série: ${eq.serialNumber}`);
         console.log(`     ---`);
       });
       
-      // Suggestions de correspondances partielles
-      const partialMatches = equipment.filter(e => 
-        e.name.toLowerCase().includes(cleanId.toLowerCase()) ||
-        e.serialNumber.toLowerCase().includes(cleanId.toLowerCase()) ||
-        (e.articleNumber && e.articleNumber.toLowerCase().includes(cleanId.toLowerCase()))
+      console.log('🔍 ANALYSE DU QR CODE SCANNÉ:');
+      console.log('📊 QR scanné:', cleanedId);
+      console.log('📊 Variantes testées:', qrVariants);
+      
+      // Recherche de correspondances partielles pour diagnostic
+      const partialMatches = equipment.filter(eq => 
+        (eq.articleNumber || '').includes(cleanedId) ||
+        eq.serialNumber.includes(cleanedId) ||
+        cleanedId.includes(eq.articleNumber || '') ||
+        cleanedId.includes(eq.serialNumber)
       );
       
       if (partialMatches.length > 0) {
-        console.log('🔍 Correspondances partielles trouvées:', partialMatches.map(e => e.name));
-        toast.error(`Matériel non trouvé pour: "${cleanId}". Correspondances partielles: ${partialMatches.map(e => e.name).join(', ')}`);
+        console.log('🔍 CORRESPONDANCES PARTIELLES TROUVÉES:');
+        partialMatches.forEach(eq => {
+          console.log(`  - ${eq.name} (Article: ${eq.articleNumber}, Série: ${eq.serialNumber})`);
+        });
+        toast.error(`QR code non reconnu. ${partialMatches.length} correspondance(s) partielle(s) trouvée(s) - vérifiez la console`);
       } else {
-        toast.error(`Matériel non trouvé pour: "${cleanId}". Vérifiez que le QR code correspond à un équipement existant.`);
+        toast.error('Matériel non trouvé. Vérifiez que le QR code correspond à un équipement enregistré.');
       }
     }
   };

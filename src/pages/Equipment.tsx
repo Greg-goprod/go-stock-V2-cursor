@@ -2,15 +2,16 @@ import React, { useState, useEffect } from 'react';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import Badge from '../components/common/Badge';
-import { Plus, Filter, Import, QrCode, LayoutGrid, List, ArrowUpDown, Pencil, Trash2, Package } from 'lucide-react';
+import { Plus, Filter, QrCode, LayoutGrid, List, ArrowUpDown, Pencil, Trash2, Package } from 'lucide-react';
 import QRCodeGenerator from '../components/QRCode/QRCodeGenerator';
+import QRCodesModal from '../components/equipment/QRCodesModal';
 import Modal from '../components/common/Modal';
 import FilterPanel, { FilterOption } from '../components/common/FilterPanel';
 import AddEquipmentModal from '../components/equipment/AddEquipmentModal';
 import EditEquipmentModal from '../components/equipment/EditEquipmentModal';
 import ConfirmModal from '../components/common/ConfirmModal';
 import { useLanguage } from '../contexts/LanguageContext';
-import { Equipment, Category, Supplier, EquipmentInstance } from '../types';
+import { Equipment, Category, Supplier, EquipmentGroup, EquipmentInstance } from '../types';
 import { supabase } from '../lib/supabase';
 import toast from 'react-hot-toast';
 
@@ -29,7 +30,8 @@ const EquipmentPage: React.FC = () => {
   const [selectedEquipment, setSelectedEquipment] = useState<string | null>(null);
   const [selectedInstance, setSelectedInstance] = useState<EquipmentInstance | null>(null);
   const [showQRModal, setShowQRModal] = useState(false);
-  const [showQRPrintModal, setShowQRPrintModal] = useState(false);
+  const [showQRCodesModal, setShowQRCodesModal] = useState(false);
+  const [selectedEquipmentForQR, setSelectedEquipmentForQR] = useState<Equipment | null>(null);
   const [sortField, setSortField] = useState<SortField>('name');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const [showFilters, setShowFilters] = useState(false);
@@ -106,10 +108,20 @@ const EquipmentPage: React.FC = () => {
         group: eq.equipment_groups?.name || ''
       })) || [];
 
+      // Transform instances data
+      const transformedInstances: EquipmentInstance[] = instancesData?.map(inst => ({
+        id: inst.id,
+        equipmentId: inst.equipment_id,
+        instanceNumber: inst.instance_number,
+        qrCode: inst.qr_code,
+        status: inst.status as EquipmentInstance['status'],
+        createdAt: inst.created_at
+      })) || [];
+
       setEquipment(transformedEquipment);
       setCategories(categoriesData || []);
       setSuppliers(suppliersData || []);
-      setInstances(instancesData || []);
+      setInstances(transformedInstances);
     } catch (error: any) {
       console.error('Error fetching data:', error);
       toast.error('Erreur lors du chargement des données');
@@ -162,14 +174,24 @@ const EquipmentPage: React.FC = () => {
   };
 
   const handleShowQR = (equipmentId: string, instance?: EquipmentInstance) => {
+    const equipmentItem = equipment.find(eq => eq.id === equipmentId);
+    if (!equipmentItem) return;
+
+    // Si c'est un équipement avec QR individuels et plusieurs instances
+    if (equipmentItem.qrType === 'individual' && equipmentItem.totalQuantity > 1) {
+      const equipmentInstances = getEquipmentInstances(equipmentId);
+      if (equipmentInstances.length > 1) {
+        // Afficher la modal avec tous les QR codes
+        setSelectedEquipmentForQR(equipmentItem);
+        setShowQRCodesModal(true);
+        return;
+      }
+    }
+
+    // Sinon, afficher le QR code unique
     setSelectedEquipment(equipmentId);
     setSelectedInstance(instance || null);
     setShowQRModal(true);
-  };
-
-  const handleShowQRPrint = (equipmentId: string) => {
-    setSelectedEquipment(equipmentId);
-    setShowQRPrintModal(true);
   };
 
   const handleSort = (field: SortField) => {
@@ -693,6 +715,7 @@ const EquipmentPage: React.FC = () => {
         </>
       )}
 
+      {/* Modal pour un seul QR code */}
       <Modal
         isOpen={showQRModal}
         onClose={() => setShowQRModal(false)}
@@ -710,6 +733,19 @@ const EquipmentPage: React.FC = () => {
           </div>
         )}
       </Modal>
+
+      {/* Modal pour plusieurs QR codes */}
+      {selectedEquipmentForQR && (
+        <QRCodesModal
+          isOpen={showQRCodesModal}
+          onClose={() => {
+            setShowQRCodesModal(false);
+            setSelectedEquipmentForQR(null);
+          }}
+          equipment={selectedEquipmentForQR}
+          instances={getEquipmentInstances(selectedEquipmentForQR.id)}
+        />
+      )}
 
       <FilterPanel
         isOpen={showFilters}

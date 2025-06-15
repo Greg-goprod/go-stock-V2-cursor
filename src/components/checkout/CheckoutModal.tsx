@@ -4,7 +4,7 @@ import Button from '../common/Button';
 import QRCodeScanner from '../QRCode/QRCodeScanner';
 import { User, Equipment } from '../../types';
 import { supabase } from '../../lib/supabase';
-import { Search, UserPlus, Package, Plus, Trash2, Calendar, Printer, List, Filter, CheckCircle, AlertTriangle } from 'lucide-react';
+import { Search, UserPlus, Package, Plus, Trash2, Calendar, Printer, List, Filter, CheckCircle, AlertTriangle, User as UserIcon, Clock, ArrowRight } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface CheckoutModalProps {
@@ -30,6 +30,15 @@ interface StockInfo {
   available: number;
 }
 
+interface ScanHistoryItem {
+  id: string;
+  timestamp: string;
+  scannedValue: string;
+  status: 'success' | 'error';
+  equipmentName?: string;
+  message: string;
+}
+
 const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
   const [step, setStep] = useState<'user' | 'equipment' | 'summary'>('user');
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
@@ -52,30 +61,13 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
   });
   
   // Equipment states
-  const [equipmentMode, setEquipmentMode] = useState<'scan' | 'list' | 'new'>('scan');
-  const [showScanner, setShowScanner] = useState(false);
   const [equipment, setEquipment] = useState<Equipment[]>([]);
-  const [filteredEquipment, setFilteredEquipment] = useState<Equipment[]>([]);
-  const [equipmentSearch, setEquipmentSearch] = useState('');
-  const [equipmentFilter, setEquipmentFilter] = useState('');
-  const [showNewEquipmentForm, setShowNewEquipmentForm] = useState(false);
-  const [tempNewEquipment, setTempNewEquipment] = useState<NewEquipment>({
-    name: '',
-    serialNumber: '',
-    description: ''
-  });
   const [stockInfo, setStockInfo] = useState<Record<string, StockInfo>>({});
   
-  // 🎯 NOUVEAUX ÉTATS POUR SCAN MULTIPLE
-  const [scanningActive, setScanningActive] = useState(false);
-  const [scanCount, setScanCount] = useState(0);
-  const [lastScannedItem, setLastScannedItem] = useState<string>('');
-  const [scanHistory, setScanHistory] = useState<Array<{
-    timestamp: string;
-    value: string;
-    success: boolean;
-    itemName?: string;
-  }>>([]);
+  // Scan states - NOUVEAU SYSTÈME SIMPLIFIÉ
+  const [scanHistory, setScanHistory] = useState<ScanHistoryItem[]>([]);
+  const [totalScanned, setTotalScanned] = useState(0);
+  const [lastScannedEquipment, setLastScannedEquipment] = useState<Equipment | null>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -87,25 +79,6 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
       setDueDate(defaultDueDate.toISOString().split('T')[0]);
     }
   }, [isOpen]);
-
-  useEffect(() => {
-    // Filter equipment based on search and filter
-    let filtered = equipment;
-    
-    if (equipmentSearch) {
-      filtered = filtered.filter(eq => 
-        eq.name.toLowerCase().includes(equipmentSearch.toLowerCase()) ||
-        eq.description.toLowerCase().includes(equipmentSearch.toLowerCase()) ||
-        eq.serialNumber.toLowerCase().includes(equipmentSearch.toLowerCase())
-      );
-    }
-    
-    if (equipmentFilter) {
-      filtered = filtered.filter(eq => eq.category === equipmentFilter);
-    }
-    
-    setFilteredEquipment(filtered);
-  }, [equipment, equipmentSearch, equipmentFilter]);
 
   const fetchUsers = async () => {
     try {
@@ -194,160 +167,102 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
     }
   };
 
-  // 🎯 FONCTION DE NORMALISATION DES QR CODES
-  const normalizeQRCode = (scannedValue: string): string[] => {
-    const variants: string[] = [];
-    const clean = scannedValue.trim();
-    
-    // Ajouter la valeur originale
-    variants.push(clean);
-    
-    // Générer des variantes avec différents séparateurs
-    const withDashes = clean.replace(/[''_]/g, '-');
-    const withUnderscores = clean.replace(/['-]/g, '_');
-    const withApostrophes = clean.replace(/[-_]/g, "'");
-    const withoutSeparators = clean.replace(/['-_]/g, '');
-    
-    variants.push(withDashes, withUnderscores, withApostrophes, withoutSeparators);
-    
-    // Si le QR code contient des parties numériques, essayer de les extraire
-    if (clean.includes('001') || clean.includes('002') || clean.includes('003')) {
-      // Extraire la partie principale (sans le suffixe d'instance)
-      const basePart = clean.replace(/['_-]?00[1-9]$/, '');
-      variants.push(basePart);
-      variants.push(basePart.replace(/[''_]/g, '-'));
-      variants.push(basePart.replace(/[-_]/g, "'"));
-    }
-    
-    // Retourner les variantes uniques
-    return [...new Set(variants)];
-  };
-
   const handleUserScan = (scannedId: string) => {
     const user = users.find(u => u.id === scannedId);
     if (user) {
       setSelectedUser(user);
       setStep('equipment');
-      toast.success(`Utilisateur sélectionné: ${user.first_name} ${user.last_name}`);
+      toast.success(`✅ Utilisateur: ${user.first_name} ${user.last_name}`);
     } else {
-      toast.error('Utilisateur non trouvé');
+      toast.error('❌ Utilisateur non trouvé');
     }
   };
 
-  // 🎯 FONCTION DE SCAN ÉQUIPEMENT AMÉLIORÉE POUR SCAN MULTIPLE
+  // 🎯 NOUVELLE FONCTION DE SCAN SIMPLIFIÉ
   const handleEquipmentScan = (scannedId: string) => {
     console.log('🔍 RECHERCHE ÉQUIPEMENT DÉTAILLÉE');
     console.log('🔍 Valeur scannée:', JSON.stringify(scannedId));
     console.log('🔍 Type:', typeof scannedId, 'Longueur:', scannedId.length);
     console.log('🔍 Caractères spéciaux:', scannedId.split('').map(c => c.charCodeAt(0)));
 
-    // Nettoyer et normaliser la valeur scannée
-    const cleanValue = scannedId.replace(/[\r\n\t\s]/g, '').trim();
-    console.log('🧹 Valeur nettoyée:', JSON.stringify(cleanValue));
+    // Nettoyer la valeur scannée
+    const cleanScannedId = scannedId.replace(/[\r\n\t\s]/g, '').trim();
+    console.log('🧹 Valeur nettoyée:', JSON.stringify(cleanScannedId));
 
-    // Générer toutes les variantes possibles
-    const variants = normalizeQRCode(cleanValue);
-    console.log('🔄 Variantes générées:', variants);
+    // 1. Recherche par ID exact
+    let equipmentItem = equipment.find(e => e.id === cleanScannedId);
+    console.log('🔍 Recherche par ID exact:', equipmentItem ? '✅ Trouvé' : '❌ Non trouvé');
 
-    let equipmentItem: Equipment | undefined;
-
-    // Recherche par ID exact
-    equipmentItem = equipment.find(e => e.id === cleanValue);
-    if (equipmentItem) {
-      console.log('🔍 Recherche par ID exact: ✅ Trouvé');
-    } else {
-      console.log('🔍 Recherche par ID exact: ❌ Non trouvé');
-      
-      // Recherche par article number avec toutes les variantes
-      for (const variant of variants) {
-        equipmentItem = equipment.find(e => e.articleNumber === variant);
-        if (equipmentItem) {
-          console.log('🔍 Recherche par article number: ✅ Trouvé avec variante:', variant);
-          break;
-        }
-      }
-      
-      if (!equipmentItem) {
-        console.log('🔍 Recherche par article number: ❌ Non trouvé');
-        
-        // Recherche par serial number avec toutes les variantes
-        for (const variant of variants) {
-          equipmentItem = equipment.find(e => e.serialNumber === variant);
-          if (equipmentItem) {
-            console.log('🔍 Recherche par serial number: ✅ Trouvé avec variante:', variant);
-            break;
-          }
-        }
-      }
-      
-      if (!equipmentItem) {
-        console.log('🔍 Recherche par serial number: ❌ Non trouvé');
-        
-        // Recherche par nom/description (partielle)
-        for (const variant of variants) {
-          equipmentItem = equipment.find(e => 
-            e.name.toLowerCase().includes(variant.toLowerCase()) ||
-            e.description.toLowerCase().includes(variant.toLowerCase())
-          );
-          if (equipmentItem) {
-            console.log('🔍 Recherche par nom/description: ✅ Trouvé avec variante:', variant);
-            break;
-          }
-        }
-      }
-      
-      if (!equipmentItem) {
-        console.log('🔍 Recherche par nom/description: ❌ Non trouvé');
-        
-        // Recherche insensible à la casse sur tous les champs
-        for (const variant of variants) {
-          equipmentItem = equipment.find(e => 
-            e.id.toLowerCase() === variant.toLowerCase() ||
-            (e.articleNumber && e.articleNumber.toLowerCase() === variant.toLowerCase()) ||
-            e.serialNumber.toLowerCase() === variant.toLowerCase() ||
-            e.name.toLowerCase().includes(variant.toLowerCase())
-          );
-          if (equipmentItem) {
-            console.log('🔍 Recherche insensible à la casse: ✅ Trouvé avec variante:', variant);
-            break;
-          }
-        }
-      }
+    // 2. Recherche par article number
+    if (!equipmentItem) {
+      equipmentItem = equipment.find(e => e.articleNumber === cleanScannedId);
+      console.log('🔍 Recherche par article number:', equipmentItem ? '✅ Trouvé' : '❌ Non trouvé');
     }
 
-    // 🎯 TRAITEMENT DU RÉSULTAT
-    const timestamp = new Date().toLocaleTimeString();
-    
+    // 3. Recherche par serial number
+    if (!equipmentItem) {
+      equipmentItem = equipment.find(e => e.serialNumber === cleanScannedId);
+      console.log('🔍 Recherche par serial number:', equipmentItem ? '✅ Trouvé' : '❌ Non trouvé');
+    }
+
+    // 4. Recherche par nom ou description (partielle)
+    if (!equipmentItem) {
+      equipmentItem = equipment.find(e => 
+        e.name.toLowerCase().includes(cleanScannedId.toLowerCase()) ||
+        e.description.toLowerCase().includes(cleanScannedId.toLowerCase())
+      );
+      console.log('🔍 Recherche par nom/description:', equipmentItem ? '✅ Trouvé' : '❌ Non trouvé');
+    }
+
+    // 5. Recherche insensible à la casse et caractères spéciaux
+    if (!equipmentItem) {
+      const normalizedScanned = cleanScannedId.toLowerCase().replace(/[^a-z0-9]/g, '');
+      equipmentItem = equipment.find(e => {
+        const normalizedArticle = (e.articleNumber || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+        const normalizedSerial = e.serialNumber.toLowerCase().replace(/[^a-z0-9]/g, '');
+        const normalizedName = e.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+        
+        return normalizedArticle === normalizedScanned || 
+               normalizedSerial === normalizedScanned ||
+               normalizedName.includes(normalizedScanned);
+      });
+      console.log('🔍 Recherche insensible à la casse:', equipmentItem ? '✅ Trouvé' : '❌ Non trouvé');
+    }
+
+    const timestamp = new Date().toLocaleTimeString('fr-FR');
+
     if (equipmentItem) {
       console.log('✅ ÉQUIPEMENT TROUVÉ:', equipmentItem.name);
       
       const stock = stockInfo[equipmentItem.id];
       if (!stock || stock.available === 0) {
-        // Équipement trouvé mais indisponible
-        const historyEntry = {
+        const errorMessage = 'Matériel non disponible';
+        setScanHistory(prev => [...prev, {
+          id: Date.now().toString(),
           timestamp,
-          value: cleanValue,
-          success: false,
-          itemName: `${equipmentItem.name} (INDISPONIBLE)`
-        };
-        setScanHistory(prev => [historyEntry, ...prev.slice(0, 9)]);
-        toast.error(`❌ ${equipmentItem.name} n'est pas disponible`);
+          scannedValue: cleanScannedId,
+          status: 'error',
+          equipmentName: equipmentItem!.name,
+          message: errorMessage
+        }]);
+        toast.error(`❌ ${errorMessage}`);
         return;
       }
 
-      const existingItem = checkoutItems.find(item => item.equipment.id === equipmentItem.id);
+      const existingItem = checkoutItems.find(item => item.equipment.id === equipmentItem!.id);
       const currentQuantity = existingItem ? existingItem.quantity : 0;
       
       if (currentQuantity >= stock.available) {
-        // Quantité maximale atteinte
-        const historyEntry = {
+        const errorMessage = 'Quantité maximale atteinte';
+        setScanHistory(prev => [...prev, {
+          id: Date.now().toString(),
           timestamp,
-          value: cleanValue,
-          success: false,
-          itemName: `${equipmentItem.name} (MAX ATTEINT)`
-        };
-        setScanHistory(prev => [historyEntry, ...prev.slice(0, 9)]);
-        toast.error(`❌ Quantité maximale atteinte pour ${equipmentItem.name}`);
+          scannedValue: cleanScannedId,
+          status: 'error',
+          equipmentName: equipmentItem!.name,
+          message: errorMessage
+        }]);
+        toast.error(`❌ ${errorMessage}`);
         return;
       }
 
@@ -355,82 +270,49 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
       if (existingItem) {
         setCheckoutItems(prev => 
           prev.map(item => 
-            item.equipment.id === equipmentItem.id 
+            item.equipment.id === equipmentItem!.id 
               ? { ...item, quantity: item.quantity + 1 }
               : item
           )
         );
       } else {
-        setCheckoutItems(prev => [...prev, { equipment: equipmentItem, quantity: 1 }]);
+        setCheckoutItems(prev => [...prev, { equipment: equipmentItem!, quantity: 1 }]);
       }
 
-      // Mettre à jour l'historique et les compteurs
-      const historyEntry = {
+      setLastScannedEquipment(equipmentItem);
+      setTotalScanned(prev => prev + 1);
+      
+      setScanHistory(prev => [...prev, {
+        id: Date.now().toString(),
         timestamp,
-        value: cleanValue,
-        success: true,
-        itemName: equipmentItem.name
-      };
-      setScanHistory(prev => [historyEntry, ...prev.slice(0, 9)]);
-      setScanCount(prev => prev + 1);
-      setLastScannedItem(equipmentItem.name);
-      
-      // 🎯 NOTIFICATION DE SUCCÈS AVEC COMPTEUR
-      toast.success(`✅ ${equipmentItem.name} ajouté (${scanCount + 1} articles scannés)`, {
-        duration: 2000,
-        icon: '📦'
-      });
-      
+        scannedValue: cleanScannedId,
+        status: 'success',
+        equipmentName: equipmentItem.name,
+        message: `Ajouté (${(currentQuantity + 1)}/${stock.available})`
+      }]);
+
+      toast.success(`✅ ${equipmentItem.name} ajouté !`);
     } else {
-      // ❌ ÉQUIPEMENT NON TROUVÉ
       console.log('❌ ÉQUIPEMENT NON TROUVÉ');
       console.log('📋 Équipements disponibles:');
-      equipment.slice(0, 5).forEach((eq, index) => {
+      equipment.forEach((eq, index) => {
         console.log(`  ${index + 1}. ID: ${eq.id}`);
         console.log(`     Nom: ${eq.name}`);
         console.log(`     Article: ${eq.articleNumber}`);
         console.log(`     Série: ${eq.serialNumber}`);
         console.log(`     ---`);
       });
-      
-      const historyEntry = {
+
+      const errorMessage = 'Matériel non trouvé';
+      setScanHistory(prev => [...prev, {
+        id: Date.now().toString(),
         timestamp,
-        value: cleanValue,
-        success: false,
-        itemName: 'NON TROUVÉ'
-      };
-      setScanHistory(prev => [historyEntry, ...prev.slice(0, 9)]);
-      toast.error(`❌ Matériel non trouvé: ${cleanValue.substring(0, 20)}...`);
+        scannedValue: cleanScannedId,
+        status: 'error',
+        message: errorMessage
+      }]);
+      toast.error(`❌ ${errorMessage}`);
     }
-  };
-
-  const handleSelectEquipmentFromList = (equipmentItem: Equipment) => {
-    const stock = stockInfo[equipmentItem.id];
-    if (!stock || stock.available === 0) {
-      toast.error('Ce matériel n\'est pas disponible');
-      return;
-    }
-
-    const existingItem = checkoutItems.find(item => item.equipment.id === equipmentItem.id);
-    const currentQuantity = existingItem ? existingItem.quantity : 0;
-    
-    if (currentQuantity >= stock.available) {
-      toast.error('Quantité maximale atteinte pour ce matériel');
-      return;
-    }
-
-    if (existingItem) {
-      setCheckoutItems(prev => 
-        prev.map(item => 
-          item.equipment.id === equipmentItem.id 
-            ? { ...item, quantity: item.quantity + 1 }
-            : item
-        )
-      );
-    } else {
-      setCheckoutItems(prev => [...prev, { equipment: equipmentItem, quantity: 1 }]);
-    }
-    toast.success(`${equipmentItem.name} ajouté`);
   };
 
   const handleCreateUser = async () => {
@@ -462,45 +344,6 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const handleAddNewEquipment = () => {
-    if (!tempNewEquipment.name || !tempNewEquipment.serialNumber) {
-      toast.error('Nom et numéro de série obligatoires');
-      return;
-    }
-
-    setNewEquipment(prev => [...prev, tempNewEquipment]);
-    setTempNewEquipment({ name: '', serialNumber: '', description: '' });
-    setShowNewEquipmentForm(false);
-    toast.success('Matériel ajouté à la liste');
-  };
-
-  // 🎯 FONCTIONS DE CONTRÔLE DU SCAN MULTIPLE
-  const startMultipleScan = () => {
-    setScanningActive(true);
-    setScanCount(0);
-    setScanHistory([]);
-    setShowScanner(true);
-    toast.success('🎯 Mode scan multiple activé ! Scannez vos articles un par un.', {
-      duration: 3000,
-      icon: '🔄'
-    });
-  };
-
-  const stopMultipleScan = () => {
-    setScanningActive(false);
-    setShowScanner(false);
-    toast.success(`✅ Scan terminé ! ${scanCount} articles ajoutés.`, {
-      duration: 3000,
-      icon: '🏁'
-    });
-  };
-
-  const clearScanHistory = () => {
-    setScanHistory([]);
-    setScanCount(0);
-    setLastScannedItem('');
   };
 
   const handleCheckout = async () => {
@@ -899,21 +742,11 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
     setNewEquipment([]);
     setNotes('');
     setUserSelectionMode('scan');
-    setEquipmentMode('scan');
-    setShowScanner(false);
-    setShowNewEquipmentForm(false);
     setUserSearch('');
-    setEquipmentSearch('');
-    setEquipmentFilter('');
     setNewUserData({ first_name: '', last_name: '', phone: '', email: '', department: '' });
-    setTempNewEquipment({ name: '', serialNumber: '', description: '' });
-    
-    // 🎯 RESET DES ÉTATS DE SCAN MULTIPLE
-    setScanningActive(false);
-    setScanCount(0);
-    setLastScannedItem('');
     setScanHistory([]);
-    
+    setTotalScanned(0);
+    setLastScannedEquipment(null);
     onClose();
   };
 
@@ -923,13 +756,17 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
     (user.phone || '').includes(userSearch)
   );
 
-  const categories = Array.from(new Set(equipment.map(eq => eq.category))).filter(Boolean);
+  const clearScanHistory = () => {
+    setScanHistory([]);
+    setTotalScanned(0);
+    setLastScannedEquipment(null);
+  };
 
   return (
     <Modal
       isOpen={isOpen}
       onClose={handleClose}
-      title="Sortie de Matériel"
+      title="🚀 SORTIE MATÉRIEL ULTRA-RAPIDE"
       size="xl"
     >
       <div className="space-y-6">
@@ -937,44 +774,56 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
         <div className="flex items-center justify-center space-x-4">
           <div className={`flex items-center ${step === 'user' ? 'text-primary-600' : 'text-gray-400'}`}>
             <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step === 'user' ? 'bg-primary-600 text-white' : 'bg-gray-200'}`}>1</div>
-            <span className="ml-2">Utilisateur</span>
+            <span className="ml-2 font-bold">UTILISATEUR</span>
           </div>
-          <div className="w-8 h-px bg-gray-300"></div>
+          <ArrowRight size={20} className="text-gray-300" />
           <div className={`flex items-center ${step === 'equipment' ? 'text-primary-600' : 'text-gray-400'}`}>
             <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step === 'equipment' ? 'bg-primary-600 text-white' : 'bg-gray-200'}`}>2</div>
-            <span className="ml-2">Matériel</span>
+            <span className="ml-2 font-bold">SCAN MATÉRIEL</span>
           </div>
-          <div className="w-8 h-px bg-gray-300"></div>
+          <ArrowRight size={20} className="text-gray-300" />
           <div className={`flex items-center ${step === 'summary' ? 'text-primary-600' : 'text-gray-400'}`}>
             <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step === 'summary' ? 'bg-primary-600 text-white' : 'bg-gray-200'}`}>3</div>
-            <span className="ml-2">Résumé</span>
+            <span className="ml-2 font-bold">FINALISER</span>
           </div>
         </div>
 
         {/* Step 1: User Selection */}
         {step === 'user' && (
           <div className="space-y-4">
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+              <h3 className="text-lg font-black text-blue-800 dark:text-blue-200 mb-2 uppercase">
+                🎯 ÉTAPE 1 : IDENTIFIER L'UTILISATEUR
+              </h3>
+              <p className="text-blue-700 dark:text-blue-300 text-sm font-medium">
+                Scannez le badge utilisateur ou sélectionnez dans la liste
+              </p>
+            </div>
+
             <div className="flex gap-3">
               <Button
                 variant={userSelectionMode === 'scan' ? 'primary' : 'outline'}
                 icon={<Search size={18} />}
                 onClick={() => setUserSelectionMode('scan')}
+                className="font-bold"
               >
-                Scanner Badge
-              </Button>
-              <Button
-                variant={userSelectionMode === 'new' ? 'primary' : 'outline'}
-                icon={<UserPlus size={18} />}
-                onClick={() => setUserSelectionMode('new')}
-              >
-                Nouvel Utilisateur
+                SCANNER BADGE
               </Button>
               <Button
                 variant={userSelectionMode === 'list' ? 'primary' : 'outline'}
                 icon={<List size={18} />}
                 onClick={() => setUserSelectionMode('list')}
+                className="font-bold"
               >
-                Liste Utilisateurs
+                LISTE UTILISATEURS
+              </Button>
+              <Button
+                variant={userSelectionMode === 'new' ? 'primary' : 'outline'}
+                icon={<UserPlus size={18} />}
+                onClick={() => setUserSelectionMode('new')}
+                className="font-bold"
+              >
+                NOUVEL UTILISATEUR
               </Button>
             </div>
 
@@ -988,24 +837,37 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
               <div>
                 <input
                   type="text"
-                  placeholder="Rechercher un utilisateur..."
+                  placeholder="🔍 Rechercher un utilisateur..."
                   value={userSearch}
                   onChange={(e) => setUserSearch(e.target.value)}
-                  className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm mb-3"
+                  className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm mb-3 font-medium"
                 />
                 
                 <div className="max-h-60 overflow-y-auto border rounded-md">
                   {filteredUsers.map(user => (
                     <div
                       key={user.id}
-                      className="p-3 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer border-b last:border-b-0"
+                      className="p-3 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer border-b last:border-b-0 transition-colors"
                       onClick={() => {
                         setSelectedUser(user);
                         setStep('equipment');
                       }}
                     >
-                      <div className="font-medium">{user.first_name} {user.last_name}</div>
-                      <div className="text-sm text-gray-500">{user.phone} • {user.department}</div>
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-primary-100 dark:bg-primary-900 text-primary-600 dark:text-primary-300 flex items-center justify-center">
+                          <span className="font-black text-sm">
+                            {user.first_name[0]}{user.last_name[0]}
+                          </span>
+                        </div>
+                        <div>
+                          <div className="font-bold text-gray-900 dark:text-white">
+                            {user.first_name} {user.last_name}
+                          </div>
+                          <div className="text-sm text-gray-500 dark:text-gray-400 font-medium">
+                            {user.phone} • {user.department}
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -1014,42 +876,42 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
 
             {userSelectionMode === 'new' && (
               <div className="border rounded-lg p-4 space-y-4">
-                <h3 className="font-medium">Nouvel Utilisateur</h3>
+                <h3 className="font-black text-gray-900 dark:text-white uppercase">CRÉER UN NOUVEL UTILISATEUR</h3>
                 <div className="grid grid-cols-2 gap-4">
                   <input
                     type="text"
                     placeholder="Prénom *"
                     value={newUserData.first_name}
                     onChange={(e) => setNewUserData(prev => ({ ...prev, first_name: e.target.value }))}
-                    className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm"
+                    className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm font-medium"
                   />
                   <input
                     type="text"
                     placeholder="Nom *"
                     value={newUserData.last_name}
                     onChange={(e) => setNewUserData(prev => ({ ...prev, last_name: e.target.value }))}
-                    className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm"
+                    className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm font-medium"
                   />
                   <input
                     type="tel"
                     placeholder="Téléphone *"
                     value={newUserData.phone}
                     onChange={(e) => setNewUserData(prev => ({ ...prev, phone: e.target.value }))}
-                    className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm"
+                    className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm font-medium"
                   />
                   <input
                     type="email"
                     placeholder="Email"
                     value={newUserData.email}
                     onChange={(e) => setNewUserData(prev => ({ ...prev, email: e.target.value }))}
-                    className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm"
+                    className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm font-medium"
                   />
                   <input
                     type="text"
                     placeholder="Département"
                     value={newUserData.department}
                     onChange={(e) => setNewUserData(prev => ({ ...prev, department: e.target.value }))}
-                    className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm col-span-2"
+                    className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm font-medium col-span-2"
                   />
                 </div>
                 <div className="flex gap-3">
@@ -1057,14 +919,16 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
                     variant="primary"
                     onClick={handleCreateUser}
                     disabled={isLoading}
+                    className="font-bold"
                   >
-                    Créer et Continuer
+                    {isLoading ? 'CRÉATION...' : 'CRÉER ET CONTINUER'}
                   </Button>
                   <Button
                     variant="outline"
                     onClick={() => setUserSelectionMode('scan')}
+                    className="font-bold"
                   >
-                    Annuler
+                    ANNULER
                   </Button>
                 </div>
               </div>
@@ -1072,126 +936,149 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
 
             {selectedUser && (
               <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
-                <h3 className="font-medium text-green-800 dark:text-green-200">Utilisateur sélectionné</h3>
-                <p className="text-green-700 dark:text-green-300">{selectedUser.first_name} {selectedUser.last_name} - {selectedUser.phone}</p>
-                <Button
-                  variant="primary"
-                  onClick={() => setStep('equipment')}
-                  className="mt-2"
-                >
-                  Continuer
-                </Button>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <CheckCircle size={24} className="text-green-600 dark:text-green-400" />
+                    <div>
+                      <h3 className="font-black text-green-800 dark:text-green-200 uppercase">
+                        ✅ UTILISATEUR SÉLECTIONNÉ
+                      </h3>
+                      <p className="text-green-700 dark:text-green-300 font-bold">
+                        {selectedUser.first_name} {selectedUser.last_name} • {selectedUser.department}
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    variant="success"
+                    onClick={() => setStep('equipment')}
+                    className="font-bold"
+                    icon={<ArrowRight size={18} />}
+                  >
+                    CONTINUER
+                  </Button>
+                </div>
               </div>
             )}
           </div>
         )}
 
-        {/* Step 2: Equipment Selection */}
+        {/* Step 2: Equipment Scanning - ULTRA SIMPLIFIÉ */}
         {step === 'equipment' && (
           <div className="space-y-4">
-            {/* 🎯 CONTRÔLES DE SCAN MULTIPLE */}
-            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-lg font-bold text-blue-800 dark:text-blue-200 uppercase">
-                    🎯 SCAN MULTIPLE ACTIVÉ
-                  </h3>
-                  <p className="text-blue-700 dark:text-blue-300 text-sm font-medium">
-                    Scannez plusieurs articles d'affilée avec votre douchette
-                  </p>
-                </div>
-                <div className="flex items-center gap-4">
-                  <div className="text-right">
-                    <div className="text-2xl font-black text-blue-600 dark:text-blue-400">
-                      {scanCount}
-                    </div>
-                    <div className="text-xs text-blue-500 dark:text-blue-400 font-bold uppercase">
-                      Articles scannés
-                    </div>
-                  </div>
-                  {scanningActive ? (
-                    <Button
-                      variant="danger"
-                      size="sm"
-                      onClick={stopMultipleScan}
-                      className="font-bold"
-                    >
-                      🏁 ARRÊTER SCAN
-                    </Button>
-                  ) : (
-                    <Button
-                      variant="success"
-                      size="sm"
-                      onClick={startMultipleScan}
-                      className="font-bold"
-                    >
-                      🎯 DÉMARRER SCAN
-                    </Button>
-                  )}
-                </div>
-              </div>
-              
-              {lastScannedItem && (
-                <div className="mt-3 p-2 bg-green-100 dark:bg-green-900/30 border border-green-300 dark:border-green-700 rounded">
-                  <p className="text-sm text-green-800 dark:text-green-200 font-bold">
-                    ✅ DERNIER ARTICLE SCANNÉ: {lastScannedItem}
-                  </p>
-                </div>
-              )}
+            <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
+              <h3 className="text-lg font-black text-green-800 dark:text-green-200 mb-2 uppercase">
+                🎯 ÉTAPE 2 : SCAN AUTOMATIQUE DU MATÉRIEL
+              </h3>
+              <p className="text-green-700 dark:text-green-300 text-sm font-medium">
+                ⚡ Scannez directement avec votre douchette - Pas besoin de cliquer !
+              </p>
             </div>
 
-            {/* Scanner QR */}
-            {showScanner && (
+            {/* Statistiques de scan en temps réel */}
+            <div className="grid grid-cols-3 gap-4">
+              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 text-center">
+                <div className="text-2xl font-black text-blue-600 dark:text-blue-400">
+                  {totalScanned}
+                </div>
+                <div className="text-sm font-bold text-blue-800 dark:text-blue-200 uppercase">
+                  Articles scannés
+                </div>
+              </div>
+              <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4 text-center">
+                <div className="text-2xl font-black text-green-600 dark:text-green-400">
+                  {checkoutItems.reduce((sum, item) => sum + item.quantity, 0)}
+                </div>
+                <div className="text-sm font-bold text-green-800 dark:text-green-200 uppercase">
+                  Articles ajoutés
+                </div>
+              </div>
+              <div className="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg p-4 text-center">
+                <div className="text-2xl font-black text-purple-600 dark:text-purple-400">
+                  {scanHistory.filter(h => h.status === 'error').length}
+                </div>
+                <div className="text-sm font-bold text-purple-800 dark:text-purple-200 uppercase">
+                  Erreurs
+                </div>
+              </div>
+            </div>
+
+            {/* Dernier article scanné */}
+            {lastScannedEquipment && (
+              <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+                <div className="flex items-center gap-3">
+                  <Package size={24} className="text-yellow-600 dark:text-yellow-400" />
+                  <div>
+                    <h4 className="font-black text-yellow-800 dark:text-yellow-200 uppercase">
+                      🎯 DERNIER ARTICLE SCANNÉ
+                    </h4>
+                    <p className="text-yellow-700 dark:text-yellow-300 font-bold">
+                      {lastScannedEquipment.name}
+                    </p>
+                    <p className="text-yellow-600 dark:text-yellow-400 text-sm font-medium">
+                      {lastScannedEquipment.articleNumber} • {lastScannedEquipment.serialNumber}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Scanner QR automatique */}
+            <div className="border rounded-lg p-4">
+              <QRCodeScanner onScan={handleEquipmentScan} />
+            </div>
+
+            {/* Historique des scans */}
+            {scanHistory.length > 0 && (
               <div className="border rounded-lg p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <h4 className="font-bold text-gray-900 dark:text-white">
-                    🔄 MODE SCAN MULTIPLE ACTIF
+                <div className="flex justify-between items-center mb-3">
+                  <h4 className="font-black text-gray-900 dark:text-white uppercase">
+                    📋 HISTORIQUE DES SCANS ({scanHistory.length})
                   </h4>
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => clearScanHistory()}
+                    onClick={clearScanHistory}
+                    className="font-bold"
                   >
-                    Effacer historique
+                    EFFACER
                   </Button>
                 </div>
-                <QRCodeScanner onScan={handleEquipmentScan} />
-              </div>
-            )}
-
-            {/* 🎯 HISTORIQUE DES SCANS */}
-            {scanHistory.length > 0 && (
-              <div className="border rounded-lg p-4">
-                <h4 className="font-bold text-gray-900 dark:text-white mb-3">
-                  📋 HISTORIQUE DES SCANS ({scanHistory.length})
-                </h4>
                 <div className="max-h-40 overflow-y-auto space-y-2">
-                  {scanHistory.map((entry, index) => (
+                  {scanHistory.slice().reverse().map((scan) => (
                     <div
-                      key={index}
+                      key={scan.id}
                       className={`flex items-center justify-between p-2 rounded text-sm ${
-                        entry.success 
+                        scan.status === 'success'
                           ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800'
                           : 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800'
                       }`}
                     >
                       <div className="flex items-center gap-2">
-                        {entry.success ? (
+                        {scan.status === 'success' ? (
                           <CheckCircle size={16} className="text-green-600 dark:text-green-400" />
                         ) : (
                           <AlertTriangle size={16} className="text-red-600 dark:text-red-400" />
                         )}
-                        <span className={`font-medium ${
-                          entry.success 
-                            ? 'text-green-800 dark:text-green-200'
-                            : 'text-red-800 dark:text-red-200'
-                        }`}>
-                          {entry.itemName}
-                        </span>
+                        <div>
+                          <span className={`font-bold ${
+                            scan.status === 'success' 
+                              ? 'text-green-800 dark:text-green-200' 
+                              : 'text-red-800 dark:text-red-200'
+                          }`}>
+                            {scan.equipmentName || 'Matériel inconnu'}
+                          </span>
+                          <span className={`ml-2 text-xs ${
+                            scan.status === 'success' 
+                              ? 'text-green-600 dark:text-green-400' 
+                              : 'text-red-600 dark:text-red-400'
+                          }`}>
+                            {scan.message}
+                          </span>
+                        </div>
                       </div>
                       <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-                        <span className="font-mono">{entry.value.substring(0, 15)}...</span>
-                        <span>{entry.timestamp}</span>
+                        <Clock size={12} />
+                        <span className="font-medium">{scan.timestamp}</span>
                       </div>
                     </div>
                   ))}
@@ -1199,224 +1086,25 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
               </div>
             )}
 
-            {/* Autres modes de sélection */}
-            <div className="flex gap-3">
-              <Button
-                variant={equipmentMode === 'scan' ? 'primary' : 'outline'}
-                icon={<Package size={18} />}
-                onClick={() => {
-                  setEquipmentMode('scan');
-                  if (!scanningActive) {
-                    startMultipleScan();
-                  }
-                }}
-              >
-                Scanner QR Code
-              </Button>
-              <Button
-                variant={equipmentMode === 'list' ? 'primary' : 'outline'}
-                icon={<List size={18} />}
-                onClick={() => {
-                  setEquipmentMode('list');
-                  if (scanningActive) {
-                    stopMultipleScan();
-                  }
-                }}
-              >
-                Liste Matériel
-              </Button>
-              <Button
-                variant={equipmentMode === 'new' ? 'primary' : 'outline'}
-                icon={<Plus size={18} />}
-                onClick={() => {
-                  setEquipmentMode('new');
-                  setShowNewEquipmentForm(true);
-                  if (scanningActive) {
-                    stopMultipleScan();
-                  }
-                }}
-              >
-                Ajouter Matériel
-              </Button>
-            </div>
-
-            {equipmentMode === 'list' && (
-              <div className="space-y-4">
-                <div className="flex gap-3">
-                  <input
-                    type="text"
-                    placeholder="Rechercher par nom ou description..."
-                    value={equipmentSearch}
-                    onChange={(e) => setEquipmentSearch(e.target.value)}
-                    className="flex-1 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm"
-                  />
-                  <select
-                    value={equipmentFilter}
-                    onChange={(e) => setEquipmentFilter(e.target.value)}
-                    className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm"
-                  >
-                    <option value="">Toutes catégories</option>
-                    {categories.map(category => (
-                      <option key={category} value={category}>{category}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="max-h-60 overflow-y-auto border rounded-md">
-                  {filteredEquipment.map(eq => {
-                    const stock = stockInfo[eq.id] || { total: 0, borrowed: 0, maintenance: 0, available: 0 };
-                    const isUnavailable = stock.available === 0;
-                    const currentQuantity = checkoutItems.find(item => item.equipment.id === eq.id)?.quantity || 0;
-                    const maxQuantity = Math.max(0, stock.available - currentQuantity);
-
-                    return (
-                      <div
-                        key={eq.id}
-                        className={`p-3 border-b last:border-b-0 transition-all ${
-                          isUnavailable 
-                            ? 'bg-gray-100 dark:bg-gray-800 opacity-60 cursor-not-allowed' 
-                            : 'hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer'
-                        }`}
-                      >
-                        <div className="flex justify-between items-start">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-1">
-                              <div className="font-medium">{eq.name}</div>
-                              {isUnavailable && (
-                                <span className="text-red-500 text-xs bg-red-100 dark:bg-red-900/30 px-2 py-1 rounded">
-                                  ⚠️ INDISPONIBLE
-                                </span>
-                              )}
-                            </div>
-                            <div className="text-sm text-gray-500">{eq.serialNumber} • {eq.category}</div>
-                            <div className="text-sm text-gray-400">{eq.description}</div>
-                            
-                            {/* Informations de stock détaillées */}
-                            <div className="flex items-center gap-4 mt-2 text-xs">
-                              <span className={`font-medium ${
-                                stock.available > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
-                              }`}>
-                                ✅ Disponible: {stock.available}/{stock.total}
-                              </span>
-                              {stock.borrowed > 0 && (
-                                <span className="text-orange-600 dark:text-orange-400">
-                                  🟠 Emprunté: {stock.borrowed}
-                                </span>
-                              )}
-                              {stock.maintenance > 0 && (
-                                <span className="text-blue-600 dark:text-blue-400">
-                                  🔵 Maintenance: {stock.maintenance}
-                                </span>
-                              )}
-                              {currentQuantity > 0 && (
-                                <span className="text-purple-600 dark:text-purple-400">
-                                  🟣 Sélectionné: {currentQuantity}
-                                </span>
-                              )}
-                              {!isUnavailable && maxQuantity > 0 && (
-                                <span className="text-gray-600 dark:text-gray-400">
-                                  Max: {maxQuantity}
-                                </span>
-                              )}
-                              {maxQuantity === 0 && currentQuantity > 0 && (
-                                <span className="text-yellow-600 dark:text-yellow-400 font-medium">
-                                  Max atteint
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                          
-                          <div className="ml-4">
-                            {isUnavailable ? (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                disabled
-                                className="cursor-not-allowed opacity-50"
-                              >
-                                Indisponible
-                              </Button>
-                            ) : maxQuantity === 0 ? (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                disabled
-                                className="cursor-not-allowed opacity-50"
-                              >
-                                Max atteint
-                              </Button>
-                            ) : (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleSelectEquipmentFromList(eq)}
-                              >
-                                Ajouter
-                              </Button>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {showNewEquipmentForm && (
-              <div className="border rounded-lg p-4 space-y-4">
-                <h3 className="font-medium">Nouveau Matériel</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <input
-                    type="text"
-                    placeholder="Nom du matériel *"
-                    value={tempNewEquipment.name}
-                    onChange={(e) => setTempNewEquipment(prev => ({ ...prev, name: e.target.value }))}
-                    className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm"
-                  />
-                  <input
-                    type="text"
-                    placeholder="Numéro de série *"
-                    value={tempNewEquipment.serialNumber}
-                    onChange={(e) => setTempNewEquipment(prev => ({ ...prev, serialNumber: e.target.value }))}
-                    className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm"
-                  />
-                </div>
-                <textarea
-                  placeholder="Description"
-                  value={tempNewEquipment.description}
-                  onChange={(e) => setTempNewEquipment(prev => ({ ...prev, description: e.target.value }))}
-                  className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm"
-                  rows={2}
-                />
-                <div className="flex gap-3">
-                  <Button
-                    variant="primary"
-                    onClick={handleAddNewEquipment}
-                  >
-                    Ajouter à la Liste
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => setShowNewEquipmentForm(false)}
-                  >
-                    Annuler
-                  </Button>
-                </div>
-              </div>
-            )}
-
-            {/* Equipment List */}
-            {(checkoutItems.length > 0 || newEquipment.length > 0) && (
+            {/* Liste du matériel sélectionné */}
+            {checkoutItems.length > 0 && (
               <div className="border rounded-lg p-4">
-                <h3 className="font-medium mb-3">Matériel sélectionné</h3>
+                <h3 className="font-black text-gray-900 dark:text-white mb-3 uppercase">
+                  ✅ MATÉRIEL SÉLECTIONNÉ ({checkoutItems.length})
+                </h3>
                 <div className="space-y-2">
                   {checkoutItems.map((item, index) => (
-                    <div key={index} className="flex justify-between items-center p-2 bg-gray-50 dark:bg-gray-800 rounded">
-                      <div>
-                        <span className="font-medium">{item.equipment.name}</span>
-                        <span className="text-sm text-gray-500 ml-2">({item.equipment.serialNumber})</span>
-                        <span className="text-sm text-gray-500 ml-2">Qté: {item.quantity}</span>
+                    <div key={index} className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <Package size={20} className="text-blue-600 dark:text-blue-400" />
+                        <div>
+                          <span className="font-bold text-gray-900 dark:text-white">
+                            {item.equipment.name}
+                          </span>
+                          <div className="text-sm text-gray-500 dark:text-gray-400 font-medium">
+                            {item.equipment.articleNumber} • Qté: {item.quantity}
+                          </div>
+                        </div>
                       </div>
                       <Button
                         variant="danger"
@@ -1426,32 +1114,22 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
                       />
                     </div>
                   ))}
-                  {newEquipment.map((item, index) => (
-                    <div key={`new-${index}`} className="flex justify-between items-center p-2 bg-blue-50 dark:bg-blue-900/20 rounded">
-                      <div>
-                        <span className="font-medium">{item.name}</span>
-                        <span className="text-sm text-gray-500 ml-2">({item.serialNumber})</span>
-                        <span className="text-xs text-blue-600 dark:text-blue-400 ml-2">[Nouveau]</span>
-                      </div>
-                      <Button
-                        variant="danger"
-                        size="sm"
-                        icon={<Trash2 size={14} />}
-                        onClick={() => setNewEquipment(prev => prev.filter((_, i) => i !== index))}
-                      />
-                    </div>
-                  ))}
                 </div>
               </div>
             )}
 
-            {(checkoutItems.length > 0 || newEquipment.length > 0) && (
-              <Button
-                variant="primary"
-                onClick={() => setStep('summary')}
-              >
-                Continuer vers le résumé
-              </Button>
+            {checkoutItems.length > 0 && (
+              <div className="flex justify-center">
+                <Button
+                  variant="success"
+                  size="lg"
+                  onClick={() => setStep('summary')}
+                  className="font-black text-lg"
+                  icon={<ArrowRight size={20} />}
+                >
+                  FINALISER LA SORTIE ({checkoutItems.length} ARTICLES)
+                </Button>
+              </div>
             )}
           </div>
         )}
@@ -1460,51 +1138,59 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
         {step === 'summary' && (
           <div className="space-y-4">
             <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-              <h3 className="font-medium text-blue-800 dark:text-blue-200 mb-2">
-                📋 Création du bon de sortie
+              <h3 className="font-black text-blue-800 dark:text-blue-200 mb-2 uppercase">
+                📋 ÉTAPE 3 : FINALISATION DU BON DE SORTIE
               </h3>
-              <p className="text-blue-700 dark:text-blue-300 text-sm">
-                Un numéro de bon unique sera généré automatiquement pour faciliter le suivi et les retours.
+              <p className="text-blue-700 dark:text-blue-300 text-sm font-medium">
+                Un numéro de bon unique sera généré automatiquement
               </p>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium mb-1">Date de retour prévue</label>
+                <label className="block text-sm font-black text-gray-700 dark:text-gray-300 mb-1 uppercase">
+                  Date de retour prévue
+                </label>
                 <input
                   type="date"
                   value={dueDate}
                   onChange={(e) => setDueDate(e.target.value)}
-                  className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm"
+                  className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 font-medium"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-1">Notes</label>
+              <label className="block text-sm font-black text-gray-700 dark:text-gray-300 mb-1 uppercase">
+                Notes (optionnel)
+              </label>
               <textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder="Notes optionnelles..."
-                className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm"
+                className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 font-medium"
                 rows={3}
               />
             </div>
 
-            <div className="flex gap-3">
-              <Button
-                variant="primary"
-                icon={<Printer size={18} />}
-                onClick={handleCheckout}
-                disabled={isLoading}
-              >
-                {isLoading ? 'Création en cours...' : 'Créer le Bon et Imprimer'}
-              </Button>
+            <div className="flex justify-between">
               <Button
                 variant="outline"
                 onClick={() => setStep('equipment')}
+                className="font-bold"
               >
-                Retour
+                ← RETOUR AU SCAN
+              </Button>
+              
+              <Button
+                variant="success"
+                size="lg"
+                icon={<Printer size={20} />}
+                onClick={handleCheckout}
+                disabled={isLoading}
+                className="font-black text-lg"
+              >
+                {isLoading ? 'CRÉATION EN COURS...' : 'CRÉER LE BON ET IMPRIMER'}
               </Button>
             </div>
           </div>

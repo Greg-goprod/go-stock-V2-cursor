@@ -177,24 +177,40 @@ const EquipmentPage: React.FC = () => {
     const equipmentItem = equipment.find(eq => eq.id === equipmentId);
     if (!equipmentItem) return;
 
-    // Si c'est un équipement avec QR individuels et plusieurs instances
-    if (equipmentItem.qrType === 'individual' && equipmentItem.totalQuantity > 1) {
-      const equipmentInstances = getEquipmentInstances(equipmentId);
-      if (equipmentInstances.length > 1) {
-        // Afficher la modal avec tous les QR codes
-        setSelectedEquipmentForQR(equipmentItem);
-        setShowQRCodesModal(true);
-        return;
-      }
+    console.log('Equipment item:', equipmentItem);
+    console.log('QR Type:', equipmentItem.qrType);
+    console.log('Total Quantity:', equipmentItem.totalQuantity);
+
+    // Récupérer les instances pour cet équipement
+    const equipmentInstances = getEquipmentInstances(equipmentId);
+    console.log('Equipment instances:', equipmentInstances);
+
+    // Si c'est un équipement avec QR individuels ET qu'il y a plusieurs instances
+    if (equipmentItem.qrType === 'individual' && equipmentInstances.length > 1) {
+      console.log('Showing multiple QR codes modal');
+      // Afficher la modal avec tous les QR codes
+      setSelectedEquipmentForQR(equipmentItem);
+      setShowQRCodesModal(true);
+      return;
     }
 
-    // Sinon, afficher le QR code unique
+    // Si c'est un équipement avec QR individuels mais une seule instance
+    if (equipmentItem.qrType === 'individual' && equipmentInstances.length === 1) {
+      console.log('Showing single QR code for individual equipment');
+      setSelectedEquipment(equipmentId);
+      setSelectedInstance(equipmentInstances[0]);
+      setShowQRModal(true);
+      return;
+    }
+
+    // Sinon, afficher le QR code unique (batch ou pas d'instances)
+    console.log('Showing single QR code for batch equipment');
     setSelectedEquipment(equipmentId);
     setSelectedInstance(instance || null);
     setShowQRModal(true);
   };
 
-  const handleSort = (field: SortField) => {
+  const handleSortEquipment = (field: SortField) => {
     if (sortField === field) {
       setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
     } else {
@@ -308,7 +324,7 @@ const EquipmentPage: React.FC = () => {
             <tr>
               <th 
                 className="px-6 py-3 text-left cursor-pointer group"
-                onClick={() => handleSort('name')}
+                onClick={() => handleSortEquipment('name')}
               >
                 <div className="flex items-center text-xs font-black text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   NOM
@@ -320,7 +336,7 @@ const EquipmentPage: React.FC = () => {
               </th>
               <th 
                 className="px-6 py-3 text-left cursor-pointer group"
-                onClick={() => handleSort('serial_number')}
+                onClick={() => handleSortEquipment('serial_number')}
               >
                 <div className="flex items-center text-xs font-black text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   N° SÉRIE
@@ -329,7 +345,7 @@ const EquipmentPage: React.FC = () => {
               </th>
               <th 
                 className="px-6 py-3 text-left cursor-pointer group"
-                onClick={() => handleSort('category')}
+                onClick={() => handleSortEquipment('category')}
               >
                 <div className="flex items-center text-xs font-black text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   CATÉGORIE
@@ -338,7 +354,7 @@ const EquipmentPage: React.FC = () => {
               </th>
               <th 
                 className="px-6 py-3 text-left cursor-pointer group"
-                onClick={() => handleSort('group')}
+                onClick={() => handleSortEquipment('group')}
               >
                 <div className="flex items-center text-xs font-black text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   GROUPE
@@ -350,7 +366,7 @@ const EquipmentPage: React.FC = () => {
               </th>
               <th 
                 className="px-6 py-3 text-left cursor-pointer group"
-                onClick={() => handleSort('status')}
+                onClick={() => handleSortEquipment('status')}
               >
                 <div className="flex items-center text-xs font-black text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   STATUT

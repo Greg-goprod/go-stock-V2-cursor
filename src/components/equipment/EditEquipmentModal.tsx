@@ -29,8 +29,7 @@ const EditEquipmentModal: React.FC<EditEquipmentModalProps> = ({ isOpen, onClose
     location: '',
     image_url: '',
     short_title: '',
-    total_quantity: 1,
-    available_quantity: 1
+    total_quantity: 1
   });
 
   useEffect(() => {
@@ -48,8 +47,7 @@ const EditEquipmentModal: React.FC<EditEquipmentModalProps> = ({ isOpen, onClose
         location: equipment.location || '',
         image_url: equipment.imageUrl || '',
         short_title: equipment.shortTitle || '',
-        total_quantity: equipment.totalQuantity || 1,
-        available_quantity: equipment.availableQuantity || 1
+        total_quantity: equipment.totalQuantity || 1
       });
     }
   }, [isOpen, equipment]);
@@ -287,18 +285,19 @@ const EditEquipmentModal: React.FC<EditEquipmentModalProps> = ({ isOpen, onClose
               onChange={handleChange}
               className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
             />
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              La quantité disponible est calculée automatiquement selon les sorties et maintenances
+            </p>
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              {t('availableQuantity')}
+              Titre court
             </label>
             <input
-              type="number"
-              name="available_quantity"
-              min="0"
-              max={formData.total_quantity}
-              value={formData.available_quantity}
+              type="text"
+              name="short_title"
+              value={formData.short_title}
               onChange={handleChange}
               className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
             />

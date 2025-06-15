@@ -27,7 +27,8 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ isOpen, onClose }
     supplier_id: '',
     location: '',
     image_url: '',
-    short_title: ''
+    short_title: '',
+    available_quantity: 1
   });
   const [quantityData, setQuantityData] = useState({
     qrType: 'individual' as 'individual' | 'batch',
@@ -49,7 +50,8 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ isOpen, onClose }
         supplier_id: '',
         location: '',
         image_url: '',
-        short_title: ''
+        short_title: '',
+        available_quantity: 1
       });
       setQuantityData({
         qrType: 'individual',
@@ -88,6 +90,11 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ isOpen, onClose }
 
   const handleBasicSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    // Synchroniser la quantité totale avec la quantité disponible
+    setQuantityData(prev => ({
+      ...prev,
+      totalQuantity: formData.available_quantity
+    }));
     setStep('quantity');
   };
 
@@ -161,6 +168,16 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ isOpen, onClose }
       [field]: value
     }));
   };
+
+  // Synchroniser la quantité totale avec la quantité disponible
+  useEffect(() => {
+    if (step === 'quantity') {
+      setQuantityData(prev => ({
+        ...prev,
+        totalQuantity: formData.available_quantity
+      }));
+    }
+  }, [formData.available_quantity, step]);
 
   return (
     <Modal
@@ -283,6 +300,24 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ isOpen, onClose }
 
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Quantité disponible *
+              </label>
+              <input
+                type="number"
+                name="available_quantity"
+                min="1"
+                required
+                value={formData.available_quantity}
+                onChange={(e) => setFormData(prev => ({ ...prev, available_quantity: parseInt(e.target.value) || 1 }))}
+                className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
+              />
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                Nombre d'unités disponibles pour l'emprunt
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 URL de l'image
               </label>
               <input
@@ -334,17 +369,19 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ isOpen, onClose }
             </p>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-              Quantité totale
-            </label>
-            <input
-              type="number"
-              min="1"
-              value={quantityData.totalQuantity}
-              onChange={(e) => handleQuantityChange('totalQuantity', parseInt(e.target.value) || 1)}
-              className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
-            />
+          <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
+            <h4 className="font-medium text-gray-900 dark:text-white mb-2">
+              Quantité configurée
+            </h4>
+            <div className="flex items-center gap-2">
+              <Package size={20} className="text-blue-600 dark:text-blue-400" />
+              <span className="text-lg font-semibold text-blue-600 dark:text-blue-400">
+                {formData.available_quantity} unité{formData.available_quantity > 1 ? 's' : ''}
+              </span>
+            </div>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+              Cette quantité sera utilisée comme quantité totale et disponible
+            </p>
           </div>
 
           <div>
@@ -381,7 +418,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ isOpen, onClose }
                       Chaque pièce aura son propre QR code unique. Idéal pour le suivi individuel.
                     </p>
                     <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
-                      Exemple: 5 perceuses = 5 QR codes différents
+                      Exemple: {formData.available_quantity} perceuses = {formData.available_quantity} QR codes différents
                     </p>
                   </div>
                 </div>
@@ -416,7 +453,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ isOpen, onClose }
                       Un seul QR code pour toutes les pièces. Idéal pour les articles identiques.
                     </p>
                     <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
-                      Exemple: 35 batteries = 1 QR code commun
+                      Exemple: {formData.available_quantity} batteries = 1 QR code commun
                     </p>
                   </div>
                 </div>

@@ -138,7 +138,7 @@ const QRCodeScanner: React.FC<QRCodeScannerProps> = ({ onScan, onError }) => {
             setScanMode('barcode');
             if (isScanning) stopCameraScanning();
           }}
-          className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-bold transition-all ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-black transition-all uppercase tracking-wide ${
             scanMode === 'barcode'
               ? 'bg-primary-600 text-white shadow-sm'
               : 'text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'
@@ -152,7 +152,7 @@ const QRCodeScanner: React.FC<QRCodeScannerProps> = ({ onScan, onError }) => {
             setScanMode('camera');
             setScannedValue('');
           }}
-          className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-bold transition-all ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-black transition-all uppercase tracking-wide ${
             scanMode === 'camera'
               ? 'bg-primary-600 text-white shadow-sm'
               : 'text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'
@@ -163,20 +163,20 @@ const QRCodeScanner: React.FC<QRCodeScannerProps> = ({ onScan, onError }) => {
         </button>
       </div>
 
-      {/* Mode Douchette */}
+      {/* Mode Douchette - VERSION ULTRA CLEAN */}
       {scanMode === 'barcode' && (
         <div className="w-full max-w-sm">
           <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-4">
             <div className="flex items-center gap-2 mb-2">
               <Keyboard size={20} className="text-blue-600 dark:text-blue-400" />
-              <h3 className="font-bold text-blue-800 dark:text-blue-200 uppercase">
+              <h3 className="font-black text-blue-800 dark:text-blue-200 uppercase tracking-wide">
                 MODE DOUCHETTE ACTIVE
               </h3>
             </div>
             <p className="text-sm text-blue-700 dark:text-blue-300 font-medium">
               ✅ Scannez directement avec votre douchette INATECK
             </p>
-            <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+            <p className="text-xs text-blue-600 dark:text-blue-400 mt-1 font-medium">
               Le curseur doit être dans le champ ci-dessous
             </p>
           </div>
@@ -221,7 +221,7 @@ const QRCodeScanner: React.FC<QRCodeScannerProps> = ({ onScan, onError }) => {
             )}
             {lastScannedValue && scanStatus === 'success' && (
               <div className="mt-2 p-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded">
-                <p className="text-xs text-green-700 dark:text-green-300 font-bold">
+                <p className="text-xs text-green-700 dark:text-green-300 font-black uppercase tracking-wide">
                   ✅ DERNIER SCAN RÉUSSI
                 </p>
                 <p className="text-xs text-green-600 dark:text-green-400 font-mono break-all">
@@ -229,19 +229,6 @@ const QRCodeScanner: React.FC<QRCodeScannerProps> = ({ onScan, onError }) => {
                 </p>
               </div>
             )}
-          </div>
-
-          {/* Debug info */}
-          <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border">
-            <h4 className="text-xs font-bold text-gray-700 dark:text-gray-300 mb-2 uppercase">
-              🔧 DEBUG INFO
-            </h4>
-            <div className="space-y-1 text-xs text-gray-600 dark:text-gray-400">
-              <p><strong>Mode:</strong> Douchette USB</p>
-              <p><strong>Statut:</strong> {scanStatus === 'idle' ? 'En attente' : scanStatus === 'success' ? 'Succès' : 'Erreur'}</p>
-              <p><strong>Dernière valeur:</strong> {lastScannedValue || 'Aucune'}</p>
-              <p><strong>Longueur:</strong> {lastScannedValue.length || 0} caractères</p>
-            </div>
           </div>
         </div>
       )}
@@ -253,8 +240,8 @@ const QRCodeScanner: React.FC<QRCodeScannerProps> = ({ onScan, onError }) => {
             {!isScanning && (
               <div className="h-full flex flex-col items-center justify-center text-gray-500 dark:text-gray-400">
                 <Camera size={48} strokeWidth={1.5} className="mb-2" />
-                <p className="font-medium">Scanner caméra web</p>
-                <p className="text-sm">Cliquez sur "Démarrer" pour activer</p>
+                <p className="font-black uppercase tracking-wide">Scanner caméra web</p>
+                <p className="text-sm font-medium">Cliquez sur "Démarrer" pour activer</p>
               </div>
             )}
           </div>
@@ -270,7 +257,7 @@ const QRCodeScanner: React.FC<QRCodeScannerProps> = ({ onScan, onError }) => {
               <Button 
                 variant="danger" 
                 onClick={stopCameraScanning}
-                className="font-bold"
+                className="font-black"
               >
                 ARRÊTER CAMÉRA
               </Button>
@@ -279,7 +266,7 @@ const QRCodeScanner: React.FC<QRCodeScannerProps> = ({ onScan, onError }) => {
                 variant="primary" 
                 icon={<Camera size={18} />}
                 onClick={startCameraScanning}
-                className="font-bold"
+                className="font-black"
               >
                 DÉMARRER CAMÉRA
               </Button>

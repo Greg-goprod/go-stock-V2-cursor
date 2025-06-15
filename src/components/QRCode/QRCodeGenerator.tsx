@@ -56,11 +56,10 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
                 background: white;
               }
               
-              /* Styles pour étiquettes 40x40mm rondes avec QR 30x30mm */
+              /* Styles pour étiquettes 40x40mm rondes avec QR 30x30mm et padding 5mm */
               .label-40x40-round {
                 width: 40mm;
                 height: 40mm;
-                padding: 5mm;
                 border-radius: 50%;
                 display: flex;
                 flex-direction: column;
@@ -70,6 +69,8 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
                 background: white;
                 overflow: hidden;
                 position: relative;
+                /* Padding de 5mm de tous les côtés = zone utile de 30mm */
+                padding: 5mm;
               }
               
               /* Styles pour étiquettes 30x20mm */
@@ -90,10 +91,13 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
                 margin-bottom: 1mm;
               }
               
+              /* QR code de 30x30mm exactement, centré dans la zone de 30mm disponible */
               .qr-code-40-round {
                 width: 30mm;
                 height: 30mm;
-                margin-bottom: 0.5mm;
+                flex-shrink: 0;
+                display: block;
+                margin: 0 auto;
               }
               
               .qr-code-30 {
@@ -114,6 +118,7 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
                 letter-spacing: 0.5px;
               }
               
+              /* Titre pour l'étiquette ronde - positionné sous le QR code */
               .title-40-round {
                 font-size: 4pt;
                 font-weight: 900;
@@ -123,9 +128,13 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
                 max-height: 3mm;
                 overflow: hidden;
                 word-wrap: break-word;
-                margin-top: 0.5mm;
                 text-transform: uppercase;
                 letter-spacing: 0.3px;
+                position: absolute;
+                bottom: 1mm;
+                left: 50%;
+                transform: translateX(-50%);
+                width: calc(100% - 10mm);
               }
               
               .title-30 {
@@ -153,9 +162,13 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
                 font-size: 3pt;
                 color: #666;
                 text-align: center;
-                margin-top: 0.2mm;
                 line-height: 1;
                 font-weight: 500;
+                position: absolute;
+                bottom: 0.2mm;
+                left: 50%;
+                transform: translateX(-50%);
+                width: calc(100% - 10mm);
               }
               
               .controls {
@@ -395,7 +408,7 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
                 <div class="tip-icon">💡</div>
                 <div>
                   <strong>ASTUCE :</strong> L'étiquette s'imprimera sans bordure pour un rendu professionnel. 
-                  Assurez-vous que votre imprimante supporte l'impression sans marge.
+                  Le QR code rond fait exactement 30x30mm avec un padding de 5mm de tous les côtés.
                 </div>
               </div>
             </div>
@@ -407,7 +420,7 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
               ${subtitle ? `<div class="subtitle">${subtitle}</div>` : ''}
             </div>
             
-            <!-- Format 40x40mm rond avec QR 30x30mm -->
+            <!-- Format 40x40mm rond avec QR 30x30mm et padding 5mm -->
             <div id="format-40x40-round" class="label-40x40-round" style="display: none;">
               <img src="${qrCodeDataURL}" alt="QR Code" class="qr-code-40-round" />
               <div class="title-40-round">${title}</div>

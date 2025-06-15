@@ -131,46 +131,14 @@ const QRCodeScanner: React.FC<QRCodeScannerProps> = ({ onScan, onError }) => {
 
   return (
     <div className="flex flex-col items-center space-y-4">
-      {/* Sélecteur de mode */}
-      <div className="flex rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 p-1">
-        <button
-          onClick={() => {
-            setScanMode('barcode');
-            if (isScanning) stopCameraScanning();
-          }}
-          className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-black transition-all uppercase tracking-wide ${
-            scanMode === 'barcode'
-              ? 'bg-primary-600 text-white shadow-sm'
-              : 'text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'
-          }`}
-        >
-          <Keyboard size={16} />
-          DOUCHETTE USB
-        </button>
-        <button
-          onClick={() => {
-            setScanMode('camera');
-            setScannedValue('');
-          }}
-          className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-black transition-all uppercase tracking-wide ${
-            scanMode === 'camera'
-              ? 'bg-primary-600 text-white shadow-sm'
-              : 'text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'
-          }`}
-        >
-          <Camera size={16} />
-          CAMÉRA WEB
-        </button>
-      </div>
-
-      {/* Mode Douchette - VERSION ULTRA CLEAN */}
+      {/* Mode Douchette - VERSION ULTRA CLEAN SANS INTERFACE TECHNIQUE */}
       {scanMode === 'barcode' && (
         <div className="w-full max-w-sm">
           <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-4">
             <div className="flex items-center gap-2 mb-2">
               <Keyboard size={20} className="text-blue-600 dark:text-blue-400" />
               <h3 className="font-black text-blue-800 dark:text-blue-200 uppercase tracking-wide">
-                MODE DOUCHETTE ACTIVE
+                SCAN AUTOMATIQUE ACTIF
               </h3>
             </div>
             <p className="text-sm text-blue-700 dark:text-blue-300 font-medium">
@@ -230,12 +198,37 @@ const QRCodeScanner: React.FC<QRCodeScannerProps> = ({ onScan, onError }) => {
               </div>
             )}
           </div>
+
+          {/* Bouton caméra en bas - DESIGN COHÉRENT */}
+          <div className="mt-4 text-center">
+            <Button
+              variant="outline"
+              size="sm"
+              icon={<Camera size={16} />}
+              onClick={() => setScanMode('camera')}
+              className="font-black"
+            >
+              UTILISER LA CAMÉRA
+            </Button>
+          </div>
         </div>
       )}
 
-      {/* Mode Caméra */}
+      {/* Mode Caméra - DESIGN COHÉRENT */}
       {scanMode === 'camera' && (
         <div className="w-full max-w-sm">
+          <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg p-4 mb-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Camera size={20} className="text-orange-600 dark:text-orange-400" />
+              <h3 className="font-black text-orange-800 dark:text-orange-200 uppercase tracking-wide">
+                MODE CAMÉRA WEB
+              </h3>
+            </div>
+            <p className="text-sm text-orange-700 dark:text-orange-300 font-medium">
+              📷 Utilisez votre caméra web pour scanner
+            </p>
+          </div>
+
           <div id={scannerDivId} className="w-full h-64 bg-gray-100 dark:bg-gray-700 rounded-lg mb-4 overflow-hidden">
             {!isScanning && (
               <div className="h-full flex flex-col items-center justify-center text-gray-500 dark:text-gray-400">
@@ -252,7 +245,7 @@ const QRCodeScanner: React.FC<QRCodeScannerProps> = ({ onScan, onError }) => {
             </div>
           )}
 
-          <div className="flex justify-center">
+          <div className="flex justify-center gap-3">
             {isScanning ? (
               <Button 
                 variant="danger" 
@@ -271,6 +264,15 @@ const QRCodeScanner: React.FC<QRCodeScannerProps> = ({ onScan, onError }) => {
                 DÉMARRER CAMÉRA
               </Button>
             )}
+            
+            <Button
+              variant="outline"
+              icon={<Keyboard size={18} />}
+              onClick={() => setScanMode('barcode')}
+              className="font-black"
+            >
+              RETOUR DOUCHETTE
+            </Button>
           </div>
         </div>
       )}

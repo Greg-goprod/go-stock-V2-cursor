@@ -949,7 +949,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
           </div>
         )}
 
-        {/* Step 2: Equipment Scanning - ULTRA SIMPLIFIÉ SANS DEBUG */}
+        {/* Step 2: Equipment Scanning - ULTRA SIMPLIFIÉ SANS INTERFACE TECHNIQUE */}
         {step === 'equipment' && (
           <div className="space-y-4">
             <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
@@ -1009,7 +1009,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
               </div>
             )}
 
-            {/* Scanner QR automatique - SANS DEBUG INFO */}
+            {/* Scanner QR automatique - SANS INTERFACE TECHNIQUE */}
             <div className="border rounded-lg p-4">
               <QRCodeScanner onScan={handleEquipmentScan} />
             </div>

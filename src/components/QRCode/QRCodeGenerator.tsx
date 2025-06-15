@@ -43,17 +43,17 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
                 min-height: 100vh;
               }
               
-              /* Styles pour étiquettes 40x30mm */
+              /* Styles pour étiquettes 40x30mm - ADAPTÉE DE 30x20mm */
               .label-40x30 {
                 width: 40mm;
                 height: 30mm;
                 padding: 2mm;
                 display: flex;
-                flex-direction: column;
                 align-items: center;
-                justify-content: center;
+                justify-content: space-between;
                 page-break-after: always;
                 background: white;
+                border: 1px solid #e5e7eb;
               }
               
               /* Styles pour étiquettes 40x40mm avec texte en dessous */
@@ -97,10 +97,11 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
                 background: white;
               }
               
+              /* QR code pour étiquette 40x30mm - ADAPTÉ DE 30x20mm */
               .qr-code-40x30 {
-                width: 28mm;
-                height: 28mm;
-                margin-bottom: 1mm;
+                width: 24mm;
+                height: 24mm;
+                flex-shrink: 0;
               }
               
               /* QR code pour étiquette 40x40mm avec texte en dessous */
@@ -131,17 +132,21 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
                 height: 16mm;
               }
               
+              /* Titre pour étiquette 40x30mm - ADAPTÉ DE 30x20mm */
               .title-40x30 {
-                font-size: 6pt;
+                font-size: 7pt;
                 font-weight: 900;
-                text-align: center;
                 line-height: 1.1;
                 color: #000;
-                max-height: 4mm;
-                overflow: hidden;
+                flex: 1;
+                margin-left: 2mm;
                 word-wrap: break-word;
+                overflow: hidden;
                 text-transform: uppercase;
                 letter-spacing: 0.5px;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
               }
               
               /* Titre pour étiquette 40x40mm avec texte en dessous */
@@ -191,12 +196,13 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
                 letter-spacing: 0.3px;
               }
               
-              .subtitle {
-                font-size: 4pt;
+              /* Sous-titre pour étiquette 40x30mm - ADAPTÉ DE 30x20mm */
+              .subtitle-40x30 {
+                font-size: 5pt;
                 color: #666;
-                text-align: center;
-                margin-top: 0.5mm;
+                margin-top: 1mm;
                 font-weight: 500;
+                line-height: 1.1;
               }
               
               /* Sous-titre pour étiquette 40x40mm avec texte en dessous */
@@ -447,7 +453,7 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
               
               <div class="format-buttons">
                 <button class="btn btn-40x30" onclick="showFormat('40x30')">
-                  📐 Étiquette 40x30mm
+                  📐 Étiquette 40x30mm (adaptée de 30x20mm)
                 </button>
                 <button class="btn btn-40x40-text" onclick="showFormat('40x40-text-below')">
                   📄 Étiquette 40x40mm (texte en dessous)
@@ -456,7 +462,7 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
                   ⭕ QR 30x30mm dans rond Ø40mm
                 </button>
                 <button class="btn" onclick="showFormat('30x20')">
-                  📏 Étiquette 30x20mm
+                  📏 Étiquette 30x20mm (originale)
                 </button>
               </div>
               
@@ -472,17 +478,18 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
               <div class="tip">
                 <div class="tip-icon">💡</div>
                 <div>
-                  <strong>ASTUCE :</strong> L'étiquette s'imprimera sans bordure pour un rendu professionnel. 
-                  Nouvelle étiquette 40x40mm avec QR code en haut et texte en dessous pour une meilleure lisibilité.
+                  <strong>NOUVEAU :</strong> Étiquette 40x30mm adaptée du format 30x20mm avec QR code plus grand (24mm) et texte optimisé pour l'espace supplémentaire.
                 </div>
               </div>
             </div>
             
-            <!-- Format 40x30mm -->
+            <!-- Format 40x30mm - ADAPTÉ DE 30x20mm -->
             <div id="format-40x30" class="label-40x30" style="display: none;">
               <img src="${qrCodeDataURL}" alt="QR Code" class="qr-code-40x30" />
-              <div class="title-40x30">${title}</div>
-              ${subtitle ? `<div class="subtitle">${subtitle}</div>` : ''}
+              <div class="title-40x30">
+                ${title}
+                ${subtitle ? `<div class="subtitle-40x30">${subtitle}</div>` : ''}
+              </div>
             </div>
             
             <!-- Format 40x40mm avec texte en dessous -->
@@ -499,7 +506,7 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
               ${subtitle ? `<div class="subtitle-round">${subtitle}</div>` : ''}
             </div>
             
-            <!-- Format 30x20mm -->
+            <!-- Format 30x20mm - ORIGINAL -->
             <div id="format-30x20" class="label-30x20" style="display: none;">
               <img src="${qrCodeDataURL}" alt="QR Code" class="qr-code-30" />
               <div class="title-30">${title}${subtitle ? `<br><span style="font-size: 4pt; color: #666; font-weight: 500;">${subtitle}</span>` : ''}</div>
@@ -517,7 +524,7 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
                 const selectedElement = document.getElementById('format-' + format);
                 selectedElement.style.display = 'flex';
                 
-                if (format === '30x20') {
+                if (format === '30x20' || format === '40x30') {
                   selectedElement.style.flexDirection = 'row';
                 } else {
                   selectedElement.style.flexDirection = 'column';

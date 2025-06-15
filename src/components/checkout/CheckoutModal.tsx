@@ -23,6 +23,67 @@ interface NewEquipment {
   description: string;
 }
 
+interface PrintPreviewModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  content: string;
+  noteNumber: string;
+}
+
+const PrintPreviewModal: React.FC<PrintPreviewModalProps> = ({ isOpen, onClose, content, noteNumber }) => {
+  const handlePrint = () => {
+    const printWindow = window.open('', '_blank', 'width=800,height=600');
+    if (!printWindow) {
+      toast.error('Impossible d\'ouvrir la fenêtre d\'impression');
+      return;
+    }
+
+    printWindow.document.write(content);
+    printWindow.document.close();
+    
+    // Attendre que le contenu soit chargé avant d'imprimer
+    printWindow.onload = () => {
+      // Configuration pour 2 copies par défaut
+      printWindow.print();
+      printWindow.print(); // Deuxième impression
+    };
+  };
+
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={`Aperçu du bon de sortie ${noteNumber}`}
+      size="xl"
+    >
+      <div className="space-y-4">
+        <div 
+          className="border rounded-lg p-4 bg-white max-h-96 overflow-y-auto"
+          dangerouslySetInnerHTML={{ __html: content }}
+        />
+        
+        <div className="flex justify-between">
+          <Button
+            variant="outline"
+            onClick={onClose}
+          >
+            Fermer
+          </Button>
+          <div className="flex gap-3">
+            <Button
+              variant="primary"
+              icon={<Printer size={18} />}
+              onClick={handlePrint}
+            >
+              Imprimer (2 copies)
+            </Button>
+          </div>
+        </div>
+      </div>
+    </Modal>
+  );
+};
+
 const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
   const [step, setStep] = useState<'user' | 'equipment' | 'summary'>('user');
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
@@ -57,6 +118,11 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
     serialNumber: '',
     description: ''
   });
+
+  // Print preview states
+  const [showPrintPreview, setShowPrintPreview] = useState(false);
+  const [printContent, setPrintContent] = useState('');
+  const [printNoteNumber, setPrintNoteNumber] = useState('');
 
   useEffect(() => {
     if (isOpen) {
@@ -232,6 +298,124 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
     toast.success('Équipement ajouté à la liste');
   };
 
+  const generatePrintContent = (noteNumber: string) => {
+    const allItems = [
+      ...checkoutItems.map(item => ({ name: item.equipment.name, serialNumber: item.equipment.serialNumber, quantity: item.quantity })),
+      ...newEquipment.map(eq => ({ name: eq.name, serialNumber: eq.serialNumber, quantity: 1 }))
+    ];
+
+    return `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Bon de Sortie ${noteNumber} - GO-Mat</title>
+          <style>
+            body { 
+              font-family: Arial, sans-serif; 
+              margin: 20px; 
+              color: #000;
+              background: #fff;
+            }
+            .header { 
+              text-align: center; 
+              margin-bottom: 30px; 
+              border-bottom: 2px solid #333; 
+              padding-bottom: 10px; 
+            }
+            .note-number { 
+              font-size: 24px; 
+              font-weight: bold; 
+              color: #2563eb; 
+              margin-bottom: 10px; 
+            }
+            .info { 
+              margin-bottom: 20px; 
+              line-height: 1.6;
+            }
+            .items { 
+              width: 100%; 
+              border-collapse: collapse; 
+              margin-bottom: 30px; 
+            }
+            .items th, .items td { 
+              border: 1px solid #ddd; 
+              padding: 8px; 
+              text-align: left; 
+            }
+            .items th { 
+              background-color: #f2f2f2; 
+              font-weight: bold;
+            }
+            .signature { 
+              margin-top: 50px; 
+            }
+            .signature-line { 
+              border-bottom: 1px solid #333; 
+              width: 200px; 
+              margin-top: 30px; 
+            }
+            .footer { 
+              margin-top: 30px; 
+              text-align: center; 
+              font-size: 12px; 
+              color: #666; 
+            }
+            @media print {
+              body { margin: 0; }
+              .no-print { display: none; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>GO-Mat - Bon de Sortie</h1>
+            <div class="note-number">N° ${noteNumber}</div>
+            <p>Date d'émission: ${new Date().toLocaleDateString('fr-FR')}</p>
+          </div>
+          
+          <div class="info">
+            <p><strong>Utilisateur:</strong> ${selectedUser?.first_name} ${selectedUser?.last_name}</p>
+            <p><strong>Téléphone:</strong> ${selectedUser?.phone}</p>
+            <p><strong>Département:</strong> ${selectedUser?.department}</p>
+            <p><strong>Date de retour prévue:</strong> ${new Date(dueDate).toLocaleDateString('fr-FR')}</p>
+            ${notes ? `<p><strong>Notes:</strong> ${notes}</p>` : ''}
+          </div>
+
+          <table class="items">
+            <thead>
+              <tr>
+                <th>Équipement</th>
+                <th>Numéro de série</th>
+                <th>Quantité</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${allItems.map(item => `
+                <tr>
+                  <td>${item.name}</td>
+                  <td>${item.serialNumber}</td>
+                  <td>${item.quantity}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+
+          <div class="signature">
+            <p>Je reconnais avoir reçu le matériel ci-dessus et m'engage à le restituer en bon état.</p>
+            <p>Signature de l'utilisateur:</p>
+            <div class="signature-line"></div>
+            <p style="margin-top: 5px;">Date: _______________</p>
+          </div>
+
+          <div class="footer">
+            <p>Ce bon de sortie doit être conservé jusqu'au retour complet du matériel.</p>
+            <p>Pour tout retour, présentez ce bon ou indiquez le numéro: <strong>${noteNumber}</strong></p>
+          </div>
+        </body>
+      </html>
+    `;
+  };
+
   const handleCheckout = async () => {
     if (!selectedUser || (checkoutItems.length === 0 && newEquipment.length === 0)) {
       toast.error('Utilisateur et équipements requis');
@@ -345,93 +529,19 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
       }
 
       toast.success(`Bon de sortie ${deliveryNote.note_number} créé avec succès`);
-      handlePrintCheckout(deliveryNote.note_number);
-      handleClose();
+      
+      // Préparer le contenu d'impression et afficher la popup
+      const content = generatePrintContent(deliveryNote.note_number);
+      setPrintContent(content);
+      setPrintNoteNumber(deliveryNote.note_number);
+      setShowPrintPreview(true);
+      
     } catch (error: any) {
       console.error('Error during checkout:', error);
       toast.error(error.message || 'Erreur lors de la sortie');
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const handlePrintCheckout = (noteNumber: string) => {
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
-
-    const allItems = [
-      ...checkoutItems.map(item => ({ name: item.equipment.name, serialNumber: item.equipment.serialNumber, quantity: item.quantity })),
-      ...newEquipment.map(eq => ({ name: eq.name, serialNumber: eq.serialNumber, quantity: 1 }))
-    ];
-
-    printWindow.document.write(`
-      <html>
-        <head>
-          <title>Bon de Sortie ${noteNumber} - GO-Mat</title>
-          <style>
-            body { font-family: Arial, sans-serif; margin: 20px; }
-            .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 10px; }
-            .note-number { font-size: 24px; font-weight: bold; color: #2563eb; margin-bottom: 10px; }
-            .info { margin-bottom: 20px; }
-            .items { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
-            .items th, .items td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-            .items th { background-color: #f2f2f2; }
-            .signature { margin-top: 50px; }
-            .signature-line { border-bottom: 1px solid #333; width: 200px; margin-top: 30px; }
-            .footer { margin-top: 30px; text-align: center; font-size: 12px; color: #666; }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <h1>GO-Mat - Bon de Sortie</h1>
-            <div class="note-number">N° ${noteNumber}</div>
-            <p>Date d'émission: ${new Date().toLocaleDateString('fr-FR')}</p>
-          </div>
-          
-          <div class="info">
-            <p><strong>Utilisateur:</strong> ${selectedUser?.first_name} ${selectedUser?.last_name}</p>
-            <p><strong>Téléphone:</strong> ${selectedUser?.phone}</p>
-            <p><strong>Département:</strong> ${selectedUser?.department}</p>
-            <p><strong>Date de retour prévue:</strong> ${new Date(dueDate).toLocaleDateString('fr-FR')}</p>
-            ${notes ? `<p><strong>Notes:</strong> ${notes}</p>` : ''}
-          </div>
-
-          <table class="items">
-            <thead>
-              <tr>
-                <th>Équipement</th>
-                <th>Numéro de série</th>
-                <th>Quantité</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${allItems.map(item => `
-                <tr>
-                  <td>${item.name}</td>
-                  <td>${item.serialNumber}</td>
-                  <td>${item.quantity}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-
-          <div class="signature">
-            <p>Je reconnais avoir reçu le matériel ci-dessus et m'engage à le restituer en bon état.</p>
-            <p>Signature de l'utilisateur:</p>
-            <div class="signature-line"></div>
-            <p style="margin-top: 5px;">Date: _______________</p>
-          </div>
-
-          <div class="footer">
-            <p>Ce bon de sortie doit être conservé jusqu'au retour complet du matériel.</p>
-            <p>Pour tout retour, présentez ce bon ou indiquez le numéro: <strong>${noteNumber}</strong></p>
-          </div>
-        </body>
-      </html>
-    `);
-    
-    printWindow.document.close();
-    printWindow.print();
   };
 
   const handleClose = () => {
@@ -449,6 +559,9 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
     setEquipmentFilter('');
     setNewUserData({ first_name: '', last_name: '', phone: '', email: '', department: '' });
     setTempNewEquipment({ name: '', serialNumber: '', description: '' });
+    setShowPrintPreview(false);
+    setPrintContent('');
+    setPrintNoteNumber('');
     onClose();
   };
 
@@ -461,417 +574,431 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
   const categories = Array.from(new Set(equipment.map(eq => eq.category))).filter(Boolean);
 
   return (
-    <Modal
-      isOpen={isOpen}
-      onClose={handleClose}
-      title="Sortie de Matériel"
-      size="xl"
-    >
-      <div className="space-y-6">
-        {/* Progress indicator */}
-        <div className="flex items-center justify-center space-x-4">
-          <div className={`flex items-center ${step === 'user' ? 'text-primary-600' : 'text-gray-400'}`}>
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step === 'user' ? 'bg-primary-600 text-white' : 'bg-gray-200'}`}>1</div>
-            <span className="ml-2">Utilisateur</span>
-          </div>
-          <div className="w-8 h-px bg-gray-300"></div>
-          <div className={`flex items-center ${step === 'equipment' ? 'text-primary-600' : 'text-gray-400'}`}>
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step === 'equipment' ? 'bg-primary-600 text-white' : 'bg-gray-200'}`}>2</div>
-            <span className="ml-2">Équipements</span>
-          </div>
-          <div className="w-8 h-px bg-gray-300"></div>
-          <div className={`flex items-center ${step === 'summary' ? 'text-primary-600' : 'text-gray-400'}`}>
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step === 'summary' ? 'bg-primary-600 text-white' : 'bg-gray-200'}`}>3</div>
-            <span className="ml-2">Résumé</span>
-          </div>
-        </div>
-
-        {/* Step 1: User Selection */}
-        {step === 'user' && (
-          <div className="space-y-4">
-            <div className="flex gap-3">
-              <Button
-                variant={userSelectionMode === 'scan' ? 'primary' : 'outline'}
-                icon={<Search size={18} />}
-                onClick={() => setUserSelectionMode('scan')}
-              >
-                Scanner Badge
-              </Button>
-              <Button
-                variant={userSelectionMode === 'new' ? 'primary' : 'outline'}
-                icon={<UserPlus size={18} />}
-                onClick={() => setUserSelectionMode('new')}
-              >
-                Nouvel Utilisateur
-              </Button>
-              <Button
-                variant={userSelectionMode === 'list' ? 'primary' : 'outline'}
-                icon={<List size={18} />}
-                onClick={() => setUserSelectionMode('list')}
-              >
-                Liste Utilisateurs
-              </Button>
+    <>
+      <Modal
+        isOpen={isOpen}
+        onClose={handleClose}
+        title="Sortie de Matériel"
+        size="xl"
+      >
+        <div className="space-y-6">
+          {/* Progress indicator */}
+          <div className="flex items-center justify-center space-x-4">
+            <div className={`flex items-center ${step === 'user' ? 'text-primary-600' : 'text-gray-400'}`}>
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step === 'user' ? 'bg-primary-600 text-white' : 'bg-gray-200'}`}>1</div>
+              <span className="ml-2">Utilisateur</span>
             </div>
+            <div className="w-8 h-px bg-gray-300"></div>
+            <div className={`flex items-center ${step === 'equipment' ? 'text-primary-600' : 'text-gray-400'}`}>
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step === 'equipment' ? 'bg-primary-600 text-white' : 'bg-gray-200'}`}>2</div>
+              <span className="ml-2">Équipements</span>
+            </div>
+            <div className="w-8 h-px bg-gray-300"></div>
+            <div className={`flex items-center ${step === 'summary' ? 'text-primary-600' : 'text-gray-400'}`}>
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step === 'summary' ? 'bg-primary-600 text-white' : 'bg-gray-200'}`}>3</div>
+              <span className="ml-2">Résumé</span>
+            </div>
+          </div>
 
-            {userSelectionMode === 'scan' && (
-              <div className="border rounded-lg p-4">
-                <QRCodeScanner onScan={handleUserScan} />
-              </div>
-            )}
-
-            {userSelectionMode === 'list' && (
-              <div>
-                <input
-                  type="text"
-                  placeholder="Rechercher un utilisateur..."
-                  value={userSearch}
-                  onChange={(e) => setUserSearch(e.target.value)}
-                  className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm mb-3"
-                />
-                
-                <div className="max-h-60 overflow-y-auto border rounded-md">
-                  {filteredUsers.map(user => (
-                    <div
-                      key={user.id}
-                      className="p-3 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer border-b last:border-b-0"
-                      onClick={() => {
-                        setSelectedUser(user);
-                        setStep('equipment');
-                      }}
-                    >
-                      <div className="font-medium">{user.first_name} {user.last_name}</div>
-                      <div className="text-sm text-gray-500">{user.phone} • {user.department}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {userSelectionMode === 'new' && (
-              <div className="border rounded-lg p-4 space-y-4">
-                <h3 className="font-medium">Nouvel Utilisateur</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <input
-                    type="text"
-                    placeholder="Prénom *"
-                    value={newUserData.first_name}
-                    onChange={(e) => setNewUserData(prev => ({ ...prev, first_name: e.target.value }))}
-                    className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm"
-                  />
-                  <input
-                    type="text"
-                    placeholder="Nom *"
-                    value={newUserData.last_name}
-                    onChange={(e) => setNewUserData(prev => ({ ...prev, last_name: e.target.value }))}
-                    className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm"
-                  />
-                  <input
-                    type="tel"
-                    placeholder="Téléphone *"
-                    value={newUserData.phone}
-                    onChange={(e) => setNewUserData(prev => ({ ...prev, phone: e.target.value }))}
-                    className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm"
-                  />
-                  <input
-                    type="email"
-                    placeholder="Email"
-                    value={newUserData.email}
-                    onChange={(e) => setNewUserData(prev => ({ ...prev, email: e.target.value }))}
-                    className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm"
-                  />
-                  <input
-                    type="text"
-                    placeholder="Département"
-                    value={newUserData.department}
-                    onChange={(e) => setNewUserData(prev => ({ ...prev, department: e.target.value }))}
-                    className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm col-span-2"
-                  />
-                </div>
-                <div className="flex gap-3">
-                  <Button
-                    variant="primary"
-                    onClick={handleCreateUser}
-                    disabled={isLoading}
-                  >
-                    Créer et Continuer
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => setUserSelectionMode('scan')}
-                  >
-                    Annuler
-                  </Button>
-                </div>
-              </div>
-            )}
-
-            {selectedUser && (
-              <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
-                <h3 className="font-medium text-green-800 dark:text-green-200">Utilisateur sélectionné</h3>
-                <p className="text-green-700 dark:text-green-300">{selectedUser.first_name} {selectedUser.last_name} - {selectedUser.phone}</p>
+          {/* Step 1: User Selection */}
+          {step === 'user' && (
+            <div className="space-y-4">
+              <div className="flex gap-3">
                 <Button
-                  variant="primary"
-                  onClick={() => setStep('equipment')}
-                  className="mt-2"
+                  variant={userSelectionMode === 'scan' ? 'primary' : 'outline'}
+                  icon={<Search size={18} />}
+                  onClick={() => setUserSelectionMode('scan')}
                 >
-                  Continuer
+                  Scanner Badge
+                </Button>
+                <Button
+                  variant={userSelectionMode === 'new' ? 'primary' : 'outline'}
+                  icon={<UserPlus size={18} />}
+                  onClick={() => setUserSelectionMode('new')}
+                >
+                  Nouvel Utilisateur
+                </Button>
+                <Button
+                  variant={userSelectionMode === 'list' ? 'primary' : 'outline'}
+                  icon={<List size={18} />}
+                  onClick={() => setUserSelectionMode('list')}
+                >
+                  Liste Utilisateurs
                 </Button>
               </div>
-            )}
-          </div>
-        )}
 
-        {/* Step 2: Equipment Selection */}
-        {step === 'equipment' && (
-          <div className="space-y-4">
-            <div className="flex gap-3">
-              <Button
-                variant={equipmentMode === 'scan' ? 'primary' : 'outline'}
-                icon={<Package size={18} />}
-                onClick={() => {
-                  setEquipmentMode('scan');
-                  setShowScanner(true);
-                }}
-              >
-                Scanner QR Code
-              </Button>
-              <Button
-                variant={equipmentMode === 'list' ? 'primary' : 'outline'}
-                icon={<List size={18} />}
-                onClick={() => {
-                  setEquipmentMode('list');
-                  setShowScanner(false);
-                }}
-              >
-                Liste Matériel
-              </Button>
-              <Button
-                variant={equipmentMode === 'new' ? 'primary' : 'outline'}
-                icon={<Plus size={18} />}
-                onClick={() => {
-                  setEquipmentMode('new');
-                  setShowScanner(false);
-                  setShowNewEquipmentForm(true);
-                }}
-              >
-                Ajouter Équipement
-              </Button>
-            </div>
+              {userSelectionMode === 'scan' && (
+                <div className="border rounded-lg p-4">
+                  <QRCodeScanner onScan={handleUserScan} />
+                </div>
+              )}
 
-            {equipmentMode === 'scan' && showScanner && (
-              <div className="border rounded-lg p-4">
-                <QRCodeScanner onScan={handleEquipmentScan} />
-                <Button
-                  variant="outline"
-                  onClick={() => setShowScanner(false)}
-                  className="mt-2"
-                >
-                  Arrêter Scanner
-                </Button>
-              </div>
-            )}
-
-            {equipmentMode === 'list' && (
-              <div className="space-y-4">
-                <div className="flex gap-3">
+              {userSelectionMode === 'list' && (
+                <div>
                   <input
                     type="text"
-                    placeholder="Rechercher par nom ou description..."
-                    value={equipmentSearch}
-                    onChange={(e) => setEquipmentSearch(e.target.value)}
-                    className="flex-1 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm"
+                    placeholder="Rechercher un utilisateur..."
+                    value={userSearch}
+                    onChange={(e) => setUserSearch(e.target.value)}
+                    className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm mb-3"
                   />
-                  <select
-                    value={equipmentFilter}
-                    onChange={(e) => setEquipmentFilter(e.target.value)}
-                    className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm"
-                  >
-                    <option value="">Toutes catégories</option>
-                    {categories.map(category => (
-                      <option key={category} value={category}>{category}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="max-h-60 overflow-y-auto border rounded-md">
-                  {filteredEquipment.map(eq => (
-                    <div
-                      key={eq.id}
-                      className="p-3 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer border-b last:border-b-0 flex justify-between items-center"
-                      onClick={() => handleSelectEquipmentFromList(eq)}
-                    >
-                      <div>
-                        <div className="font-medium">{eq.name}</div>
-                        <div className="text-sm text-gray-500">{eq.serialNumber} • {eq.category}</div>
-                        <div className="text-sm text-gray-400">{eq.description}</div>
-                        <div className="text-xs text-gray-500">
-                          Stock: {eq.availableQuantity}/{eq.totalQuantity}
-                        </div>
-                      </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleSelectEquipmentFromList(eq);
+                  
+                  <div className="max-h-60 overflow-y-auto border rounded-md">
+                    {filteredUsers.map(user => (
+                      <div
+                        key={user.id}
+                        className="p-3 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer border-b last:border-b-0"
+                        onClick={() => {
+                          setSelectedUser(user);
+                          setStep('equipment');
                         }}
                       >
-                        Ajouter
-                      </Button>
-                    </div>
-                  ))}
+                        <div className="font-medium">{user.first_name} {user.last_name}</div>
+                        <div className="text-sm text-gray-500">{user.phone} • {user.department}</div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {showNewEquipmentForm && (
-              <div className="border rounded-lg p-4 space-y-4">
-                <h3 className="font-medium">Nouvel Équipement</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <input
-                    type="text"
-                    placeholder="Nom de l'équipement *"
-                    value={tempNewEquipment.name}
-                    onChange={(e) => setTempNewEquipment(prev => ({ ...prev, name: e.target.value }))}
-                    className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm"
-                  />
-                  <input
-                    type="text"
-                    placeholder="Numéro de série *"
-                    value={tempNewEquipment.serialNumber}
-                    onChange={(e) => setTempNewEquipment(prev => ({ ...prev, serialNumber: e.target.value }))}
-                    className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm"
-                  />
+              {userSelectionMode === 'new' && (
+                <div className="border rounded-lg p-4 space-y-4">
+                  <h3 className="font-medium">Nouvel Utilisateur</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <input
+                      type="text"
+                      placeholder="Prénom *"
+                      value={newUserData.first_name}
+                      onChange={(e) => setNewUserData(prev => ({ ...prev, first_name: e.target.value }))}
+                      className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Nom *"
+                      value={newUserData.last_name}
+                      onChange={(e) => setNewUserData(prev => ({ ...prev, last_name: e.target.value }))}
+                      className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm"
+                    />
+                    <input
+                      type="tel"
+                      placeholder="Téléphone *"
+                      value={newUserData.phone}
+                      onChange={(e) => setNewUserData(prev => ({ ...prev, phone: e.target.value }))}
+                      className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm"
+                    />
+                    <input
+                      type="email"
+                      placeholder="Email"
+                      value={newUserData.email}
+                      onChange={(e) => setNewUserData(prev => ({ ...prev, email: e.target.value }))}
+                      className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Département"
+                      value={newUserData.department}
+                      onChange={(e) => setNewUserData(prev => ({ ...prev, department: e.target.value }))}
+                      className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm col-span-2"
+                    />
+                  </div>
+                  <div className="flex gap-3">
+                    <Button
+                      variant="primary"
+                      onClick={handleCreateUser}
+                      disabled={isLoading}
+                    >
+                      Créer et Continuer
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => setUserSelectionMode('scan')}
+                    >
+                      Annuler
+                    </Button>
+                  </div>
                 </div>
-                <textarea
-                  placeholder="Description"
-                  value={tempNewEquipment.description}
-                  onChange={(e) => setTempNewEquipment(prev => ({ ...prev, description: e.target.value }))}
-                  className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm"
-                  rows={2}
-                />
-                <div className="flex gap-3">
+              )}
+
+              {selectedUser && (
+                <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
+                  <h3 className="font-medium text-green-800 dark:text-green-200">Utilisateur sélectionné</h3>
+                  <p className="text-green-700 dark:text-green-300">{selectedUser.first_name} {selectedUser.last_name} - {selectedUser.phone}</p>
                   <Button
                     variant="primary"
-                    onClick={handleAddNewEquipment}
+                    onClick={() => setStep('equipment')}
+                    className="mt-2"
                   >
-                    Ajouter à la Liste
+                    Continuer
                   </Button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Step 2: Equipment Selection */}
+          {step === 'equipment' && (
+            <div className="space-y-4">
+              <div className="flex gap-3">
+                <Button
+                  variant={equipmentMode === 'scan' ? 'primary' : 'outline'}
+                  icon={<Package size={18} />}
+                  onClick={() => {
+                    setEquipmentMode('scan');
+                    setShowScanner(true);
+                  }}
+                >
+                  Scanner QR Code
+                </Button>
+                <Button
+                  variant={equipmentMode === 'list' ? 'primary' : 'outline'}
+                  icon={<List size={18} />}
+                  onClick={() => {
+                    setEquipmentMode('list');
+                    setShowScanner(false);
+                  }}
+                >
+                  Liste Matériel
+                </Button>
+                <Button
+                  variant={equipmentMode === 'new' ? 'primary' : 'outline'}
+                  icon={<Plus size={18} />}
+                  onClick={() => {
+                    setEquipmentMode('new');
+                    setShowScanner(false);
+                    setShowNewEquipmentForm(true);
+                  }}
+                >
+                  Ajouter Équipement
+                </Button>
+              </div>
+
+              {equipmentMode === 'scan' && showScanner && (
+                <div className="border rounded-lg p-4">
+                  <QRCodeScanner onScan={handleEquipmentScan} />
                   <Button
                     variant="outline"
-                    onClick={() => setShowNewEquipmentForm(false)}
+                    onClick={() => setShowScanner(false)}
+                    className="mt-2"
                   >
-                    Annuler
+                    Arrêter Scanner
                   </Button>
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* Equipment List */}
-            {(checkoutItems.length > 0 || newEquipment.length > 0) && (
-              <div className="border rounded-lg p-4">
-                <h3 className="font-medium mb-3">Équipements sélectionnés</h3>
-                <div className="space-y-2">
-                  {checkoutItems.map((item, index) => (
-                    <div key={index} className="flex justify-between items-center p-2 bg-gray-50 dark:bg-gray-800 rounded">
-                      <div>
-                        <span className="font-medium">{item.equipment.name}</span>
-                        <span className="text-sm text-gray-500 ml-2">({item.equipment.serialNumber})</span>
-                        <span className="text-sm text-gray-500 ml-2">Qté: {item.quantity}</span>
+              {equipmentMode === 'list' && (
+                <div className="space-y-4">
+                  <div className="flex gap-3">
+                    <input
+                      type="text"
+                      placeholder="Rechercher par nom ou description..."
+                      value={equipmentSearch}
+                      onChange={(e) => setEquipmentSearch(e.target.value)}
+                      className="flex-1 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm"
+                    />
+                    <select
+                      value={equipmentFilter}
+                      onChange={(e) => setEquipmentFilter(e.target.value)}
+                      className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm"
+                    >
+                      <option value="">Toutes catégories</option>
+                      {categories.map(category => (
+                        <option key={category} value={category}>{category}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="max-h-60 overflow-y-auto border rounded-md">
+                    {filteredEquipment.map(eq => (
+                      <div
+                        key={eq.id}
+                        className="p-3 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer border-b last:border-b-0 flex justify-between items-center"
+                        onClick={() => handleSelectEquipmentFromList(eq)}
+                      >
+                        <div>
+                          <div className="font-medium">{eq.name}</div>
+                          <div className="text-sm text-gray-500">{eq.serialNumber} • {eq.category}</div>
+                          <div className="text-sm text-gray-400">{eq.description}</div>
+                          <div className="text-xs text-gray-500">
+                            Stock: {eq.availableQuantity}/{eq.totalQuantity}
+                          </div>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleSelectEquipmentFromList(eq);
+                          }}
+                        >
+                          Ajouter
+                        </Button>
                       </div>
-                      <Button
-                        variant="danger"
-                        size="sm"
-                        icon={<Trash2 size={14} />}
-                        onClick={() => setCheckoutItems(prev => prev.filter((_, i) => i !== index))}
-                      />
-                    </div>
-                  ))}
-                  {newEquipment.map((item, index) => (
-                    <div key={`new-${index}`} className="flex justify-between items-center p-2 bg-blue-50 dark:bg-blue-900/20 rounded">
-                      <div>
-                        <span className="font-medium">{item.name}</span>
-                        <span className="text-sm text-gray-500 ml-2">({item.serialNumber})</span>
-                        <span className="text-xs text-blue-600 dark:text-blue-400 ml-2">[Nouveau]</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {showNewEquipmentForm && (
+                <div className="border rounded-lg p-4 space-y-4">
+                  <h3 className="font-medium">Nouvel Équipement</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <input
+                      type="text"
+                      placeholder="Nom de l'équipement *"
+                      value={tempNewEquipment.name}
+                      onChange={(e) => setTempNewEquipment(prev => ({ ...prev, name: e.target.value }))}
+                      className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Numéro de série *"
+                      value={tempNewEquipment.serialNumber}
+                      onChange={(e) => setTempNewEquipment(prev => ({ ...prev, serialNumber: e.target.value }))}
+                      className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm"
+                    />
+                  </div>
+                  <textarea
+                    placeholder="Description"
+                    value={tempNewEquipment.description}
+                    onChange={(e) => setTempNewEquipment(prev => ({ ...prev, description: e.target.value }))}
+                    className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm"
+                    rows={2}
+                  />
+                  <div className="flex gap-3">
+                    <Button
+                      variant="primary"
+                      onClick={handleAddNewEquipment}
+                    >
+                      Ajouter à la Liste
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => setShowNewEquipmentForm(false)}
+                    >
+                      Annuler
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Equipment List */}
+              {(checkoutItems.length > 0 || newEquipment.length > 0) && (
+                <div className="border rounded-lg p-4">
+                  <h3 className="font-medium mb-3">Équipements sélectionnés</h3>
+                  <div className="space-y-2">
+                    {checkoutItems.map((item, index) => (
+                      <div key={index} className="flex justify-between items-center p-2 bg-gray-50 dark:bg-gray-800 rounded">
+                        <div>
+                          <span className="font-medium">{item.equipment.name}</span>
+                          <span className="text-sm text-gray-500 ml-2">({item.equipment.serialNumber})</span>
+                          <span className="text-sm text-gray-500 ml-2">Qté: {item.quantity}</span>
+                        </div>
+                        <Button
+                          variant="danger"
+                          size="sm"
+                          icon={<Trash2 size={14} />}
+                          onClick={() => setCheckoutItems(prev => prev.filter((_, i) => i !== index))}
+                        />
                       </div>
-                      <Button
-                        variant="danger"
-                        size="sm"
-                        icon={<Trash2 size={14} />}
-                        onClick={() => setNewEquipment(prev => prev.filter((_, i) => i !== index))}
-                      />
-                    </div>
-                  ))}
+                    ))}
+                    {newEquipment.map((item, index) => (
+                      <div key={`new-${index}`} className="flex justify-between items-center p-2 bg-blue-50 dark:bg-blue-900/20 rounded">
+                        <div>
+                          <span className="font-medium">{item.name}</span>
+                          <span className="text-sm text-gray-500 ml-2">({item.serialNumber})</span>
+                          <span className="text-xs text-blue-600 dark:text-blue-400 ml-2">[Nouveau]</span>
+                        </div>
+                        <Button
+                          variant="danger"
+                          size="sm"
+                          icon={<Trash2 size={14} />}
+                          onClick={() => setNewEquipment(prev => prev.filter((_, i) => i !== index))}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {(checkoutItems.length > 0 || newEquipment.length > 0) && (
+                <Button
+                  variant="primary"
+                  onClick={() => setStep('summary')}
+                >
+                  Continuer vers le résumé
+                </Button>
+              )}
+            </div>
+          )}
+
+          {/* Step 3: Summary */}
+          {step === 'summary' && (
+            <div className="space-y-4">
+              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                <h3 className="font-medium text-blue-800 dark:text-blue-200 mb-2">
+                  📋 Création du bon de sortie
+                </h3>
+                <p className="text-blue-700 dark:text-blue-300 text-sm">
+                  Un numéro de bon unique sera généré automatiquement pour faciliter le suivi et les retours.
+                  Le bon sera affiché dans une popup pour impression (2 copies par défaut).
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Date de retour prévue</label>
+                  <input
+                    type="date"
+                    value={dueDate}
+                    onChange={(e) => setDueDate(e.target.value)}
+                    className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm"
+                  />
                 </div>
               </div>
-            )}
 
-            {(checkoutItems.length > 0 || newEquipment.length > 0) && (
-              <Button
-                variant="primary"
-                onClick={() => setStep('summary')}
-              >
-                Continuer vers le résumé
-              </Button>
-            )}
-          </div>
-        )}
-
-        {/* Step 3: Summary */}
-        {step === 'summary' && (
-          <div className="space-y-4">
-            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-              <h3 className="font-medium text-blue-800 dark:text-blue-200 mb-2">
-                📋 Création du bon de sortie
-              </h3>
-              <p className="text-blue-700 dark:text-blue-300 text-sm">
-                Un numéro de bon unique sera généré automatiquement pour faciliter le suivi et les retours.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium mb-1">Date de retour prévue</label>
-                <input
-                  type="date"
-                  value={dueDate}
-                  onChange={(e) => setDueDate(e.target.value)}
+                <label className="block text-sm font-medium mb-1">Notes</label>
+                <textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="Notes optionnelles..."
                   className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm"
+                  rows={3}
                 />
               </div>
-            </div>
 
-            <div>
-              <label className="block text-sm font-medium mb-1">Notes</label>
-              <textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Notes optionnelles..."
-                className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm"
-                rows={3}
-              />
+              <div className="flex gap-3">
+                <Button
+                  variant="primary"
+                  icon={<Printer size={18} />}
+                  onClick={handleCheckout}
+                  disabled={isLoading}
+                >
+                  {isLoading ? 'Création en cours...' : 'Créer le Bon et Afficher l\'Aperçu'}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setStep('equipment')}
+                >
+                  Retour
+                </Button>
+              </div>
             </div>
+          )}
+        </div>
+      </Modal>
 
-            <div className="flex gap-3">
-              <Button
-                variant="primary"
-                icon={<Printer size={18} />}
-                onClick={handleCheckout}
-                disabled={isLoading}
-              >
-                {isLoading ? 'Création en cours...' : 'Créer le Bon et Imprimer'}
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => setStep('equipment')}
-              >
-                Retour
-              </Button>
-            </div>
-          </div>
-        )}
-      </div>
-    </Modal>
+      {/* Print Preview Modal */}
+      <PrintPreviewModal
+        isOpen={showPrintPreview}
+        onClose={() => {
+          setShowPrintPreview(false);
+          handleClose(); // Close the main modal after printing
+        }}
+        content={printContent}
+        noteNumber={printNoteNumber}
+      />
+    </>
   );
 };
 

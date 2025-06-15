@@ -43,7 +43,7 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
                 min-height: 100vh;
               }
               
-              /* ✅ ÉTIQUETTE 40x30mm - CORRECTION DÉFINITIVE POUR UTILISER TOUTE LA SURFACE */
+              /* ✅ ÉTIQUETTE 40x30mm - QR CODE ALIGNÉ À GAUCHE AVEC RETRAIT DE 8MM */
               .label-40x30 {
                 width: 40mm !important;
                 height: 30mm !important;
@@ -103,7 +103,7 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
                 background: white;
               }
               
-              /* ✅ QR CODE 40x30mm - UTILISE VRAIMENT TOUTE LA HAUTEUR DISPONIBLE (29mm) */
+              /* ✅ QR CODE 40x30mm - ALIGNÉ À GAUCHE AVEC RETRAIT DE 8MM */
               .qr-code-40x30 {
                 width: 29mm !important;
                 height: 29mm !important;
@@ -114,6 +114,8 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
                 flex-shrink: 0 !important;
                 object-fit: contain !important;
                 display: block !important;
+                margin-left: 8mm !important;
+                position: relative !important;
               }
               
               /* QR code pour étiquette 40x40mm avec texte en dessous */
@@ -142,11 +144,11 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
                 height: 16mm;
               }
               
-              /* ✅ TEXTE 40x30mm - UTILISE L'ESPACE RESTANT EXACT (40mm - 29mm QR - 1mm padding = 10mm) */
+              /* ✅ TEXTE 40x30mm - REPOSITIONNÉ POUR UTILISER L'ESPACE RESTANT APRÈS LE RETRAIT */
               .title-40x30 {
-                width: 10mm !important;
-                max-width: 10mm !important;
-                min-width: 10mm !important;
+                width: 18mm !important;
+                max-width: 18mm !important;
+                min-width: 18mm !important;
                 height: 29mm !important;
                 max-height: 29mm !important;
                 font-size: 6pt !important;
@@ -165,6 +167,7 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
                 padding: 0 !important;
                 margin: 0 !important;
                 flex-shrink: 0 !important;
+                margin-left: -8mm !important;
               }
               
               /* Titre pour étiquette 40x40mm avec texte en dessous */
@@ -474,7 +477,7 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
               
               <div class="format-buttons">
                 <button class="btn btn-40x30" onclick="showFormat('40x30')">
-                  📐 Étiquette 40x30mm (QR 29mm + texte 10mm)
+                  📐 Étiquette 40x30mm (QR aligné gauche + 8mm retrait)
                 </button>
                 <button class="btn btn-40x40-text" onclick="showFormat('40x40-text-below')">
                   📄 Étiquette 40x40mm (texte en dessous)
@@ -497,14 +500,14 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
               </div>
               
               <div class="tip">
-                <div class="tip-icon">✅</div>
+                <div class="tip-icon">⬅️</div>
                 <div>
-                  <strong>CORRECTION DÉFINITIVE :</strong> L'étiquette 40x30mm utilise maintenant EXACTEMENT toute la surface - QR code de 29mm + zone texte de 10mm avec dimensions forcées par !important !
+                  <strong>ALIGNEMENT GAUCHE :</strong> Le QR code est maintenant aligné à gauche avec un retrait de 8mm, créant plus d'espace pour le texte (18mm au lieu de 10mm) !
                 </div>
               </div>
             </div>
             
-            <!-- ✅ FORMAT 40x30mm - UTILISE EXACTEMENT TOUTE LA SURFACE 40x30mm -->
+            <!-- ✅ FORMAT 40x30mm - QR CODE ALIGNÉ À GAUCHE AVEC RETRAIT DE 8MM -->
             <div id="format-40x30" class="label-40x30" style="display: none;">
               <img src="${qrCodeDataURL}" alt="QR Code" class="qr-code-40x30" />
               <div class="title-40x30">

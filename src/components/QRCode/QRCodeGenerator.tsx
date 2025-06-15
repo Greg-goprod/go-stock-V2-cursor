@@ -43,7 +43,7 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
                 min-height: 100vh;
               }
               
-              /* ✅ ÉTIQUETTE 40x30mm - QR CODE POSITION ORIGINALE (CENTRÉE) */
+              /* ✅ ÉTIQUETTE 40x30mm - QR CODE DÉPLACÉ À GAUCHE DE 8MM */
               .label-40x30 {
                 width: 40mm !important;
                 height: 30mm !important;
@@ -54,7 +54,7 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
                 padding: 0.5mm !important;
                 display: flex !important;
                 align-items: center !important;
-                justify-content: center !important;
+                justify-content: flex-start !important;
                 page-break-after: always;
                 background: white;
                 border: 1px solid #e5e7eb;
@@ -103,7 +103,7 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
                 background: white;
               }
               
-              /* ✅ QR CODE 40x30mm - POSITION ORIGINALE (CENTRÉE) */
+              /* ✅ QR CODE 40x30mm - DÉPLACÉ À GAUCHE DE 8MM */
               .qr-code-40x30 {
                 width: 29mm !important;
                 height: 29mm !important;
@@ -115,6 +115,7 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
                 object-fit: contain !important;
                 display: block !important;
                 position: relative !important;
+                margin-left: -8mm !important;
               }
               
               /* QR code pour étiquette 40x40mm avec texte en dessous */
@@ -143,11 +144,11 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
                 height: 16mm;
               }
               
-              /* ✅ TEXTE 40x30mm - ZONE ORIGINALE (10MM) */
+              /* ✅ TEXTE 40x30mm - ZONE ÉLARGIE POUR COMPENSER LE DÉPLACEMENT */
               .title-40x30 {
-                width: 10mm !important;
-                max-width: 10mm !important;
-                min-width: 10mm !important;
+                width: 18mm !important;
+                max-width: 18mm !important;
+                min-width: 18mm !important;
                 height: 29mm !important;
                 max-height: 29mm !important;
                 font-size: 6pt !important;
@@ -165,6 +166,7 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
                 text-align: left !important;
                 padding: 0 !important;
                 margin: 0 !important;
+                margin-left: 8mm !important;
                 flex-shrink: 0 !important;
               }
               
@@ -215,7 +217,7 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
                 letter-spacing: 0.3px;
               }
               
-              /* ✅ SOUS-TITRE 40x30mm - ZONE ORIGINALE */
+              /* ✅ SOUS-TITRE 40x30mm - ZONE ÉLARGIE */
               .subtitle-40x30 {
                 font-size: 4pt !important;
                 color: #666 !important;
@@ -475,7 +477,7 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
               
               <div class="format-buttons">
                 <button class="btn btn-40x30" onclick="showFormat('40x30')">
-                  📐 Étiquette 40x30mm (QR centré)
+                  📐 Étiquette 40x30mm (QR à gauche -8mm)
                 </button>
                 <button class="btn btn-40x40-text" onclick="showFormat('40x40-text-below')">
                   📄 Étiquette 40x40mm (texte en dessous)
@@ -500,12 +502,12 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
               <div class="tip">
                 <div class="tip-icon">📏</div>
                 <div>
-                  <strong>POSITION ORIGINALE :</strong> Le QR code est maintenant centré dans l'étiquette 40x30mm avec une zone texte de 10mm sur le côté droit.
+                  <strong>QR CODE DÉPLACÉ :</strong> Le QR code est maintenant déplacé à gauche de 8mm dans l'étiquette 40x30mm avec une zone texte élargie à 18mm.
                 </div>
               </div>
             </div>
             
-            <!-- ✅ FORMAT 40x30mm - QR CODE CENTRÉ (POSITION ORIGINALE) -->
+            <!-- ✅ FORMAT 40x30mm - QR CODE DÉPLACÉ À GAUCHE DE 8MM -->
             <div id="format-40x30" class="label-40x30" style="display: none;">
               <img src="${qrCodeDataURL}" alt="QR Code" class="qr-code-40x30" />
               <div class="title-40x30">

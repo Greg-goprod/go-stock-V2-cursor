@@ -181,7 +181,7 @@ const Users: React.FC = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-gray-500 dark:text-gray-400">Loading users...</div>
+        <div className="text-gray-500 dark:text-gray-400 font-medium">Loading users...</div>
       </div>
     );
   }
@@ -196,8 +196,8 @@ const Users: React.FC = () => {
                 className="px-6 py-3 text-left cursor-pointer group"
                 onClick={() => handleSort('first_name')}
               >
-                <div className="flex items-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Nom
+                <div className="flex items-center text-xs font-black text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  NOM
                   <ArrowUpDown size={14} className="ml-1 opacity-0 group-hover:opacity-100" />
                 </div>
               </th>
@@ -205,8 +205,8 @@ const Users: React.FC = () => {
                 className="px-6 py-3 text-left cursor-pointer group"
                 onClick={() => handleSort('email')}
               >
-                <div className="flex items-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Email
+                <div className="flex items-center text-xs font-black text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  EMAIL
                   <ArrowUpDown size={14} className="ml-1 opacity-0 group-hover:opacity-100" />
                 </div>
               </th>
@@ -214,8 +214,8 @@ const Users: React.FC = () => {
                 className="px-6 py-3 text-left cursor-pointer group"
                 onClick={() => handleSort('phone')}
               >
-                <div className="flex items-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Téléphone
+                <div className="flex items-center text-xs font-black text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  TÉLÉPHONE
                   <ArrowUpDown size={14} className="ml-1 opacity-0 group-hover:opacity-100" />
                 </div>
               </th>
@@ -223,8 +223,8 @@ const Users: React.FC = () => {
                 className="px-6 py-3 text-left cursor-pointer group"
                 onClick={() => handleSort('department')}
               >
-                <div className="flex items-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Département
+                <div className="flex items-center text-xs font-black text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  DÉPARTEMENT
                   <ArrowUpDown size={14} className="ml-1 opacity-0 group-hover:opacity-100" />
                 </div>
               </th>
@@ -232,13 +232,13 @@ const Users: React.FC = () => {
                 className="px-6 py-3 text-left cursor-pointer group"
                 onClick={() => handleSort('role')}
               >
-                <div className="flex items-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Rôle
+                <div className="flex items-center text-xs font-black text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  RÔLE
                   <ArrowUpDown size={14} className="ml-1 opacity-0 group-hover:opacity-100" />
                 </div>
               </th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                Actions
+              <th className="px-6 py-3 text-right text-xs font-black text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                ACTIONS
               </th>
             </tr>
           </thead>
@@ -248,27 +248,27 @@ const Users: React.FC = () => {
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="flex items-center">
                     <div className="h-10 w-10 rounded-full bg-primary-100 dark:bg-primary-900 text-primary-600 dark:text-primary-300 flex items-center justify-center">
-                      <span className="font-medium">
+                      <span className="font-black">
                         {user.first_name[0]}{user.last_name[0]}
                       </span>
                     </div>
                     <div className="ml-4">
-                      <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                      <div className="text-sm font-bold text-gray-900 dark:text-gray-100">
                         {user.first_name} {user.last_name}
                       </div>
                     </div>
                   </div>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">
                   {user.email}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">
                   {user.phone}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">
                   {user.department}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900 dark:text-gray-100 uppercase">
                   {user.role}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-right space-x-2">
@@ -277,8 +277,9 @@ const Users: React.FC = () => {
                     size="sm"
                     icon={<QrCode size={16} />}
                     onClick={() => handleShowQR(user.id)}
+                    className="font-medium"
                   >
-                    QR Code
+                    QR CODE
                   </Button>
                   <Button
                     variant="outline"
@@ -308,28 +309,28 @@ const Users: React.FC = () => {
           <div className="p-4">
             <div className="flex items-center gap-4 mb-4">
               <div className="h-12 w-12 rounded-full bg-primary-100 dark:bg-primary-900 text-primary-600 dark:text-primary-300 flex items-center justify-center">
-                <span className="text-lg font-medium">
+                <span className="text-lg font-black">
                   {user.first_name[0]}{user.last_name[0]}
                 </span>
               </div>
               <div>
-                <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100">{user.first_name} {user.last_name}</h3>
-                <p className="text-sm text-gray-600 dark:text-gray-300">{user.role}</p>
+                <h3 className="text-lg font-black text-gray-800 dark:text-gray-100">{user.first_name} {user.last_name}</h3>
+                <p className="text-sm font-bold text-gray-600 dark:text-gray-300 uppercase">{user.role}</p>
               </div>
             </div>
             
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
                 <Mail size={16} />
-                <span className="text-sm">{user.email}</span>
+                <span className="text-sm font-medium">{user.email}</span>
               </div>
               <div className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
                 <Phone size={16} />
-                <span className="text-sm">{user.phone}</span>
+                <span className="text-sm font-medium">{user.phone}</span>
               </div>
               <div className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
                 <Building2 size={16} />
-                <span className="text-sm">{user.department}</span>
+                <span className="text-sm font-medium">{user.department}</span>
               </div>
             </div>
             
@@ -339,8 +340,9 @@ const Users: React.FC = () => {
                 size="sm"
                 icon={<QrCode size={16} />}
                 onClick={() => handleShowQR(user.id)}
+                className="font-medium"
               >
-                QR Code
+                QR CODE
               </Button>
               <Button
                 variant="outline"
@@ -364,7 +366,7 @@ const Users: React.FC = () => {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Utilisateurs</h1>
+        <h1 className="text-3xl font-black text-gray-800 dark:text-white tracking-tight uppercase">UTILISATEURS</h1>
         
         <div className="flex gap-3">
           <div className="flex rounded-lg border border-gray-200 dark:border-gray-700">
@@ -373,28 +375,29 @@ const Users: React.FC = () => {
               size="sm"
               icon={<LayoutGrid size={18} />}
               onClick={() => setViewMode('grid')}
-              className="rounded-r-none"
+              className="rounded-r-none font-bold"
             >
-              Grille
+              GRILLE
             </Button>
             <Button
               variant={viewMode === 'list' ? 'primary' : 'outline'}
               size="sm"
               icon={<List size={18} />}
               onClick={() => setViewMode('list')}
-              className="rounded-l-none"
+              className="rounded-l-none font-bold"
             >
-              Liste
+              LISTE
             </Button>
           </div>
           <Button 
             variant="outline" 
             icon={<Filter size={18} />}
             onClick={() => setShowFilters(true)}
+            className="font-bold"
           >
-            Filtres
+            FILTRES
             {Object.keys(activeFilters).length > 0 && (
-              <span className="ml-1 px-1.5 py-0.5 text-xs bg-primary-100 dark:bg-primary-900 text-primary-600 dark:text-primary-300 rounded-full">
+              <span className="ml-1 px-1.5 py-0.5 text-xs bg-primary-100 dark:bg-primary-900 text-primary-600 dark:text-primary-300 rounded-full font-black">
                 {Object.keys(activeFilters).length}
               </span>
             )}
@@ -403,8 +406,9 @@ const Users: React.FC = () => {
             variant="primary" 
             icon={<Plus size={18} />}
             onClick={handleAddUser}
+            className="font-bold"
           >
-            Ajouter un utilisateur
+            AJOUTER UN UTILISATEUR
           </Button>
         </div>
       </div>
@@ -414,7 +418,7 @@ const Users: React.FC = () => {
       <Modal
         isOpen={showQRModal}
         onClose={() => setShowQRModal(false)}
-        title="QR Code Utilisateur"
+        title="QR CODE UTILISATEUR"
         size="sm"
       >
         {selectedUser && (
@@ -446,10 +450,10 @@ const Users: React.FC = () => {
         isOpen={showDeleteConfirm}
         onClose={() => setShowDeleteConfirm(false)}
         onConfirm={handleDeleteConfirm}
-        title="Confirmer la suppression"
+        title="CONFIRMER LA SUPPRESSION"
         message={`Êtes-vous sûr de vouloir supprimer l'utilisateur ${userToDelete?.first_name} ${userToDelete?.last_name} ? Cette action est irréversible.`}
-        confirmLabel="Supprimer"
-        cancelLabel="Annuler"
+        confirmLabel="SUPPRIMER"
+        cancelLabel="ANNULER"
       />
     </div>
   );

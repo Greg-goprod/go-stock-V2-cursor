@@ -171,7 +171,7 @@ const Notifications: React.FC = () => {
       });
 
       // 4. Récupérer les notifications de sortie depuis localStorage
-      const checkoutNotifications = JSON.parse(localStorage.getItem('checkout_notifications') || '[]');
+      const checkoutNotifications = JSON.parse(localStorage.getItem('checkout_notifications') ||'[]');
       generatedNotifications.push(...checkoutNotifications);
 
       // 5. Ajouter quelques notifications lues d'exemple pour démonstration
@@ -333,7 +333,7 @@ const Notifications: React.FC = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-gray-500 dark:text-gray-400">Chargement des notifications...</div>
+        <div className="text-gray-500 dark:text-gray-400 font-medium">Chargement des notifications...</div>
       </div>
     );
   }
@@ -342,8 +342,8 @@ const Notifications: React.FC = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Notifications</h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-1">
+          <h1 className="text-3xl font-black text-gray-800 dark:text-white tracking-tight uppercase">NOTIFICATIONS</h1>
+          <p className="text-gray-600 dark:text-gray-400 mt-1 font-medium">
             Événements spéciaux, rappels de retard et mouvements de matériel
           </p>
         </div>
@@ -354,15 +354,17 @@ const Notifications: React.FC = () => {
             icon={<CheckCircle size={18} />}
             onClick={markAllAsRead}
             disabled={unreadCount === 0}
+            className="font-bold"
           >
-            Tout marquer comme lu
+            TOUT MARQUER COMME LU
           </Button>
           <Button
             variant="primary"
             icon={<Bell size={18} />}
             onClick={generateNotifications}
+            className="font-bold"
           >
-            Actualiser
+            ACTUALISER
           </Button>
         </div>
       </div>
@@ -374,43 +376,49 @@ const Notifications: React.FC = () => {
             variant={filter === 'all' ? 'primary' : 'outline'}
             size="sm"
             onClick={() => setFilter('all')}
+            className="font-bold"
           >
-            Toutes ({notifications.length})
+            TOUTES ({notifications.length})
           </Button>
           <Button
             variant={filter === 'unread' ? 'primary' : 'outline'}
             size="sm"
             onClick={() => setFilter('unread')}
+            className="font-bold"
           >
-            Non lues ({unreadCount})
+            NON LUES ({unreadCount})
           </Button>
           <Button
             variant={filter === 'read' ? 'primary' : 'outline'}
             size="sm"
             onClick={() => setFilter('read')}
+            className="font-bold"
           >
-            Lues ({readCount})
+            LUES ({readCount})
           </Button>
           <Button
             variant={filter === 'checkout' ? 'primary' : 'outline'}
             size="sm"
             onClick={() => setFilter('checkout')}
+            className="font-bold"
           >
-            Sorties ({notifications.filter(n => n.type === 'checkout').length})
+            SORTIES ({notifications.filter(n => n.type === 'checkout').length})
           </Button>
           <Button
             variant={filter === 'overdue' ? 'primary' : 'outline'}
             size="sm"
             onClick={() => setFilter('overdue')}
+            className="font-bold"
           >
-            En retard ({notifications.filter(n => n.type === 'overdue').length})
+            EN RETARD ({notifications.filter(n => n.type === 'overdue').length})
           </Button>
           <Button
             variant={filter === 'maintenance' ? 'primary' : 'outline'}
             size="sm"
             onClick={() => setFilter('maintenance')}
+            className="font-bold"
           >
-            Maintenance ({notifications.filter(n => n.type === 'maintenance').length})
+            MAINTENANCES ({notifications.filter(n => n.type === 'maintenance').length})
           </Button>
         </div>
       </Card>
@@ -421,10 +429,10 @@ const Notifications: React.FC = () => {
           <Card>
             <div className="text-center py-12">
               <Bell size={48} className="mx-auto text-gray-400 mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-                Aucune notification
+              <h3 className="text-lg font-black text-gray-900 dark:text-white mb-2 uppercase">
+                AUCUNE NOTIFICATION
               </h3>
-              <p className="text-gray-500 dark:text-gray-400">
+              <p className="text-gray-500 dark:text-gray-400 font-medium">
                 {filter === 'all' 
                   ? 'Aucune notification pour le moment.'
                   : filter === 'unread' 
@@ -460,11 +468,11 @@ const Notifications: React.FC = () => {
                   
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
-                      <h3 className={`font-medium ${
+                      <h3 className={`font-black ${
                         notification.read 
                           ? 'text-gray-600 dark:text-gray-400' 
                           : 'text-gray-900 dark:text-white'
-                      }`}>
+                      } uppercase tracking-wide`}>
                         {notification.title}
                       </h3>
                       
@@ -474,21 +482,21 @@ const Notifications: React.FC = () => {
                           notification.priority === 'medium' ? 'warning' : 'info'
                         }
                       >
-                        {notification.priority === 'high' ? 'Urgent' :
-                         notification.priority === 'medium' ? 'Important' : 'Info'}
+                        {notification.priority === 'high' ? 'URGENT' :
+                         notification.priority === 'medium' ? 'IMPORTANT' : 'INFO'}
                       </Badge>
                       
                       {notification.read ? (
                         <div className="flex items-center gap-1">
                           <CheckCircle size={16} className="text-green-500" />
-                          <span className="text-xs text-green-600 dark:text-green-400 font-medium">Lue</span>
+                          <span className="text-xs text-green-600 dark:text-green-400 font-black uppercase">LUE</span>
                         </div>
                       ) : (
                         <div className="w-2 h-2 bg-primary-500 rounded-full"></div>
                       )}
                     </div>
                     
-                    <p className={`text-sm ${
+                    <p className={`text-sm font-medium ${
                       notification.read 
                         ? 'text-gray-500 dark:text-gray-500' 
                         : 'text-gray-700 dark:text-gray-300'
@@ -499,7 +507,7 @@ const Notifications: React.FC = () => {
                     <div className="flex items-center gap-4 mt-2 text-xs text-gray-500 dark:text-gray-400">
                       <div className="flex items-center gap-1">
                         <Calendar size={12} />
-                        <span>
+                        <span className="font-medium">
                           {format(new Date(notification.date), 'dd/MM/yyyy à HH:mm', { locale: fr })}
                         </span>
                       </div>
@@ -507,27 +515,27 @@ const Notifications: React.FC = () => {
                       {notification.relatedData?.equipmentName && (
                         <div className="flex items-center gap-1">
                           <Package size={12} />
-                          <span>{notification.relatedData.equipmentName}</span>
+                          <span className="font-medium">{notification.relatedData.equipmentName}</span>
                         </div>
                       )}
                       
                       {notification.relatedData?.userName && (
                         <div className="flex items-center gap-1">
                           <User size={12} />
-                          <span>{notification.relatedData.userName}</span>
+                          <span className="font-medium">{notification.relatedData.userName}</span>
                         </div>
                       )}
                       
                       {notification.relatedData?.note_number && (
                         <div className="flex items-center gap-1">
                           <Package size={12} />
-                          <span className="font-mono">{notification.relatedData.note_number}</span>
+                          <span className="font-mono font-bold">{notification.relatedData.note_number}</span>
                         </div>
                       )}
                       
                       {notification.relatedData?.equipment_count && (
                         <div className="flex items-center gap-1">
-                          <span className="text-blue-600 dark:text-blue-400 font-medium">
+                          <span className="text-blue-600 dark:text-blue-400 font-black">
                             {notification.relatedData.equipment_count} équipement{notification.relatedData.equipment_count > 1 ? 's' : ''}
                           </span>
                         </div>
@@ -536,7 +544,7 @@ const Notifications: React.FC = () => {
                       {notification.relatedData?.daysOverdue && (
                         <div className="flex items-center gap-1">
                           <AlertTriangle size={12} />
-                          <span className="text-red-600 dark:text-red-400 font-medium">
+                          <span className="text-red-600 dark:text-red-400 font-black">
                             {notification.relatedData.daysOverdue} jour(s) de retard
                           </span>
                         </div>
@@ -552,9 +560,9 @@ const Notifications: React.FC = () => {
                       size="sm"
                       icon={<MarkAsRead size={14} />}
                       onClick={() => markAsUnread(notification.id)}
-                      className="text-xs"
+                      className="text-xs font-bold"
                     >
-                      Marquer non lue
+                      MARQUER NON LUE
                     </Button>
                   ) : (
                     <Button
@@ -562,9 +570,9 @@ const Notifications: React.FC = () => {
                       size="sm"
                       icon={<CheckCircle size={14} />}
                       onClick={() => markAsRead(notification.id)}
-                      className="text-xs"
+                      className="text-xs font-bold"
                     >
-                      Marquer comme lue
+                      MARQUER COMME LUE
                     </Button>
                   )}
                   
@@ -587,56 +595,56 @@ const Notifications: React.FC = () => {
         <Card>
           <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
             <div className="text-center">
-              <div className="text-2xl font-bold text-gray-900 dark:text-white">
+              <div className="text-2xl font-black text-gray-900 dark:text-white">
                 {notifications.length}
               </div>
-              <div className="text-sm text-gray-500 dark:text-gray-400">
+              <div className="text-sm text-gray-500 dark:text-gray-400 font-bold uppercase">
                 Total notifications
               </div>
             </div>
             
             <div className="text-center">
-              <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+              <div className="text-2xl font-black text-blue-600 dark:text-blue-400">
                 {unreadCount}
               </div>
-              <div className="text-sm text-gray-500 dark:text-gray-400">
+              <div className="text-sm text-gray-500 dark:text-gray-400 font-bold uppercase">
                 Non lues
               </div>
             </div>
             
             <div className="text-center">
-              <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+              <div className="text-2xl font-black text-green-600 dark:text-green-400">
                 {readCount}
               </div>
-              <div className="text-sm text-gray-500 dark:text-gray-400">
+              <div className="text-sm text-gray-500 dark:text-gray-400 font-bold uppercase">
                 Lues
               </div>
             </div>
             
             <div className="text-center">
-              <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+              <div className="text-2xl font-black text-green-600 dark:text-green-400">
                 {notifications.filter(n => n.type === 'checkout').length}
               </div>
-              <div className="text-sm text-gray-500 dark:text-gray-400">
+              <div className="text-sm text-gray-500 dark:text-gray-400 font-bold uppercase">
                 Sorties
               </div>
             </div>
             
             <div className="text-center">
-              <div className="text-2xl font-bold text-red-600 dark:text-red-400">
+              <div className="text-2xl font-black text-red-600 dark:text-red-400">
                 {notifications.filter(n => n.type === 'overdue').length}
               </div>
-              <div className="text-sm text-gray-500 dark:text-gray-400">
+              <div className="text-sm text-gray-500 dark:text-gray-400 font-bold uppercase">
                 Retards
               </div>
             </div>
             
             <div className="text-center">
-              <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">
+              <div className="text-2xl font-black text-yellow-600 dark:text-yellow-400">
                 {notifications.filter(n => n.type === 'due_soon').length}
               </div>
-              <div className="text-sm text-gray-500 dark:text-gray-400">
-                Échéances proches
+              <div className="text-sm text-gray-500 dark:text-gray-400 font-bold uppercase">
+                Échéances
               </div>
             </div>
           </div>

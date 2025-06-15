@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import Card from '../components/common/Card';
-import Button from '../components/common/Button';
 import Badge from '../components/common/Badge';
 import CheckoutModal from '../components/checkout/CheckoutModal';
 import ReturnModal from '../components/checkout/ReturnModal';
@@ -18,6 +17,7 @@ import {
 import { useLanguage } from '../contexts/LanguageContext';
 import { supabase } from '../lib/supabase';
 import { Equipment, User, CheckoutRecord } from '../types';
+import Button from '../components/common/Button';
 
 const Dashboard: React.FC = () => {
   const { t } = useLanguage();
@@ -175,7 +175,7 @@ const Dashboard: React.FC = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-gray-500 dark:text-gray-400">{t('loading')}</div>
+        <div className="text-gray-500 dark:text-gray-400 font-medium">{t('loading')}</div>
       </div>
     );
   }
@@ -184,7 +184,7 @@ const Dashboard: React.FC = () => {
     <div className="space-y-6">
       <div className="flex flex-col gap-4">
         <div className="flex justify-between items-center">
-          <h2 className="text-2xl font-bold text-gray-800 dark:text-white">{t('dashboard')}</h2>
+          <h2 className="text-3xl font-black text-gray-800 dark:text-white tracking-tight uppercase">TABLEAU DE BORD</h2>
           <Button
             variant="outline"
             size="sm"
@@ -201,19 +201,19 @@ const Dashboard: React.FC = () => {
             variant="success"
             size="lg"
             icon={<LogOut size={20} />}
-            className="flex-1"
+            className="flex-1 font-bold text-lg tracking-wide"
             onClick={() => setShowCheckoutModal(true)}
           >
-            SORTIE MATERIEL
+            SORTIE MATÉRIEL
           </Button>
           <Button
             variant="warning"
             size="lg"
             icon={<LogIn size={20} />}
-            className="flex-1"
+            className="flex-1 font-bold text-lg tracking-wide"
             onClick={() => setShowReturnModal(true)}
           >
-            RETOUR MATERIEL
+            RETOUR MATÉRIEL
           </Button>
         </div>
       </div>
@@ -224,8 +224,8 @@ const Dashboard: React.FC = () => {
             <Package size={24} className="text-primary-600 dark:text-primary-300" />
           </div>
           <div>
-            <p className="text-gray-500 dark:text-gray-400 text-sm">{t('available')}</p>
-            <p className="text-2xl font-semibold text-gray-800 dark:text-white">
+            <p className="text-gray-500 dark:text-gray-400 text-sm font-medium uppercase tracking-wide">Disponible</p>
+            <p className="text-2xl font-black text-gray-800 dark:text-white">
               {stats.availableEquipment}
               {refreshing && <RefreshCw size={16} className="inline ml-2 animate-spin text-gray-400" />}
             </p>
@@ -237,8 +237,8 @@ const Dashboard: React.FC = () => {
             <CheckSquare size={24} className="text-success-600 dark:text-success-300" />
           </div>
           <div>
-            <p className="text-gray-500 dark:text-gray-400 text-sm">{t('checkedOut')}</p>
-            <p className="text-2xl font-semibold text-gray-800 dark:text-white">
+            <p className="text-gray-500 dark:text-gray-400 text-sm font-medium uppercase tracking-wide">Emprunté</p>
+            <p className="text-2xl font-black text-gray-800 dark:text-white">
               {stats.checkedOutEquipment}
               {refreshing && <RefreshCw size={16} className="inline ml-2 animate-spin text-gray-400" />}
             </p>
@@ -250,8 +250,8 @@ const Dashboard: React.FC = () => {
             <AlertTriangle size={24} className="text-warning-600 dark:text-warning-300" />
           </div>
           <div>
-            <p className="text-gray-500 dark:text-gray-400 text-sm">{t('overdue')}</p>
-            <p className="text-2xl font-semibold text-gray-800 dark:text-white">
+            <p className="text-gray-500 dark:text-gray-400 text-sm font-medium uppercase tracking-wide">En retard</p>
+            <p className="text-2xl font-black text-gray-800 dark:text-white">
               {stats.overdueEquipment}
               {refreshing && <RefreshCw size={16} className="inline ml-2 animate-spin text-gray-400" />}
             </p>
@@ -263,8 +263,8 @@ const Dashboard: React.FC = () => {
             <Bell size={24} className="text-danger-600 dark:text-danger-300" />
           </div>
           <div>
-            <p className="text-gray-500 dark:text-gray-400 text-sm">{t('notifications')}</p>
-            <p className="text-2xl font-semibold text-gray-800 dark:text-white">
+            <p className="text-gray-500 dark:text-gray-400 text-sm font-medium uppercase tracking-wide">Notifications</p>
+            <p className="text-2xl font-black text-gray-800 dark:text-white">
               {stats.unreadNotifications}
               {refreshing && <RefreshCw size={16} className="inline ml-2 animate-spin text-gray-400" />}
             </p>
@@ -272,26 +272,26 @@ const Dashboard: React.FC = () => {
         </Card>
       </div>
       
-      <Card title={t('recentCheckouts')}>
+      <Card title="EMPRUNTS RÉCENTS">
         {recentCheckouts.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
               <thead className="bg-gray-50 dark:bg-gray-800">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    {t('equipment')}
+                  <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    MATÉRIEL
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    {t('user')}
+                  <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    UTILISATEUR
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    {t('checkoutDate')}
+                  <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    DATE SORTIE
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    {t('dueDate')}
+                  <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    DATE RETOUR
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    {t('status')}
+                  <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    STATUT
                   </th>
                 </tr>
               </thead>
@@ -301,23 +301,23 @@ const Dashboard: React.FC = () => {
                   
                   return (
                     <tr key={checkout.id} className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
-                        {checkout.equipment?.name || 'Équipement inconnu'}
+                      <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">
+                        {checkout.equipment?.name || 'Matériel inconnu'}
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
+                      <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">
                         {checkout.users ? `${checkout.users.first_name} ${checkout.users.last_name}` : 'Utilisateur inconnu'}
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 font-medium">
                         {new Date(checkout.checkout_date).toLocaleDateString('fr-FR')}
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 font-medium">
                         {new Date(checkout.due_date).toLocaleDateString('fr-FR')}
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm">
                         <Badge
                           variant={isOverdue ? 'danger' : 'success'}
                         >
-                          {isOverdue ? 'En retard' : 'Actif'}
+                          {isOverdue ? 'EN RETARD' : 'ACTIF'}
                         </Badge>
                       </td>
                     </tr>
@@ -329,7 +329,7 @@ const Dashboard: React.FC = () => {
         ) : (
           <div className="text-center py-8">
             <Package size={48} className="mx-auto text-gray-400 mb-4" />
-            <p className="text-gray-500 dark:text-gray-400">Aucun emprunt actif</p>
+            <p className="text-gray-500 dark:text-gray-400 font-medium">Aucun emprunt actif</p>
           </div>
         )}
       </Card>

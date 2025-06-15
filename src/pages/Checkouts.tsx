@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Card from '../components/common/Card';
 import Badge from '../components/common/Badge';
 import Button from '../components/common/Button';
+import Accordion from '../components/common/Accordion';
 import { useLanguage } from '../contexts/LanguageContext';
 import { supabase } from '../lib/supabase';
 import { format } from 'date-fns';
@@ -17,9 +18,16 @@ import {
   FileText,
   Eye,
   RefreshCw,
-  AlertTriangle
+  AlertTriangle,
+  ChevronDown,
+  ChevronUp,
+  Edit,
+  Printer,
+  ArrowLeft,
+  ArrowRight
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import ReturnModal from '../components/checkout/ReturnModal';
 
 interface CheckoutWithDetails {
   id: string;
@@ -86,6 +94,8 @@ const Checkouts: React.FC = () => {
   const [sortField, setSortField] = useState<SortField>('checkout_date');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [showFilters, setShowFilters] = useState(false);
+  const [showReturnModal, setShowReturnModal] = useState(false);
+  const [selectedNote, setSelectedNote] = useState<DeliveryNoteGroup | null>(null);
 
   useEffect(() => {
     fetchCheckouts();
@@ -209,6 +219,246 @@ const Checkouts: React.FC = () => {
     fetchCheckouts();
   };
 
+  const handleReturnNote = (note: DeliveryNoteGroup) => {
+    setSelectedNote(note);
+    setShowReturnModal(true);
+  };
+
+  const handlePrintNote = async (note: DeliveryNoteGroup) => {
+    try {
+      // Récupérer le logo depuis les paramètres système
+      const { data: logoSetting } = await supabase
+        .from('system_settings')
+        .select('value')
+        .eq('id', 'company_logo')
+        .maybeSingle();
+
+      const logoUrl = logoSetting?.value || '';
+
+      const printContent = `
+        <html>
+          <head>
+            <title>Bon de Sortie ${note.noteNumber} - GO-Mat</title>
+            <style>
+              body { 
+                font-family: 'Roboto', Arial, sans-serif; 
+                margin: 20px; 
+                color: #333;
+              }
+              .header { 
+                text-align: center; 
+                margin-bottom: 30px; 
+                border-bottom: 2px solid #333; 
+                padding-bottom: 20px; 
+              }
+              .logo {
+                max-height: 80px;
+                max-width: 200px;
+                margin-bottom: 10px;
+              }
+              .company-name {
+                font-size: 28px;
+                font-weight: bold;
+                color: #2563eb;
+                margin-bottom: 5px;
+              }
+              .subtitle {
+                font-size: 16px;
+                color: #666;
+                margin-bottom: 10px;
+              }
+              .note-number { 
+                font-size: 24px; 
+                font-weight: bold; 
+                color: #2563eb; 
+                margin-bottom: 10px; 
+              }
+              .info { 
+                margin-bottom: 20px; 
+                background: #f8f9fa;
+                padding: 15px;
+                border-radius: 8px;
+              }
+              .info-row {
+                display: flex;
+                margin-bottom: 8px;
+              }
+              .info-label {
+                font-weight: bold;
+                width: 150px;
+                color: #555;
+              }
+              .items { 
+                width: 100%; 
+                border-collapse: collapse; 
+                margin-bottom: 30px; 
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+              }
+              .items th, .items td { 
+                border: 1px solid #ddd; 
+                padding: 12px; 
+                text-align: left; 
+              }
+              .items th { 
+                background-color: #2563eb; 
+                color: white;
+                font-weight: bold;
+              }
+              .items tr:nth-child(even) {
+                background-color: #f8f9fa;
+              }
+              .signature { 
+                margin-top: 50px; 
+                display: flex;
+                justify-content: space-between;
+              }
+              .signature-box {
+                width: 45%;
+                text-align: center;
+              }
+              .signature-line { 
+                border-bottom: 2px solid #333; 
+                width: 100%; 
+                margin-top: 40px; 
+                margin-bottom: 10px;
+              }
+              .footer { 
+                margin-top: 40px; 
+                text-align: center; 
+                font-size: 12px; 
+                color: #666; 
+                border-top: 1px solid #ddd;
+                padding-top: 20px;
+              }
+              .important-note {
+                background: #fff3cd;
+                border: 1px solid #ffeaa7;
+                padding: 15px;
+                border-radius: 8px;
+                margin: 20px 0;
+              }
+              @media print {
+                body { margin: 0; }
+                .no-print { display: none; }
+              }
+            </style>
+          </head>
+          <body>
+            <div class="header">
+              ${logoUrl ? `<img src="${logoUrl}" alt="Logo" class="logo" />` : ''}
+              <div class="company-name">GO-Mat</div>
+              <div class="subtitle">Gestion de Matériel</div>
+              <div class="note-number">Bon de Sortie N° ${note.noteNumber}</div>
+              <p>Date d'émission: ${new Date(note.issueDate).toLocaleDateString('fr-FR', { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+              })}</p>
+            </div>
+            
+            <div class="info">
+              <h3 style="margin-top: 0; color: #2563eb;">Informations de l'emprunteur</h3>
+              <div class="info-row">
+                <span class="info-label">Nom complet:</span>
+                <span>${note.user.name}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Email:</span>
+                <span>${note.user.email}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Téléphone:</span>
+                <span>${note.user.phone || '-'}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Département:</span>
+                <span>${note.user.department}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Date de retour prévue:</span>
+                <span style="font-weight: bold; color: #dc2626;">${new Date(note.dueDate).toLocaleDateString('fr-FR')}</span>
+              </div>
+            </div>
+
+            <h3 style="color: #2563eb; margin-bottom: 15px;">Matériel emprunté</h3>
+            <table class="items">
+              <thead>
+                <tr>
+                  <th style="width: 50%;">Matériel</th>
+                  <th style="width: 30%;">Numéro de série</th>
+                  <th style="width: 20%;">Statut</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${note.checkouts.map(checkout => `
+                  <tr>
+                    <td style="font-weight: 500;">${checkout.equipment.name}</td>
+                    <td style="font-family: monospace; color: #666;">${checkout.equipment.serial_number}</td>
+                    <td>${checkout.status === 'returned' 
+                      ? '<span style="color: #10b981; font-weight: bold;">Retourné</span>' 
+                      : checkout.status === 'active' && new Date(checkout.due_date) < new Date()
+                      ? '<span style="color: #ef4444; font-weight: bold;">En retard</span>'
+                      : '<span style="color: #3b82f6; font-weight: bold;">Actif</span>'}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+
+            <div class="important-note">
+              <strong>⚠️ Important:</strong> Ce bon de sortie doit être conservé jusqu'au retour complet du matériel. 
+              En cas de perte, veuillez contacter immédiatement le service de gestion du matériel.
+            </div>
+
+            <div class="signature">
+              <div class="signature-box">
+                <p><strong>Signature de l'emprunteur</strong></p>
+                <p style="font-size: 12px; color: #666;">Je reconnais avoir reçu le matériel ci-dessus en bon état et m'engage à le restituer dans les mêmes conditions.</p>
+                <div class="signature-line"></div>
+                <p style="margin-top: 5px; font-size: 12px;">Date: _______________</p>
+              </div>
+              
+              <div class="signature-box">
+                <p><strong>Signature du responsable</strong></p>
+                <p style="font-size: 12px; color: #666;">Matériel vérifié et remis en bon état de fonctionnement.</p>
+                <div class="signature-line"></div>
+                <p style="margin-top: 5px; font-size: 12px;">Date: _______________</p>
+              </div>
+            </div>
+
+            <div class="footer">
+              <p><strong>GO-Mat - Système de Gestion de Matériel</strong></p>
+              <p>Pour tout retour, présentez ce bon ou indiquez le numéro: <strong>${note.noteNumber}</strong></p>
+              <p>En cas de problème, contactez le service de gestion du matériel.</p>
+            </div>
+          </body>
+        </html>
+      `;
+
+      // Ouvrir dans une nouvelle fenêtre avec des dimensions spécifiques
+      const printWindow = window.open('', '_blank', 'width=800,height=900,scrollbars=yes,resizable=yes');
+      
+      if (!printWindow) {
+        toast.error('Impossible d\'ouvrir la fenêtre d\'impression. Vérifiez que les popups ne sont pas bloquées.');
+        return;
+      }
+      
+      printWindow.document.write(printContent);
+      printWindow.document.close();
+      
+      // Attendre que le contenu soit chargé avant d'imprimer
+      printWindow.onload = () => {
+        setTimeout(() => {
+          printWindow.print();
+        }, 500);
+      };
+      
+    } catch (error) {
+      console.error('Error printing checkout:', error);
+      toast.error('Erreur lors de l\'impression');
+    }
+  };
+
   const getFilteredAndSortedCheckouts = () => {
     let filtered = checkouts;
 
@@ -317,7 +567,7 @@ const Checkouts: React.FC = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-gray-500 dark:text-gray-400">{t('loading')}</div>
+        <div className="text-gray-500 dark:text-gray-400 font-medium">{t('loading')}</div>
       </div>
     );
   }
@@ -467,10 +717,12 @@ const Checkouts: React.FC = () => {
               const progress = note.totalItems > 0 ? (note.returnedItems / note.totalItems) * 100 : 0;
               
               return (
-                <Card key={note.noteId} className={`transition-all hover:shadow-md ${isOverdue ? 'border-l-4 border-l-red-500' : ''}`}>
-                  <div className="p-6">
-                    {/* Header */}
-                    <div className="flex justify-between items-start mb-4">
+                <Accordion
+                  key={note.noteId}
+                  className={`transition-all hover:shadow-md ${isOverdue ? 'border-l-4 border-l-red-500' : ''}`}
+                  defaultOpen={false}
+                  title={
+                    <div className="flex justify-between items-start w-full">
                       <div className="flex items-center gap-3">
                         <FileText size={24} className="text-blue-600 dark:text-blue-400" />
                         <div>
@@ -495,9 +747,11 @@ const Checkouts: React.FC = () => {
                         </p>
                       </div>
                     </div>
-
+                  }
+                >
+                  <div className="space-y-4">
                     {/* User Info */}
-                    <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 mb-4">
+                    <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
                       <div className="flex items-center gap-3">
                         <User size={20} className="text-gray-600 dark:text-gray-400" />
                         <div>
@@ -512,7 +766,7 @@ const Checkouts: React.FC = () => {
                     </div>
 
                     {/* Progress */}
-                    <div className="mb-4">
+                    <div>
                       <div className="flex justify-between items-center mb-2">
                         <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                           Progression du retour
@@ -580,8 +834,28 @@ const Checkouts: React.FC = () => {
                         })}
                       </div>
                     </div>
+
+                    {/* Actions */}
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        icon={<Printer size={16} />}
+                        onClick={() => handlePrintNote(note)}
+                      >
+                        Imprimer
+                      </Button>
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        icon={<ArrowLeft size={16} />}
+                        onClick={() => handleReturnNote(note)}
+                      >
+                        Retour matériel
+                      </Button>
+                    </div>
                   </div>
-                </Card>
+                </Accordion>
               );
             })
           )}
@@ -650,12 +924,15 @@ const Checkouts: React.FC = () => {
                       <ArrowUpDown size={14} className="ml-1 opacity-0 group-hover:opacity-100" />
                     </div>
                   </th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
                 {filteredCheckouts.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-6 py-12 text-center">
+                    <td colSpan={8} className="px-6 py-12 text-center">
                       <Package size={48} className="mx-auto text-gray-400 mb-4" />
                       <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
                         Aucune sortie de matériel
@@ -719,6 +996,26 @@ const Checkouts: React.FC = () => {
                             {getStatusLabel(checkout.status, isOverdue)}
                           </Badge>
                         </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right">
+                          {checkout.status === 'active' && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              icon={<ArrowLeft size={14} />}
+                              onClick={() => {
+                                // Trouver le bon de sortie correspondant
+                                const note = deliveryNotes.find(n => n.checkouts.some(c => c.id === checkout.id));
+                                if (note) {
+                                  handleReturnNote(note);
+                                } else {
+                                  toast.error('Bon de sortie non trouvé');
+                                }
+                              }}
+                            >
+                              Retour
+                            </Button>
+                          )}
+                        </td>
                       </tr>
                     );
                   })
@@ -728,6 +1025,17 @@ const Checkouts: React.FC = () => {
           </div>
         </Card>
       )}
+
+      {/* Return Modal */}
+      <ReturnModal
+        isOpen={showReturnModal}
+        onClose={() => {
+          setShowReturnModal(false);
+          setSelectedNote(null);
+          // Refresh data after closing modal
+          setTimeout(() => fetchCheckouts(), 500);
+        }}
+      />
     </div>
   );
 };

@@ -292,15 +292,15 @@ const Settings: React.FC = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-gray-500 dark:text-gray-400">{t('loading')}</div>
+        <div className="text-gray-500 dark:text-gray-400 font-medium">{t('loading')}</div>
       </div>
     );
   }
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
-      <h1 className="text-2xl font-bold text-gray-800 dark:text-white">
-        {t('settings')}
+      <h1 className="text-3xl font-black text-gray-800 dark:text-white tracking-tight uppercase">
+        PARAMÈTRES
       </h1>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -313,10 +313,10 @@ const Settings: React.FC = () => {
                   <Languages className="w-5 h-5 text-primary-600 dark:text-primary-400" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-medium text-gray-800 dark:text-white">
-                    {t('language')}
+                  <h3 className="text-lg font-black text-gray-800 dark:text-white uppercase tracking-wide">
+                    LANGUE
                   </h3>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                  <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">
                     {language === 'fr' ? 'Français' : language === 'en' ? 'English' : 'Deutsch'}
                   </p>
                 </div>
@@ -325,7 +325,7 @@ const Settings: React.FC = () => {
                 <select
                   value={language}
                   onChange={(e) => setLanguage(e.target.value as 'fr' | 'en' | 'de')}
-                  className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-700 dark:text-gray-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-700 dark:text-gray-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 font-medium"
                 >
                   <option value="fr">Français</option>
                   <option value="en">English</option>
@@ -347,25 +347,25 @@ const Settings: React.FC = () => {
                   )}
                 </div>
                 <div>
-                  <h3 className="text-lg font-medium text-gray-800 dark:text-white">
-                    {t('theme')}
+                  <h3 className="text-lg font-black text-gray-800 dark:text-white uppercase tracking-wide">
+                    THÈME
                   </h3>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    {theme === 'dark' ? t('dark') : t('light')}
+                  <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">
+                    {theme === 'dark' ? 'SOMBRE' : 'CLAIR'}
                   </p>
                 </div>
               </div>
               <div>
                 <button
                   onClick={toggleTheme}
-                  className="inline-flex items-center justify-center rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  className="inline-flex items-center justify-center rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2 text-sm font-bold text-gray-700 dark:text-gray-200 shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-primary-500 uppercase tracking-wide"
                 >
                   {theme === 'dark' ? (
                     <Sun className="w-4 h-4 mr-2" />
                   ) : (
                     <Moon className="w-4 h-4 mr-2" />
                   )}
-                  {theme === 'dark' ? t('light') : t('dark')}
+                  {theme === 'dark' ? 'CLAIR' : 'SOMBRE'}
                 </button>
               </div>
             </div>
@@ -379,10 +379,10 @@ const Settings: React.FC = () => {
                   <Image className="w-5 h-5 text-primary-600 dark:text-primary-400" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-medium text-gray-800 dark:text-white">
-                    Logo de l'entreprise
+                  <h3 className="text-lg font-black text-gray-800 dark:text-white uppercase tracking-wide">
+                    LOGO DE L'ENTREPRISE
                   </h3>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                  <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">
                     Apparaît sur les bons de sortie et dans l'interface
                   </p>
                 </div>
@@ -396,7 +396,7 @@ const Settings: React.FC = () => {
                     className="max-h-16 max-w-32 object-contain bg-white rounded border"
                   />
                   <div className="flex-1">
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                    <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">
                       Logo actuel
                     </p>
                   </div>
@@ -404,8 +404,9 @@ const Settings: React.FC = () => {
                     variant="danger"
                     size="sm"
                     onClick={handleRemoveLogo}
+                    className="font-bold"
                   >
-                    Supprimer
+                    SUPPRIMER
                   </Button>
                 </div>
               )}
@@ -421,14 +422,14 @@ const Settings: React.FC = () => {
                 />
                 <label
                   htmlFor="logo-upload"
-                  className={`inline-flex items-center justify-center rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-primary-500 cursor-pointer ${
+                  className={`inline-flex items-center justify-center rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2 text-sm font-bold text-gray-700 dark:text-gray-200 shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-primary-500 cursor-pointer uppercase tracking-wide ${
                     isUploadingLogo ? 'opacity-50 cursor-not-allowed' : ''
                   }`}
                 >
                   <Upload className="w-4 h-4 mr-2" />
-                  {isUploadingLogo ? 'Upload en cours...' : companyLogo ? 'Changer le logo' : 'Uploader un logo'}
+                  {isUploadingLogo ? 'UPLOAD EN COURS...' : companyLogo ? 'CHANGER LE LOGO' : 'UPLOADER UN LOGO'}
                 </label>
-                <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center">
+                <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center font-medium">
                   Formats: JPG, PNG, GIF • Max: 2MB
                 </div>
               </div>
@@ -437,17 +438,17 @@ const Settings: React.FC = () => {
 
           {/* System Settings - Accordion */}
           <AccordionCard
-            title={t('systemSettings')}
+            title="PARAMÈTRES SYSTÈME"
             icon={<SettingsIcon className="w-5 h-5 text-primary-600 dark:text-primary-400" />}
             defaultOpen={false}
           >
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  {t('articlePrefix')}
+                <label className="block text-sm font-black text-gray-700 dark:text-gray-300 mb-2 uppercase tracking-wide">
+                  PRÉFIXE ARTICLE
                 </label>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
-                  {t('prefixDescription')}
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-2 font-medium">
+                  Préfixe pour les numéros d'articles (5 caractères max)
                 </p>
                 
                 {isEditingPrefix ? (
@@ -457,7 +458,7 @@ const Settings: React.FC = () => {
                       value={tempPrefix}
                       onChange={(e) => setTempPrefix(e.target.value.toUpperCase())}
                       maxLength={5}
-                      className="flex-1 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
+                      className="flex-1 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 font-bold"
                     />
                     <Button
                       variant="success"
@@ -477,7 +478,7 @@ const Settings: React.FC = () => {
                   </div>
                 ) : (
                   <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                    <span className="font-mono text-lg font-medium text-gray-900 dark:text-gray-100">
+                    <span className="font-mono text-lg font-black text-gray-900 dark:text-gray-100">
                       {articlePrefix}
                     </span>
                     <Button
@@ -485,8 +486,9 @@ const Settings: React.FC = () => {
                       size="sm"
                       icon={<Pencil size={14} />}
                       onClick={() => setIsEditingPrefix(true)}
+                      className="font-bold"
                     >
-                      {t('edit')}
+                      MODIFIER
                     </Button>
                   </div>
                 )}
@@ -502,10 +504,10 @@ const Settings: React.FC = () => {
                   <Upload className="w-5 h-5 text-primary-600 dark:text-primary-400" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-medium text-gray-800 dark:text-white">
-                    {t('importExcel')}
+                  <h3 className="text-lg font-black text-gray-800 dark:text-white uppercase tracking-wide">
+                    IMPORT EXCEL
                   </h3>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                  <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">
                     Importer du matériel depuis un fichier Excel
                   </p>
                 </div>
@@ -516,8 +518,9 @@ const Settings: React.FC = () => {
                   size="sm"
                   icon={<Upload size={16} />}
                   onClick={() => setShowExcelImport(true)}
+                  className="font-bold"
                 >
-                  {t('import')}
+                  IMPORTER
                 </Button>
               </div>
             </div>
@@ -527,7 +530,7 @@ const Settings: React.FC = () => {
         <div className="space-y-6">
           {/* Categories - Accordion */}
           <AccordionCard
-            title={t('categories')}
+            title="CATÉGORIES"
             icon={<Tag className="w-5 h-5 text-primary-600 dark:text-primary-400" />}
             defaultOpen={false}
           >
@@ -538,8 +541,9 @@ const Settings: React.FC = () => {
                   size="sm" 
                   icon={<Plus size={16} />}
                   onClick={handleAddCategory}
+                  className="font-bold"
                 >
-                  {t('addCategory')}
+                  AJOUTER CATÉGORIE
                 </Button>
               </div>
               <div className="space-y-2 max-h-48 overflow-y-auto">
@@ -549,11 +553,11 @@ const Settings: React.FC = () => {
                     className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg"
                   >
                     <div>
-                      <h4 className="font-medium text-gray-800 dark:text-white">
+                      <h4 className="font-black text-gray-800 dark:text-white">
                         {category.name}
                       </h4>
                       {category.description && (
-                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                        <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">
                           {category.description}
                         </p>
                       )}
@@ -580,7 +584,7 @@ const Settings: React.FC = () => {
 
           {/* Groups - Accordion */}
           <AccordionCard
-            title={t('groups')}
+            title="GROUPES"
             icon={<UserCheck className="w-5 h-5 text-primary-600 dark:text-primary-400" />}
             defaultOpen={false}
           >
@@ -591,8 +595,9 @@ const Settings: React.FC = () => {
                   size="sm" 
                   icon={<Plus size={16} />}
                   onClick={handleAddGroup}
+                  className="font-bold"
                 >
-                  {t('addGroup')}
+                  AJOUTER GROUPE
                 </Button>
               </div>
               <div className="space-y-2 max-h-48 overflow-y-auto">
@@ -607,11 +612,11 @@ const Settings: React.FC = () => {
                         style={{ backgroundColor: group.color }}
                       />
                       <div>
-                        <h4 className="font-medium text-gray-800 dark:text-white">
+                        <h4 className="font-black text-gray-800 dark:text-white">
                           {group.name}
                         </h4>
                         {group.description && (
-                          <p className="text-sm text-gray-500 dark:text-gray-400">
+                          <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">
                             {group.description}
                           </p>
                         )}
@@ -639,7 +644,7 @@ const Settings: React.FC = () => {
 
           {/* Suppliers - Accordion */}
           <AccordionCard
-            title={t('suppliers')}
+            title="FOURNISSEURS"
             icon={<UserCheck className="w-5 h-5 text-primary-600 dark:text-primary-400" />}
             defaultOpen={false}
           >
@@ -650,8 +655,9 @@ const Settings: React.FC = () => {
                   size="sm" 
                   icon={<Plus size={16} />}
                   onClick={handleAddSupplier}
+                  className="font-bold"
                 >
-                  {t('addSupplier')}
+                  AJOUTER FOURNISSEUR
                 </Button>
               </div>
               <div className="space-y-2 max-h-48 overflow-y-auto">
@@ -661,13 +667,13 @@ const Settings: React.FC = () => {
                     className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg"
                   >
                     <div>
-                      <h4 className="font-medium text-gray-800 dark:text-white">
+                      <h4 className="font-black text-gray-800 dark:text-white">
                         {supplier.name}
                       </h4>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                      <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">
                         {supplier.contactPerson} • {supplier.phone}
                       </p>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                      <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">
                         {supplier.email}
                       </p>
                     </div>

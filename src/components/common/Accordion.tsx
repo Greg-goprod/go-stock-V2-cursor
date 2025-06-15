@@ -1,0 +1,68 @@
+import React, { useState, ReactNode } from 'react';
+import { ChevronDown, ChevronUp } from 'lucide-react';
+
+interface AccordionProps {
+  title: ReactNode;
+  children: ReactNode;
+  defaultOpen?: boolean;
+  className?: string;
+  titleClassName?: string;
+  contentClassName?: string;
+  badge?: ReactNode;
+  icon?: ReactNode;
+}
+
+const Accordion: React.FC<AccordionProps> = ({
+  title,
+  children,
+  defaultOpen = false,
+  className = '',
+  titleClassName = '',
+  contentClassName = '',
+  badge,
+  icon
+}) => {
+  const [isOpen, setIsOpen] = useState(defaultOpen);
+
+  return (
+    <div className={`border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden ${className}`}>
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className={`w-full flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200 ${titleClassName}`}
+      >
+        <div className="flex items-center gap-3">
+          {icon && (
+            <div className="flex-shrink-0">
+              {icon}
+            </div>
+          )}
+          <div className="flex-1 text-left">
+            {title}
+          </div>
+          {badge && (
+            <div className="ml-3">
+              {badge}
+            </div>
+          )}
+        </div>
+        <div className="flex-shrink-0 ml-4">
+          {isOpen ? (
+            <ChevronUp size={20} className="text-gray-500 dark:text-gray-400" />
+          ) : (
+            <ChevronDown size={20} className="text-gray-500 dark:text-gray-400" />
+          )}
+        </div>
+      </button>
+      
+      <div className={`transition-all duration-300 ease-in-out ${
+        isOpen ? 'max-h-screen opacity-100' : 'max-h-0 opacity-0'
+      } overflow-hidden ${contentClassName}`}>
+        <div className="p-4 border-t border-gray-200 dark:border-gray-700">
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default Accordion;

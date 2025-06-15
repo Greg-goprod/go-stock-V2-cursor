@@ -49,10 +49,10 @@ const Sidebar: React.FC = () => {
   };
 
   const navLinkClass = ({ isActive }: { isActive: boolean }) =>
-    `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+    `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors font-medium text-sm tracking-wide ${
       isActive 
-        ? 'bg-primary-100 dark:bg-primary-900/50 text-primary-800 dark:text-primary-200 font-medium' 
-        : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+        ? 'bg-primary-100 dark:bg-primary-900/50 text-primary-800 dark:text-primary-200 font-bold' 
+        : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 font-medium'
     }`;
 
   return (
@@ -85,50 +85,52 @@ const Sidebar: React.FC = () => {
                 className="max-h-12 max-w-48 object-contain"
               />
             )}
-            <div className="flex items-center gap-2 font-bold text-primary-700 dark:text-primary-300 text-xl">
-              <QrCode size={24} />
+            <div className="flex items-center gap-2 font-black text-primary-700 dark:text-primary-300 text-2xl tracking-tight">
+              <QrCode size={28} />
               <span>GO-Mat</span>
             </div>
-            <p className="text-xs text-gray-500 dark:text-gray-400 text-center">Gestion de Matériel</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 text-center font-light tracking-wide uppercase">
+              Gestion de Matériel
+            </p>
           </div>
         </div>
         
         <nav className="py-4 px-2 flex flex-col gap-1">
           <NavLink to="/" className={navLinkClass} onClick={() => setIsOpen(false)}>
             <LayoutDashboard size={20} />
-            <span>{t('dashboard')}</span>
+            <span className="uppercase tracking-wider font-bold">TABLEAU DE BORD</span>
           </NavLink>
           
           <NavLink to="/equipment" className={navLinkClass} onClick={() => setIsOpen(false)}>
             <Package size={20} />
-            <span>Matériel</span>
+            <span className="uppercase tracking-wider font-bold">MATÉRIEL</span>
           </NavLink>
           
           <NavLink to="/users" className={navLinkClass} onClick={() => setIsOpen(false)}>
             <Users size={20} />
-            <span>{t('users')}</span>
+            <span className="uppercase tracking-wider font-bold">UTILISATEURS</span>
           </NavLink>
           
           <NavLink to="/checkouts" className={navLinkClass} onClick={() => setIsOpen(false)}>
             <CalendarClock size={20} />
-            <span>SORTIE MATÉRIEL</span>
+            <span className="uppercase tracking-wider font-bold">SORTIE MATÉRIEL</span>
           </NavLink>
           
           <NavLink to="/notifications" className={navLinkClass} onClick={() => setIsOpen(false)}>
             <div className="relative">
               <Bell size={20} />
               {unreadNotifications > 0 && (
-                <span className="absolute -top-1 -right-1 bg-danger-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">
+                <span className="absolute -top-1 -right-1 bg-danger-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center font-bold">
                   {unreadNotifications}
                 </span>
               )}
             </div>
-            <span>{t('notifications')}</span>
+            <span className="uppercase tracking-wider font-bold">NOTIFICATIONS</span>
           </NavLink>
           
           <NavLink to="/settings" className={navLinkClass} onClick={() => setIsOpen(false)}>
             <Settings size={20} />
-            <span>{t('settings')}</span>
+            <span className="uppercase tracking-wider font-bold">PARAMÈTRES</span>
           </NavLink>
         </nav>
       </aside>

@@ -9,6 +9,7 @@ import FilterPanel, { FilterOption } from '../components/common/FilterPanel';
 import AddEquipmentModal from '../components/equipment/AddEquipmentModal';
 import EditEquipmentModal from '../components/equipment/EditEquipmentModal';
 import ConfirmModal from '../components/common/ConfirmModal';
+import QRCodesModal from '../components/equipment/QRCodesModal';
 import { useLanguage } from '../contexts/LanguageContext';
 import { Equipment, Category, Supplier, EquipmentInstance } from '../types';
 import { supabase } from '../lib/supabase';
@@ -26,10 +27,10 @@ const EquipmentPage: React.FC = () => {
   const [instances, setInstances] = useState<EquipmentInstance[]>([]);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
-  const [selectedEquipment, setSelectedEquipment] = useState<string | null>(null);
+  const [selectedEquipment, setSelectedEquipment] = useState<Equipment | null>(null);
   const [selectedInstance, setSelectedInstance] = useState<EquipmentInstance | null>(null);
   const [showQRModal, setShowQRModal] = useState(false);
-  const [showQRPrintModal, setShowQRPrintModal] = useState(false);
+  const [showQRCodesModal, setShowQRCodesModal] = useState(false);
   const [sortField, setSortField] = useState<SortField>('name');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const [showFilters, setShowFilters] = useState(false);
@@ -39,6 +40,7 @@ const EquipmentPage: React.FC = () => {
   const [editingEquipment, setEditingEquipment] = useState<Equipment | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [equipmentToDelete, setEquipmentToDelete] = useState<Equipment | null>(null);
+  const [selectedEquipmentInstances, setSelectedEquipmentInstances] = useState<EquipmentInstance[]>([]);
 
   useEffect(() => {
     fetchData();
@@ -106,10 +108,20 @@ const EquipmentPage: React.FC = () => {
         group: eq.equipment_groups?.name || ''
       })) || [];
 
+      // Transform instances data
+      const transformedInstances: EquipmentInstance[] = instancesData?.map(instance => ({
+        id: instance.id,
+        equipmentId: instance.equipment_id,
+        instanceNumber: instance.instance_number,
+        qrCode: instance.qr_code,
+        status: instance.status as EquipmentInstance['status'],
+        createdAt: instance.created_at
+      })) || [];
+
       setEquipment(transformedEquipment);
       setCategories(categoriesData || []);
       setSuppliers(suppliersData || []);
-      setInstances(instancesData || []);
+      setInstances(transformedInstances);
     } catch (error: any) {
       console.error('Error fetching data:', error);
       toast.error('Erreur lors du chargement des données');
@@ -161,15 +173,45 @@ const EquipmentPage: React.FC = () => {
     }
   };
 
-  const handleShowQR = (equipmentId: string, instance?: EquipmentInstance) => {
-    setSelectedEquipment(equipmentId);
-    setSelectedInstance(instance || null);
+  const handleShowQR = (equipment: Equipment) => {
+    setSelectedEquipment(equipment);
     setShowQRModal(true);
   };
 
-  const handleShowQRPrint = (equipmentId: string) => {
-    setSelectedEquipment(equipmentId);
-    setShowQRPrintModal(true);
+  const handleShowQRCodes = async (equipment: Equipment) => {
+    setSelectedEquipment(equipment);
+    
+    // Si c'est un QR individuel avec plusieurs pièces, récupérer les instances
+    if (equipment.qrType === 'individual' && equipment.totalQuantity > 1) {
+      try {
+        const { data, error } = await supabase
+          .from('equipment_instances')
+          .select('*')
+          .eq('equipment_id', equipment.id)
+          .order('instance_number');
+        
+        if (error) throw error;
+        
+        // Transformer les données
+        const transformedInstances: EquipmentInstance[] = data?.map(instance => ({
+          id: instance.id,
+          equipmentId: instance.equipment_id,
+          instanceNumber: instance.instance_number,
+          qrCode: instance.qr_code,
+          status: instance.status as EquipmentInstance['status'],
+          createdAt: instance.created_at
+        })) || [];
+        
+        setSelectedEquipmentInstances(transformedInstances);
+      } catch (error) {
+        console.error('Error fetching equipment instances:', error);
+        setSelectedEquipmentInstances([]);
+      }
+    } else {
+      setSelectedEquipmentInstances([]);
+    }
+    
+    setShowQRCodesModal(true);
   };
 
   const handleSort = (field: SortField) => {
@@ -228,7 +270,7 @@ const EquipmentPage: React.FC = () => {
               <title>QR Codes - ${equipment.name}</title>
               <style>
                 body { 
-                  font-family: Arial, sans-serif; 
+                  font-family: 'Roboto', Arial, sans-serif; 
                   margin: 20px; 
                   color: #333;
                 }
@@ -260,7 +302,7 @@ const EquipmentPage: React.FC = () => {
                   margin-bottom: 10px;
                 }
                 .qr-title {
-                  font-weight: bold;
+                  font-weight: 700;
                   margin-bottom: 5px;
                   font-size: 14px;
                 }
@@ -268,11 +310,13 @@ const EquipmentPage: React.FC = () => {
                   font-size: 12px;
                   color: #666;
                   margin-bottom: 5px;
+                  font-weight: 500;
                 }
                 .qr-id {
-                  font-family: monospace;
+                  font-family: 'Roboto Mono', monospace;
                   font-size: 10px;
                   color: #999;
+                  font-weight: 400;
                 }
                 @media print {
                   body { margin: 0; }
@@ -285,8 +329,8 @@ const EquipmentPage: React.FC = () => {
             <body>
               <div class="header">
                 ${logoUrl ? `<img src="${logoUrl}" alt="Logo" class="logo" />` : ''}
-                <h1>QR Codes - ${equipment.name}</h1>
-                <p>Article: ${equipment.articleNumber} • Total: ${equipmentInstances?.length || 0} instances</p>
+                <h1 style="font-weight: 900; font-size: 24px;">QR CODES - ${equipment.name.toUpperCase()}</h1>
+                <p style="font-weight: 500;">Article: ${equipment.articleNumber} • Total: ${equipmentInstances?.length || 0} instances</p>
               </div>
               
               <div class="qr-grid">
@@ -331,7 +375,7 @@ const EquipmentPage: React.FC = () => {
               <title>QR Code - ${equipment.name}</title>
               <style>
                 body { 
-                  font-family: Arial, sans-serif; 
+                  font-family: 'Roboto', Arial, sans-serif; 
                   margin: 20px; 
                   color: #333;
                   text-align: center;
@@ -357,7 +401,7 @@ const EquipmentPage: React.FC = () => {
                   margin-bottom: 20px;
                 }
                 .qr-title {
-                  font-weight: bold;
+                  font-weight: 900;
                   margin-bottom: 10px;
                   font-size: 18px;
                 }
@@ -365,11 +409,13 @@ const EquipmentPage: React.FC = () => {
                   font-size: 14px;
                   color: #666;
                   margin-bottom: 10px;
+                  font-weight: 500;
                 }
                 .qr-id {
-                  font-family: monospace;
+                  font-family: 'Roboto Mono', monospace;
                   font-size: 12px;
                   color: #999;
+                  font-weight: 400;
                 }
                 .quantity-info {
                   margin-top: 15px;
@@ -377,13 +423,14 @@ const EquipmentPage: React.FC = () => {
                   background: #f0f0f0;
                   border-radius: 4px;
                   font-size: 14px;
+                  font-weight: 500;
                 }
               </style>
             </head>
             <body>
               <div class="header">
                 ${logoUrl ? `<img src="${logoUrl}" alt="Logo" class="logo" />` : ''}
-                <h1>QR Code - ${equipment.name}</h1>
+                <h1 style="font-weight: 900;">QR CODE - ${equipment.name.toUpperCase()}</h1>
               </div>
               
               <div class="qr-container">
@@ -499,7 +546,7 @@ const EquipmentPage: React.FC = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-gray-500 dark:text-gray-400">Chargement du matériel...</div>
+        <div className="text-gray-500 dark:text-gray-400 font-medium">Chargement du matériel...</div>
       </div>
     );
   }
@@ -514,20 +561,20 @@ const EquipmentPage: React.FC = () => {
                 className="px-6 py-3 text-left cursor-pointer group"
                 onClick={() => handleSort('name')}
               >
-                <div className="flex items-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Nom
+                <div className="flex items-center text-xs font-black text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  NOM
                   <ArrowUpDown size={14} className="ml-1 opacity-0 group-hover:opacity-100" />
                 </div>
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                N° Article
+              <th className="px-6 py-3 text-left text-xs font-black text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                N° ARTICLE
               </th>
               <th 
                 className="px-6 py-3 text-left cursor-pointer group"
                 onClick={() => handleSort('serial_number')}
               >
-                <div className="flex items-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  N° Série
+                <div className="flex items-center text-xs font-black text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  N° SÉRIE
                   <ArrowUpDown size={14} className="ml-1 opacity-0 group-hover:opacity-100" />
                 </div>
               </th>
@@ -535,8 +582,8 @@ const EquipmentPage: React.FC = () => {
                 className="px-6 py-3 text-left cursor-pointer group"
                 onClick={() => handleSort('category')}
               >
-                <div className="flex items-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Catégorie
+                <div className="flex items-center text-xs font-black text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  CATÉGORIE
                   <ArrowUpDown size={14} className="ml-1 opacity-0 group-hover:opacity-100" />
                 </div>
               </th>
@@ -544,25 +591,25 @@ const EquipmentPage: React.FC = () => {
                 className="px-6 py-3 text-left cursor-pointer group"
                 onClick={() => handleSort('group')}
               >
-                <div className="flex items-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Groupe
+                <div className="flex items-center text-xs font-black text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  GROUPE
                   <ArrowUpDown size={14} className="ml-1 opacity-0 group-hover:opacity-100" />
                 </div>
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                Stock
+              <th className="px-6 py-3 text-left text-xs font-black text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                STOCK
               </th>
               <th 
                 className="px-6 py-3 text-left cursor-pointer group"
                 onClick={() => handleSort('status')}
               >
-                <div className="flex items-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Statut
+                <div className="flex items-center text-xs font-black text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  STATUT
                   <ArrowUpDown size={14} className="ml-1 opacity-0 group-hover:opacity-100" />
                 </div>
               </th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                Actions
+              <th className="px-6 py-3 text-right text-xs font-black text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                ACTIONS
               </th>
             </tr>
           </thead>
@@ -584,30 +631,30 @@ const EquipmentPage: React.FC = () => {
                           className="h-10 w-10 rounded-lg object-cover mr-3 bg-white"
                         />
                       )}
-                      <div className="text-sm font-medium text-gray-900 dark:text-white">
+                      <div className="text-sm font-bold text-gray-900 dark:text-white">
                         {item.name}
                       </div>
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 font-mono">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 font-mono font-medium">
                     {item.articleNumber}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 font-medium">
                     {item.serialNumber}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 font-medium">
                     {item.category}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                     {item.group && (
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200">
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200">
                         {item.group}
                       </span>
                     )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center gap-2">
-                      <span className={`text-sm font-medium ${
+                      <span className={`text-sm font-black ${
                         availableCount === 0 ? 'text-red-600 dark:text-red-400' :
                         availableCount < totalCount ? 'text-yellow-600 dark:text-yellow-400' :
                         'text-green-600 dark:text-green-400'
@@ -615,10 +662,10 @@ const EquipmentPage: React.FC = () => {
                         {availableCount}/{totalCount}
                       </span>
                       {item.qrType === 'batch' && totalCount > 1 && (
-                        <span className="text-xs text-gray-500 dark:text-gray-400">(lot)</span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">(lot)</span>
                       )}
                       {item.qrType === 'individual' && totalCount > 1 && (
-                        <span className="text-xs text-blue-500 dark:text-blue-400">(indiv.)</span>
+                        <span className="text-xs text-blue-500 dark:text-blue-400 font-medium">(indiv.)</span>
                       )}
                     </div>
                   </td>
@@ -638,7 +685,7 @@ const EquipmentPage: React.FC = () => {
                       variant="outline"
                       size="sm"
                       icon={<QrCode size={16} />}
-                      onClick={() => handleShowQR(item.id)}
+                      onClick={() => handleShowQRCodes(item)}
                     >
                       QR Code
                     </Button>
@@ -724,34 +771,34 @@ const EquipmentPage: React.FC = () => {
 
               {/* Informations principales */}
               <div className="space-y-1 mb-3">
-                <h3 className="text-sm font-semibold text-gray-800 dark:text-white line-clamp-2 leading-tight">
+                <h3 className="text-sm font-black text-gray-800 dark:text-white line-clamp-2 leading-tight">
                   {item.name}
                 </h3>
-                <p className="text-xs text-gray-600 dark:text-gray-400 font-mono">
+                <p className="text-xs text-gray-600 dark:text-gray-400 font-mono font-medium">
                   {item.articleNumber}
                 </p>
-                <p className="text-xs text-gray-600 dark:text-gray-400 font-mono">
+                <p className="text-xs text-gray-600 dark:text-gray-400 font-mono font-medium">
                   {item.serialNumber}
                 </p>
                 {item.category && (
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">
                     {item.category}
                   </p>
                 )}
                 {item.group && (
-                  <p className="text-xs text-blue-600 dark:text-blue-400 font-medium">
+                  <p className="text-xs text-blue-600 dark:text-blue-400 font-bold">
                     📁 {item.group}
                   </p>
                 )}
                 {item.location && (
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">
                     📍 {item.location}
                   </p>
                 )}
                 {totalCount > 1 && (
                   <div className="flex items-center gap-1">
                     <Package size={12} className="text-gray-400" />
-                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                    <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">
                       {item.qrType === 'batch' ? `${totalCount} pcs (lot)` : `${totalCount} pcs`}
                     </span>
                   </div>
@@ -760,7 +807,7 @@ const EquipmentPage: React.FC = () => {
 
               {/* Description tronquée */}
               {item.description && (
-                <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-2 mb-3">
+                <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-2 mb-3 font-light">
                   {item.description}
                 </p>
               )}
@@ -771,8 +818,8 @@ const EquipmentPage: React.FC = () => {
                   variant="outline"
                   size="sm"
                   icon={<QrCode size={14} />}
-                  onClick={() => handleShowQR(item.id)}
-                  className="text-xs px-2 py-1"
+                  onClick={() => handleShowQRCodes(item)}
+                  className="text-xs px-2 py-1 font-medium"
                 >
                   QR
                 </Button>
@@ -781,7 +828,7 @@ const EquipmentPage: React.FC = () => {
                   size="sm"
                   icon={<Printer size={14} />}
                   onClick={() => handlePrintAllQRCodes(item)}
-                  className="text-xs px-2 py-1"
+                  className="text-xs px-2 py-1 font-medium"
                 >
                   Print
                 </Button>
@@ -809,51 +856,10 @@ const EquipmentPage: React.FC = () => {
     </div>
   );
 
-  const getQRCodeValue = () => {
-    if (!selectedEquipment) return '';
-    
-    if (selectedInstance) {
-      return selectedInstance.qrCode;
-    }
-    
-    const equipment = filteredEquipment.find(eq => eq.id === selectedEquipment);
-    if (equipment?.qrType === 'batch') {
-      return selectedEquipment;
-    }
-    
-    return selectedEquipment;
-  };
-
-  const getQRCodeTitle = () => {
-    if (!selectedEquipment) return '';
-    
-    const equipment = filteredEquipment.find(eq => eq.id === selectedEquipment);
-    if (!equipment) return '';
-    
-    if (selectedInstance) {
-      return `${equipment.name} #${selectedInstance.instanceNumber}`;
-    }
-    
-    return equipment.name;
-  };
-
-  const getQRCodeSubtitle = () => {
-    if (!selectedEquipment) return '';
-    
-    const equipment = filteredEquipment.find(eq => eq.id === selectedEquipment);
-    if (!equipment) return '';
-    
-    if (selectedInstance) {
-      return `${equipment.articleNumber} - Instance ${selectedInstance.instanceNumber}`;
-    }
-    
-    return equipment.articleNumber || equipment.serialNumber;
-  };
-
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Matériel</h1>
+        <h1 className="text-3xl font-black text-gray-800 dark:text-white tracking-tight uppercase">MATÉRIEL</h1>
         
         <div className="flex gap-3">
           <div className="flex rounded-lg border border-gray-200 dark:border-gray-700">
@@ -862,28 +868,29 @@ const EquipmentPage: React.FC = () => {
               size="sm"
               icon={<LayoutGrid size={18} />}
               onClick={() => setViewMode('grid')}
-              className="rounded-r-none"
+              className="rounded-r-none font-bold"
             >
-              Grille
+              GRILLE
             </Button>
             <Button
               variant={viewMode === 'list' ? 'primary' : 'outline'}
               size="sm"
               icon={<List size={18} />}
               onClick={() => setViewMode('list')}
-              className="rounded-l-none"
+              className="rounded-l-none font-bold"
             >
-              Liste
+              LISTE
             </Button>
           </div>
           <Button 
             variant="outline" 
             icon={<Filter size={18} />}
             onClick={() => setShowFilters(true)}
+            className="font-bold"
           >
-            Filtres
+            FILTRES
             {Object.keys(activeFilters).length > 0 && (
-              <span className="ml-1 px-1.5 py-0.5 text-xs bg-primary-100 dark:bg-primary-900 text-primary-600 dark:text-primary-300 rounded-full">
+              <span className="ml-1 px-1.5 py-0.5 text-xs bg-primary-100 dark:bg-primary-900 text-primary-600 dark:text-primary-300 rounded-full font-black">
                 {Object.keys(activeFilters).length}
               </span>
             )}
@@ -892,8 +899,9 @@ const EquipmentPage: React.FC = () => {
             variant="primary" 
             icon={<Plus size={18} />}
             onClick={() => setShowAddModal(true)}
+            className="font-bold"
           >
-            Ajouter Matériel
+            AJOUTER MATÉRIEL
           </Button>
         </div>
       </div>
@@ -902,18 +910,19 @@ const EquipmentPage: React.FC = () => {
         <Card>
           <div className="text-center py-12">
             <Package size={48} className="mx-auto text-gray-400 mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-              Aucun matériel
+            <h3 className="text-lg font-black text-gray-900 dark:text-white mb-2 uppercase">
+              AUCUN MATÉRIEL
             </h3>
-            <p className="text-gray-500 dark:text-gray-400 mb-4">
+            <p className="text-gray-500 dark:text-gray-400 mb-4 font-medium">
               Commencez par ajouter votre premier matériel.
             </p>
             <Button
               variant="primary"
               icon={<Plus size={18} />}
               onClick={() => setShowAddModal(true)}
+              className="font-bold"
             >
-              Ajouter du matériel
+              AJOUTER DU MATÉRIEL
             </Button>
           </div>
         </Card>
@@ -924,7 +933,7 @@ const EquipmentPage: React.FC = () => {
           {filteredEquipment.length === 0 && equipment.length > 0 && (
             <Card>
               <div className="text-center py-8">
-                <p className="text-gray-500 dark:text-gray-400">
+                <p className="text-gray-500 dark:text-gray-400 font-medium">
                   Aucun matériel ne correspond aux filtres sélectionnés.
                 </p>
               </div>
@@ -936,20 +945,29 @@ const EquipmentPage: React.FC = () => {
       <Modal
         isOpen={showQRModal}
         onClose={() => setShowQRModal(false)}
-        title="QR Code Matériel"
+        title="QR CODE MATÉRIEL"
         size="sm"
       >
         {selectedEquipment && (
           <div className="flex justify-center">
             <QRCodeGenerator
-              value={getQRCodeValue()}
-              title={getQRCodeTitle()}
-              subtitle={getQRCodeSubtitle()}
+              value={selectedEquipment.id}
+              title={selectedEquipment.name}
+              subtitle={selectedEquipment.articleNumber || selectedEquipment.serialNumber}
               size={200}
             />
           </div>
         )}
       </Modal>
+
+      {selectedEquipment && (
+        <QRCodesModal
+          isOpen={showQRCodesModal}
+          onClose={() => setShowQRCodesModal(false)}
+          equipment={selectedEquipment}
+          instances={selectedEquipmentInstances}
+        />
+      )}
 
       <FilterPanel
         isOpen={showFilters}
@@ -975,10 +993,10 @@ const EquipmentPage: React.FC = () => {
         isOpen={showDeleteConfirm}
         onClose={() => setShowDeleteConfirm(false)}
         onConfirm={handleDeleteConfirm}
-        title="Confirmer la suppression"
+        title="CONFIRMER LA SUPPRESSION"
         message={`Êtes-vous sûr de vouloir supprimer le matériel "${equipmentToDelete?.name}" ? Cette action est irréversible.`}
-        confirmLabel="Supprimer"
-        cancelLabel="Annuler"
+        confirmLabel="SUPPRIMER"
+        cancelLabel="ANNULER"
       />
     </div>
   );

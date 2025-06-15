@@ -21,6 +21,7 @@ interface ImportRow {
   location: string;
   supplier: string;
   image_url: string;
+  available_quantity: number;
 }
 
 interface ValidationError {
@@ -50,7 +51,8 @@ const ExcelImport: React.FC<ExcelImportProps> = ({ isOpen, onClose, onImportComp
           status: 'available',
           location: 'Bureau principal',
           supplier: 'TechSource Inc.',
-          image_url: 'https://images.pexels.com/photos/18105/pexels-photo.jpg'
+          image_url: 'https://images.pexels.com/photos/18105/pexels-photo.jpg',
+          available_quantity: 1
         },
         {
           name: 'Perceuse électrique DeWalt',
@@ -60,7 +62,8 @@ const ExcelImport: React.FC<ExcelImportProps> = ({ isOpen, onClose, onImportComp
           status: 'available',
           location: 'Atelier',
           supplier: 'ToolMaster Supply',
-          image_url: 'https://images.pexels.com/photos/1029243/pexels-photo-1029243.jpeg'
+          image_url: 'https://images.pexels.com/photos/1029243/pexels-photo-1029243.jpeg',
+          available_quantity: 3
         },
         {
           name: 'Chaise de bureau ergonomique',
@@ -70,7 +73,8 @@ const ExcelImport: React.FC<ExcelImportProps> = ({ isOpen, onClose, onImportComp
           status: 'available',
           location: 'Salle de stockage',
           supplier: 'Office Solutions',
-          image_url: 'https://images.pexels.com/photos/1957478/pexels-photo-1957478.jpeg'
+          image_url: 'https://images.pexels.com/photos/1957478/pexels-photo-1957478.jpeg',
+          available_quantity: 5
         }
       ];
 
@@ -86,7 +90,8 @@ const ExcelImport: React.FC<ExcelImportProps> = ({ isOpen, onClose, onImportComp
         { wch: 12 }, // status
         { wch: 20 }, // location
         { wch: 20 }, // supplier
-        { wch: 50 }  // image_url
+        { wch: 50 }, // image_url
+        { wch: 15 }  // available_quantity
       ];
       ws['!cols'] = colWidths;
 
@@ -151,6 +156,13 @@ const ExcelImport: React.FC<ExcelImportProps> = ({ isOpen, onClose, onImportComp
           Obligatoire: 'NON',
           Exemple: 'https://example.com/image.jpg',
           Notes: 'Lien vers une image du matériel'
+        },
+        {
+          Champ: 'available_quantity',
+          Description: 'Quantité disponible',
+          Obligatoire: 'NON',
+          Exemple: '5',
+          Notes: 'Nombre d\'unités disponibles (défaut: 1)'
         }
       ];
 
@@ -158,7 +170,7 @@ const ExcelImport: React.FC<ExcelImportProps> = ({ isOpen, onClose, onImportComp
       
       // Largeur des colonnes pour les instructions
       const instructionColWidths = [
-        { wch: 15 }, // Champ
+        { wch: 20 }, // Champ
         { wch: 25 }, // Description
         { wch: 12 }, // Obligatoire
         { wch: 30 }, // Exemple
@@ -237,7 +249,8 @@ const ExcelImport: React.FC<ExcelImportProps> = ({ isOpen, onClose, onImportComp
           status: (row.status || 'available').toString().trim(),
           location: (row.location || '').toString().trim(),
           supplier: (row.supplier || '').toString().trim(),
-          image_url: (row.image_url || '').toString().trim()
+          image_url: (row.image_url || '').toString().trim(),
+          available_quantity: parseInt(row.available_quantity) || 1
         }));
 
         setData(parsedData);
@@ -305,6 +318,15 @@ const ExcelImport: React.FC<ExcelImportProps> = ({ isOpen, onClose, onImportComp
       if (row.image_url && !isValidUrl(row.image_url)) {
         errors.push({ row: rowNumber, field: 'image_url', message: 'URL d\'image invalide' });
       }
+
+      // Validation de la quantité disponible
+      if (row.available_quantity < 0) {
+        errors.push({ row: rowNumber, field: 'available_quantity', message: 'La quantité disponible ne peut pas être négative' });
+      }
+
+      if (row.available_quantity > 1000) {
+        errors.push({ row: rowNumber, field: 'available_quantity', message: 'La quantité disponible semble trop élevée (max: 1000)' });
+      }
     });
 
     setValidationErrors(errors);
@@ -347,7 +369,9 @@ const ExcelImport: React.FC<ExcelImportProps> = ({ isOpen, onClose, onImportComp
             serial_number: row.serial_number.trim(),
             status: row.status || 'available',
             location: row.location.trim() || null,
-            image_url: row.image_url.trim() || null
+            image_url: row.image_url.trim() || null,
+            total_quantity: row.available_quantity,
+            available_quantity: row.available_quantity
           };
 
           // Gérer la catégorie
@@ -607,6 +631,7 @@ const ExcelImport: React.FC<ExcelImportProps> = ({ isOpen, onClose, onImportComp
                       <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">N° Série</th>
                       <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Catégorie</th>
                       <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Statut</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Quantité</th>
                       <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Emplacement</th>
                     </tr>
                   </thead>
@@ -639,6 +664,14 @@ const ExcelImport: React.FC<ExcelImportProps> = ({ isOpen, onClose, onImportComp
                           <td className="px-4 py-2 text-sm text-gray-500 dark:text-gray-400">
                             {row.status}
                             {rowErrors.some(e => e.field === 'status') && (
+                              <AlertCircle size={14} className="inline ml-1 text-red-500" />
+                            )}
+                          </td>
+                          <td className="px-4 py-2 text-sm text-gray-500 dark:text-gray-400">
+                            <span className="font-medium text-blue-600 dark:text-blue-400">
+                              {row.available_quantity}
+                            </span>
+                            {rowErrors.some(e => e.field === 'available_quantity') && (
                               <AlertCircle size={14} className="inline ml-1 text-red-500" />
                             )}
                           </td>

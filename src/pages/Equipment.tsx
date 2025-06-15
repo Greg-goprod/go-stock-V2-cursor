@@ -201,15 +201,6 @@ const EquipmentPage: React.FC = () => {
     return equipmentInstances.filter(instance => instance.status === 'available').length;
   };
 
-  const handleSort = (field: SortField) => {
-    if (sortField === field) {
-      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortField(field);
-      setSortDirection('asc');
-    }
-  };
-
   const filterOptions: FilterOption[] = [
     {
       id: 'status',

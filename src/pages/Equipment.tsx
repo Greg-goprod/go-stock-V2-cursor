@@ -569,9 +569,9 @@ const EquipmentPage: React.FC = () => {
                 )}
               </div>
               
-              {/* Actions - toujours en bas */}
+              {/* Actions - toujours en bas sur une seule ligne */}
               <div className="mt-auto">
-                <div className="flex justify-between items-center gap-1 mb-2">
+                <div className="flex gap-1">
                   <Button
                     variant="outline"
                     size="sm"
@@ -581,8 +581,6 @@ const EquipmentPage: React.FC = () => {
                   >
                     QR
                   </Button>
-                </div>
-                <div className="flex gap-1">
                   <Button
                     variant="outline"
                     size="sm"

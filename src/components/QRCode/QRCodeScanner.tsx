@@ -14,8 +14,10 @@ const QRCodeScanner: React.FC<QRCodeScannerProps> = ({ onScan, onError }) => {
   const [scannedValue, setScannedValue] = useState('');
   const [lastScannedValue, setLastScannedValue] = useState('');
   const [scanStatus, setScanStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [isProcessing, setIsProcessing] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const scannerRef = useRef<any>(null);
+  const lastScanTimeRef = useRef<number>(0);
   const scannerDivId = 'qr-reader';
 
   // Auto-focus sur le champ de saisie pour la douchette
@@ -25,28 +27,49 @@ const QRCodeScanner: React.FC<QRCodeScannerProps> = ({ onScan, onError }) => {
     }
   }, [scanMode]);
 
+  // Fonction pour éviter les doubles scans
+  const canProcessScan = (value: string): boolean => {
+    const now = Date.now();
+    const timeSinceLastScan = now - lastScanTimeRef.current;
+    const isSameValue = value === lastScannedValue;
+    
+    // Empêcher les scans identiques dans les 2 secondes
+    if (isSameValue && timeSinceLastScan < 2000) {
+      console.log('🚫 Scan ignoré (doublon détecté):', value);
+      return false;
+    }
+    
+    lastScanTimeRef.current = now;
+    return true;
+  };
+
   // Gérer la saisie de la douchette
-  const handleBarcodeInput = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
+  const handleBarcodeInput = async (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && !isProcessing) {
       const value = scannedValue.trim();
-      if (value) {
+      if (value && canProcessScan(value)) {
+        setIsProcessing(true);
         console.log('🔍 QR Code scanné par douchette:', value);
-        console.log('🔍 Longueur:', value.length);
-        console.log('🔍 Caractères spéciaux:', JSON.stringify(value));
         
         setLastScannedValue(value);
         setScanStatus('success');
         
-        // Nettoyer la valeur (supprimer espaces, caractères invisibles)
+        // Nettoyer la valeur
         const cleanValue = value.replace(/[\r\n\t\s]/g, '').trim();
         console.log('🧹 Valeur nettoyée:', cleanValue);
         
-        onScan(cleanValue);
-        setScannedValue(''); // Reset pour le prochain scan
+        try {
+          await onScan(cleanValue);
+          setScannedValue(''); // Reset pour le prochain scan
+        } catch (error) {
+          console.error('Erreur lors du traitement du scan:', error);
+          setScanStatus('error');
+        }
         
         // Reset du statut après 3 secondes
         setTimeout(() => {
           setScanStatus('idle');
+          setIsProcessing(false);
         }, 3000);
         
         // Re-focus pour le prochain scan
@@ -60,17 +83,18 @@ const QRCodeScanner: React.FC<QRCodeScannerProps> = ({ onScan, onError }) => {
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setScannedValue(e.target.value);
-    setScanStatus('idle');
+    if (!isProcessing) {
+      setScannedValue(e.target.value);
+      setScanStatus('idle');
+    }
   };
 
-  // Scanner caméra (code existant)
+  // Scanner caméra
   const startCameraScanning = async () => {
     setError(null);
     setIsScanning(true);
 
     try {
-      // Import dynamique pour éviter les erreurs si la librairie n'est pas disponible
       const { Html5Qrcode } = await import('html5-qrcode');
       
       if (!scannerRef.current) {
@@ -84,11 +108,12 @@ const QRCodeScanner: React.FC<QRCodeScannerProps> = ({ onScan, onError }) => {
           qrbox: { width: 250, height: 250 },
         },
         (decodedText: string) => {
-          console.log('🔍 QR Code scanné par caméra:', decodedText);
-          handleScanSuccess(decodedText);
+          if (canProcessScan(decodedText)) {
+            console.log('🔍 QR Code scanné par caméra:', decodedText);
+            handleScanSuccess(decodedText);
+          }
         },
         (errorMessage: string) => {
-          // Ne pas afficher les erreurs de scan normales
           console.log('Scanner caméra:', errorMessage);
         }
       );
@@ -112,10 +137,20 @@ const QRCodeScanner: React.FC<QRCodeScannerProps> = ({ onScan, onError }) => {
   };
 
   const handleScanSuccess = async (decodedText: string) => {
+    if (isProcessing) return;
+    
+    setIsProcessing(true);
     const cleanValue = decodedText.replace(/[\r\n\t\s]/g, '').trim();
     console.log('🧹 Valeur caméra nettoyée:', cleanValue);
-    onScan(cleanValue);
-    await stopCameraScanning();
+    
+    try {
+      await onScan(cleanValue);
+      await stopCameraScanning();
+    } catch (error) {
+      console.error('Erreur lors du traitement du scan caméra:', error);
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   // Cleanup à la fermeture
@@ -131,10 +166,9 @@ const QRCodeScanner: React.FC<QRCodeScannerProps> = ({ onScan, onError }) => {
 
   return (
     <div className="flex flex-col items-center space-y-4">
-      {/* Mode Douchette - VERSION ULTRA CLEAN SANS AUCUNE INTERFACE TECHNIQUE */}
+      {/* Mode Douchette */}
       {scanMode === 'barcode' && (
         <div className="w-full max-w-sm">
-          {/* ✅ ZONE VERTE SIMPLIFIÉE - SANS DÉTAILS TECHNIQUES */}
           <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4 mb-4">
             <div className="flex items-center gap-2 mb-2">
               <Keyboard size={20} className="text-green-600 dark:text-green-400" />
@@ -147,7 +181,6 @@ const QRCodeScanner: React.FC<QRCodeScannerProps> = ({ onScan, onError }) => {
             </p>
           </div>
 
-          {/* ✅ CHAMP DE SCAN ULTRA-CLEAN */}
           <div className="relative">
             <input
               ref={inputRef}
@@ -156,8 +189,11 @@ const QRCodeScanner: React.FC<QRCodeScannerProps> = ({ onScan, onError }) => {
               onChange={handleInputChange}
               onKeyDown={handleBarcodeInput}
               placeholder="Scannez un QR code..."
+              disabled={isProcessing}
               className={`w-full px-4 py-3 text-center border-2 border-dashed rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 font-mono text-lg focus:outline-none focus:ring-2 transition-all ${
-                scanStatus === 'success' 
+                isProcessing
+                  ? 'opacity-50 cursor-not-allowed'
+                  : scanStatus === 'success' 
                   ? 'border-green-400 dark:border-green-500 focus:border-green-500 focus:ring-green-200 dark:focus:ring-green-800'
                   : scanStatus === 'error'
                   ? 'border-red-400 dark:border-red-500 focus:border-red-500 focus:ring-red-200 dark:focus:ring-red-800'
@@ -167,7 +203,9 @@ const QRCodeScanner: React.FC<QRCodeScannerProps> = ({ onScan, onError }) => {
               autoFocus
             />
             <div className="absolute inset-y-0 right-0 flex items-center pr-3">
-              {scanStatus === 'success' ? (
+              {isProcessing ? (
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary-600"></div>
+              ) : scanStatus === 'success' ? (
                 <CheckCircle size={20} className="text-green-500" />
               ) : scanStatus === 'error' ? (
                 <AlertCircle size={20} className="text-red-500" />
@@ -177,12 +215,16 @@ const QRCodeScanner: React.FC<QRCodeScannerProps> = ({ onScan, onError }) => {
             </div>
           </div>
 
-          {/* ✅ FEEDBACK VISUEL SIMPLIFIÉ */}
           <div className="mt-3 text-center">
             <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">
               🎯 Pointez votre douchette vers un QR code
             </p>
-            {scannedValue && (
+            {isProcessing && (
+              <p className="text-xs text-blue-600 dark:text-blue-400 font-bold mt-1">
+                ⚡ Traitement en cours...
+              </p>
+            )}
+            {scannedValue && !isProcessing && (
               <p className="text-xs text-blue-600 dark:text-blue-400 font-bold mt-1">
                 ⚡ Scan en cours...
               </p>
@@ -196,7 +238,6 @@ const QRCodeScanner: React.FC<QRCodeScannerProps> = ({ onScan, onError }) => {
             )}
           </div>
 
-          {/* ✅ BOUTON CAMÉRA DISCRET EN BAS */}
           <div className="mt-6 text-center">
             <Button
               variant="outline"
@@ -204,6 +245,7 @@ const QRCodeScanner: React.FC<QRCodeScannerProps> = ({ onScan, onError }) => {
               icon={<Camera size={16} />}
               onClick={() => setScanMode('camera')}
               className="font-medium text-xs"
+              disabled={isProcessing}
             >
               Utiliser la caméra
             </Button>
@@ -211,7 +253,7 @@ const QRCodeScanner: React.FC<QRCodeScannerProps> = ({ onScan, onError }) => {
         </div>
       )}
 
-      {/* Mode Caméra - DESIGN COHÉRENT MAIS MASQUÉ PAR DÉFAUT */}
+      {/* Mode Caméra */}
       {scanMode === 'camera' && (
         <div className="w-full max-w-sm">
           <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg p-4 mb-4">
@@ -248,6 +290,7 @@ const QRCodeScanner: React.FC<QRCodeScannerProps> = ({ onScan, onError }) => {
                 variant="danger" 
                 onClick={stopCameraScanning}
                 className="font-black"
+                disabled={isProcessing}
               >
                 ARRÊTER CAMÉRA
               </Button>
@@ -257,6 +300,7 @@ const QRCodeScanner: React.FC<QRCodeScannerProps> = ({ onScan, onError }) => {
                 icon={<Camera size={18} />}
                 onClick={startCameraScanning}
                 className="font-black"
+                disabled={isProcessing}
               >
                 DÉMARRER CAMÉRA
               </Button>
@@ -267,6 +311,7 @@ const QRCodeScanner: React.FC<QRCodeScannerProps> = ({ onScan, onError }) => {
               icon={<Keyboard size={18} />}
               onClick={() => setScanMode('barcode')}
               className="font-black"
+              disabled={isProcessing}
             >
               RETOUR DOUCHETTE
             </Button>

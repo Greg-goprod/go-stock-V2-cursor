@@ -40,7 +40,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
   const [isLoading, setIsLoading] = useState(false);
   
   // User selection states
-  const [userSelectionMode, setUserSelectionMode] = useState<'scan' | 'new' | 'list'>('scan');
+  const [userSelectionMode, setUserSelectionMode] = useState<'list' | 'new'>('list');
   const [userSearch, setUserSearch] = useState('');
   const [users, setUsers] = useState<User[]>([]);
   const [newUserData, setNewUserData] = useState({
@@ -183,140 +183,9 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
     }
   };
 
-  // 🔍 FONCTION DE RECHERCHE INTELLIGENTE QR CODES
-  const findEquipmentByQR = (scannedValue: string): Equipment | null => {
-    console.log('🔍 Recherche intelligente pour:', scannedValue);
-    
-    // Nettoyer la valeur scannée
-    const cleanValue = scannedValue.replace(/[\r\n\t\s]/g, '').trim();
-    console.log('🧹 Valeur nettoyée:', cleanValue);
-    
-    // Générer toutes les variantes possibles
-    const generateVariants = (value: string): string[] => {
-      const variants = new Set<string>();
-      
-      // Valeur originale
-      variants.add(value);
-      variants.add(value.toUpperCase());
-      variants.add(value.toLowerCase());
-      
-      // Remplacer les apostrophes par des tirets
-      const withDashes = value.replace(/'/g, '-');
-      variants.add(withDashes);
-      variants.add(withDashes.toUpperCase());
-      variants.add(withDashes.toLowerCase());
-      
-      // Remplacer les apostrophes par des underscores
-      const withUnderscores = value.replace(/'/g, '_');
-      variants.add(withUnderscores);
-      variants.add(withUnderscores.toUpperCase());
-      variants.add(withUnderscores.toLowerCase());
-      
-      // Supprimer tous les séparateurs
-      const noSeparators = value.replace(/['-_]/g, '');
-      variants.add(noSeparators);
-      variants.add(noSeparators.toUpperCase());
-      variants.add(noSeparators.toLowerCase());
-      
-      // Tronquer à la partie principale (avant le dernier segment)
-      const parts = value.split(/['-_]/);
-      if (parts.length > 1) {
-        const truncated = parts.slice(0, -1).join('-');
-        variants.add(truncated);
-        variants.add(truncated.toUpperCase());
-        variants.add(truncated.toLowerCase());
-      }
-      
-      return Array.from(variants);
-    };
-    
-    const variants = generateVariants(cleanValue);
-    console.log('🔄 Variantes générées:', variants);
-    
-    // Rechercher dans tous les équipements
-    for (const equipmentItem of equipment) {
-      // Tester chaque variante contre tous les champs
-      for (const variant of variants) {
-        // Test exact sur l'ID
-        if (equipmentItem.id === variant) {
-          console.log('✅ Correspondance trouvée (ID):', equipmentItem.name);
-          return equipmentItem;
-        }
-        
-        // Test exact sur article_number
-        if (equipmentItem.articleNumber && equipmentItem.articleNumber === variant) {
-          console.log('✅ Correspondance trouvée (article_number):', equipmentItem.name);
-          return equipmentItem;
-        }
-        
-        // Test exact sur serial_number
-        if (equipmentItem.serialNumber === variant) {
-          console.log('✅ Correspondance trouvée (serial_number):', equipmentItem.name);
-          return equipmentItem;
-        }
-        
-        // Test insensible à la casse
-        if (equipmentItem.articleNumber && equipmentItem.articleNumber.toLowerCase() === variant.toLowerCase()) {
-          console.log('✅ Correspondance trouvée (article_number insensible):', equipmentItem.name);
-          return equipmentItem;
-        }
-        
-        if (equipmentItem.serialNumber.toLowerCase() === variant.toLowerCase()) {
-          console.log('✅ Correspondance trouvée (serial_number insensible):', equipmentItem.name);
-          return equipmentItem;
-        }
-      }
-    }
-    
-    // Recherche de correspondances partielles
-    console.log('🔍 Recherche de correspondances partielles...');
-    for (const equipmentItem of equipment) {
-      for (const variant of variants) {
-        if (variant.length > 5) { // Éviter les correspondances trop courtes
-          if (equipmentItem.articleNumber && equipmentItem.articleNumber.toLowerCase().includes(variant.toLowerCase())) {
-            console.log('🎯 Correspondance partielle trouvée (article_number):', equipmentItem.name);
-            return equipmentItem;
-          }
-          
-          if (equipmentItem.serialNumber.toLowerCase().includes(variant.toLowerCase())) {
-            console.log('🎯 Correspondance partielle trouvée (serial_number):', equipmentItem.name);
-            return equipmentItem;
-          }
-        }
-      }
-    }
-    
-    console.log('❌ Aucune correspondance trouvée pour:', cleanValue);
-    console.log('📋 Équipements disponibles:', equipment.map(eq => ({
-      id: eq.id,
-      name: eq.name,
-      articleNumber: eq.articleNumber,
-      serialNumber: eq.serialNumber
-    })));
-    
-    return null;
-  };
-
-  const handleUserScan = (scannedId: string) => {
-    const user = users.find(u => u.id === scannedId);
-    if (user) {
-      setSelectedUser(user);
-      setStep('equipment');
-      toast.success(`Utilisateur sélectionné: ${user.first_name} ${user.last_name}`);
-    } else {
-      toast.error('Utilisateur non trouvé');
-    }
-  };
-
   const handleEquipmentScan = (scannedId: string) => {
-    console.log('🔍 Scan équipement reçu:', scannedId);
-    
-    // Utiliser la fonction de recherche intelligente
-    const equipmentItem = findEquipmentByQR(scannedId);
-    
+    const equipmentItem = equipment.find(e => e.id === scannedId);
     if (equipmentItem) {
-      console.log('✅ Équipement trouvé:', equipmentItem.name);
-      
       const stock = stockInfo[equipmentItem.id];
       if (!stock || stock.available === 0) {
         toast.error('Ce matériel n\'est pas disponible');
@@ -342,15 +211,9 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
       } else {
         setCheckoutItems(prev => [...prev, { equipment: equipmentItem, quantity: 1 }]);
       }
-      
-      toast.success(`${equipmentItem.name} ajouté (${currentQuantity + 1}/${stock.available})`);
-      
-      // 🔄 SCAN MULTIPLE : Ne pas arrêter le scanner, permettre de continuer
-      console.log('🔄 Scanner reste actif pour scan multiple');
-      
+      toast.success(`${equipmentItem.name} ajouté`);
     } else {
-      console.log('❌ Équipement non trouvé pour:', scannedId);
-      toast.error(`Matériel non trouvé: ${scannedId}`);
+      toast.error('Matériel non trouvé');
     }
   };
 
@@ -404,7 +267,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
       
       setSelectedUser(data);
       setStep('equipment');
-      setUserSelectionMode('scan');
+      setUserSelectionMode('list');
       toast.success('Utilisateur créé avec succès');
     } catch (error: any) {
       console.error('Error creating user:', error);
@@ -821,7 +684,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
     setCheckoutItems([]);
     setNewEquipment([]);
     setNotes('');
-    setUserSelectionMode('scan');
+    setUserSelectionMode('list');
     setEquipmentMode('scan');
     setShowScanner(false);
     setShowNewEquipmentForm(false);
@@ -872,11 +735,11 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
           <div className="space-y-4">
             <div className="flex gap-3">
               <Button
-                variant={userSelectionMode === 'scan' ? 'primary' : 'outline'}
-                icon={<Search size={18} />}
-                onClick={() => setUserSelectionMode('scan')}
+                variant={userSelectionMode === 'list' ? 'primary' : 'outline'}
+                icon={<List size={18} />}
+                onClick={() => setUserSelectionMode('list')}
               >
-                Scanner Badge
+                Liste Utilisateurs
               </Button>
               <Button
                 variant={userSelectionMode === 'new' ? 'primary' : 'outline'}
@@ -885,20 +748,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
               >
                 Nouvel Utilisateur
               </Button>
-              <Button
-                variant={userSelectionMode === 'list' ? 'primary' : 'outline'}
-                icon={<List size={18} />}
-                onClick={() => setUserSelectionMode('list')}
-              >
-                Liste Utilisateurs
-              </Button>
             </div>
-
-            {userSelectionMode === 'scan' && (
-              <div className="border rounded-lg p-4">
-                <QRCodeScanner onScan={handleUserScan} />
-              </div>
-            )}
 
             {userSelectionMode === 'list' && (
               <div>
@@ -978,7 +828,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
                   </Button>
                   <Button
                     variant="outline"
-                    onClick={() => setUserSelectionMode('scan')}
+                    onClick={() => setUserSelectionMode('list')}
                   >
                     Annuler
                   </Button>
@@ -1041,14 +891,6 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
 
             {equipmentMode === 'scan' && showScanner && (
               <div className="border rounded-lg p-4">
-                <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4 mb-4">
-                  <h3 className="font-black text-green-800 dark:text-green-200 mb-2 uppercase tracking-wide">
-                    🔄 SCAN AUTOMATIQUE DU MATÉRIEL
-                  </h3>
-                  <p className="text-green-700 dark:text-green-300 text-sm font-medium">
-                    Scannez directement avec votre douchette - Le scan démarre automatiquement !
-                  </p>
-                </div>
                 <QRCodeScanner onScan={handleEquipmentScan} />
                 <Button
                   variant="outline"

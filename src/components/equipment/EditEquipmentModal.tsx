@@ -245,7 +245,7 @@ const EditEquipmentModal: React.FC<EditEquipmentModalProps> = ({ isOpen, onClose
         <Accordion
           title="INFORMATIONS DE BASE"
           icon={<Info size={18} className="text-blue-600 dark:text-blue-400" />}
-          defaultOpen={true}
+          defaultOpen={false}
         >
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

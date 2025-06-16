@@ -104,7 +104,7 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({ isOpen, onClose, depa
         <Accordion
           title="INFORMATIONS DE BASE"
           icon={<Building2 size={18} className="text-blue-600 dark:text-blue-400" />}
-          defaultOpen={true}
+          defaultOpen={false}
         >
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>

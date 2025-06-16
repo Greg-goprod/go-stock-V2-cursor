@@ -193,7 +193,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ isOpen, onClose }
           <Accordion
             title="INFORMATIONS DE BASE"
             icon={<Info size={18} className="text-blue-600 dark:text-blue-400" />}
-            defaultOpen={true}
+            defaultOpen={false}
           >
             <form onSubmit={handleBasicSubmit} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -332,7 +332,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ isOpen, onClose }
           <Accordion
             title="CONFIGURATION QR CODES"
             icon={<QrCode size={18} className="text-purple-600 dark:text-purple-400" />}
-            defaultOpen={true}
+            defaultOpen={false}
           >
             <div className="space-y-4">
               <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">

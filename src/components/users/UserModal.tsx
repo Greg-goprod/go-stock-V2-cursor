@@ -118,7 +118,7 @@ const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, user }) => {
         <Accordion
           title="INFORMATIONS PERSONNELLES"
           icon={<UserIcon size={18} className="text-blue-600 dark:text-blue-400" />}
-          defaultOpen={true}
+          defaultOpen={false}
         >
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
@@ -173,7 +173,7 @@ const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, user }) => {
         <Accordion
           title="CONTACT"
           icon={<Mail size={18} className="text-green-600 dark:text-green-400" />}
-          defaultOpen={true}
+          defaultOpen={false}
         >
           <div className="space-y-4">
             <div>
@@ -209,7 +209,7 @@ const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, user }) => {
         <Accordion
           title="ORGANISATION"
           icon={<Building2 size={18} className="text-purple-600 dark:text-purple-400" />}
-          defaultOpen={true}
+          defaultOpen={false}
         >
           <div className="space-y-4">
             <div>

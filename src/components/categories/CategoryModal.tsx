@@ -98,7 +98,7 @@ const CategoryModal: React.FC<CategoryModalProps> = ({ isOpen, onClose, category
         <Accordion
           title="INFORMATIONS DE BASE"
           icon={<Tag size={18} className="text-blue-600 dark:text-blue-400" />}
-          defaultOpen={true}
+          defaultOpen={false}
         >
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>

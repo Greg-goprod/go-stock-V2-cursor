@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import Modal from '../common/Modal';
 import Button from '../common/Button';
+import Accordion from '../common/Accordion';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { supabase } from '../../lib/supabase';
 import toast from 'react-hot-toast';
 import { Category, Supplier } from '../../types';
-import { Package, Copy, QrCode } from 'lucide-react';
+import { Package, Copy, QrCode, Settings, Info } from 'lucide-react';
 
 interface AddEquipmentModalProps {
   isOpen: boolean;
@@ -183,336 +184,265 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ isOpen, onClose }
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={step === 'basic' ? "Ajouter du Matériel" : "Configuration des Quantités"}
+      title={step === 'basic' ? "AJOUTER DU MATÉRIEL" : "CONFIGURATION DES QUANTITÉS"}
       size="lg"
     >
       {step === 'basic' ? (
-        <form onSubmit={handleBasicSubmit} className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Nom *
-              </label>
-              <input
-                type="text"
-                name="name"
-                required
-                value={formData.name}
-                onChange={handleChange}
-                className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Numéro de série *
-              </label>
-              <input
-                type="text"
-                name="serial_number"
-                required
-                value={formData.serial_number}
-                onChange={handleChange}
-                className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Catégorie
-              </label>
-              <select
-                name="category_id"
-                value={formData.category_id}
-                onChange={handleChange}
-                className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
-              >
-                <option value="">Sélectionner une catégorie</option>
-                {categories.map(category => (
-                  <option key={category.id} value={category.id}>
-                    {category.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Fournisseur
-              </label>
-              <select
-                name="supplier_id"
-                value={formData.supplier_id}
-                onChange={handleChange}
-                className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
-              >
-                <option value="">Sélectionner un fournisseur</option>
-                {suppliers.map(supplier => (
-                  <option key={supplier.id} value={supplier.id}>
-                    {supplier.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Statut
-              </label>
-              <select
-                name="status"
-                value={formData.status}
-                onChange={handleChange}
-                className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
-              >
-                <option value="available">Disponible</option>
-                <option value="checked-out">Emprunté</option>
-                <option value="maintenance">En maintenance</option>
-                <option value="retired">Retiré</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Emplacement
-              </label>
-              <input
-                type="text"
-                name="location"
-                value={formData.location}
-                onChange={handleChange}
-                className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Titre court
-              </label>
-              <input
-                type="text"
-                name="short_title"
-                value={formData.short_title}
-                onChange={handleChange}
-                className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Quantité disponible *
-              </label>
-              <input
-                type="number"
-                name="available_quantity"
-                min="1"
-                required
-                value={formData.available_quantity}
-                onChange={(e) => setFormData(prev => ({ ...prev, available_quantity: parseInt(e.target.value) || 1 }))}
-                className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
-              />
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                Nombre d'unités disponibles pour l'emprunt
-              </p>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                URL de l'image
-              </label>
-              <input
-                type="url"
-                name="image_url"
-                value={formData.image_url}
-                onChange={handleChange}
-                className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Description
-            </label>
-            <textarea
-              name="description"
-              value={formData.description}
-              onChange={handleChange}
-              rows={3}
-              className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
-            />
-          </div>
-
-          <div className="flex justify-end gap-3">
-            <Button
-              variant="outline"
-              onClick={onClose}
-            >
-              Annuler
-            </Button>
-            <Button
-              variant="primary"
-              type="submit"
-            >
-              Suivant
-            </Button>
-          </div>
-        </form>
-      ) : (
-        <div className="space-y-6">
-          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-            <h3 className="text-lg font-medium text-blue-800 dark:text-blue-200 mb-2">
-              Configuration des quantités et QR codes
-            </h3>
-            <p className="text-blue-700 dark:text-blue-300 text-sm">
-              Définissez comment gérer les quantités et les QR codes pour ce matériel.
-            </p>
-          </div>
-
-          <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
-            <h4 className="font-medium text-gray-900 dark:text-white mb-2">
-              Quantité configurée
-            </h4>
-            <div className="flex items-center gap-2">
-              <Package size={20} className="text-blue-600 dark:text-blue-400" />
-              <span className="text-lg font-semibold text-blue-600 dark:text-blue-400">
-                {formData.available_quantity} unité{formData.available_quantity > 1 ? 's' : ''}
-              </span>
-            </div>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-              Cette quantité sera utilisée comme quantité totale et disponible
-            </p>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-              Type de QR Code
-            </label>
-            <div className="space-y-3">
-              <div 
-                className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${
-                  quantityData.qrType === 'individual' 
-                    ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20' 
-                    : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
-                }`}
-                onClick={() => handleQuantityChange('qrType', 'individual')}
-              >
-                <div className="flex items-start gap-3">
-                  <div className={`w-4 h-4 rounded-full border-2 mt-1 ${
-                    quantityData.qrType === 'individual' 
-                      ? 'border-primary-500 bg-primary-500' 
-                      : 'border-gray-300 dark:border-gray-600'
-                  }`}>
-                    {quantityData.qrType === 'individual' && (
-                      <div className="w-2 h-2 bg-white rounded-full m-0.5"></div>
-                    )}
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <QrCode size={18} className="text-primary-600 dark:text-primary-400" />
-                      <h4 className="font-medium text-gray-900 dark:text-gray-100">
-                        QR Code individuel par pièce
-                      </h4>
-                    </div>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      Chaque pièce aura son propre QR code unique. Idéal pour le suivi individuel.
-                    </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
-                      Exemple: {formData.available_quantity} perceuses = {formData.available_quantity} QR codes différents
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div 
-                className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${
-                  quantityData.qrType === 'batch' 
-                    ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20' 
-                    : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
-                }`}
-                onClick={() => handleQuantityChange('qrType', 'batch')}
-              >
-                <div className="flex items-start gap-3">
-                  <div className={`w-4 h-4 rounded-full border-2 mt-1 ${
-                    quantityData.qrType === 'batch' 
-                      ? 'border-primary-500 bg-primary-500' 
-                      : 'border-gray-300 dark:border-gray-600'
-                  }`}>
-                    {quantityData.qrType === 'batch' && (
-                      <div className="w-2 h-2 bg-white rounded-full m-0.5"></div>
-                    )}
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <Copy size={18} className="text-green-600 dark:text-green-400" />
-                      <h4 className="font-medium text-gray-900 dark:text-gray-100">
-                        QR Code unique pour le lot
-                      </h4>
-                    </div>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      Un seul QR code pour toutes les pièces. Idéal pour les articles identiques.
-                    </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
-                      Exemple: {formData.available_quantity} batteries = 1 QR code commun
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {quantityData.qrType === 'individual' && formData.available_quantity > 1 && (
-            <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
-              <div className="flex items-start gap-2">
-                <Package size={18} className="text-yellow-600 dark:text-yellow-400 mt-0.5" />
+        <div className="space-y-4">
+          {/* Informations de base */}
+          <Accordion
+            title="INFORMATIONS DE BASE"
+            icon={<Info size={18} className="text-blue-600 dark:text-blue-400" />}
+            defaultOpen={true}
+          >
+            <form onSubmit={handleBasicSubmit} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <h4 className="font-medium text-yellow-800 dark:text-yellow-200">
-                    {formData.available_quantity} instances seront créées
-                  </h4>
-                  <p className="text-sm text-yellow-700 dark:text-yellow-300 mt-1">
-                    Chaque pièce aura son propre QR code et pourra être suivie individuellement.
-                  </p>
-                  <div className="mt-2 text-xs text-yellow-600 dark:text-yellow-400">
-                    <p>QR codes générés :</p>
-                    <ul className="list-disc list-inside mt-1">
-                      {Array.from({ length: Math.min(formData.available_quantity, 3) }, (_, i) => (
-                        <li key={i} className="font-mono">
-                          [ARTICLE-NUMBER]-{String(i + 1).padStart(3, '0')}
-                        </li>
-                      ))}
-                      {formData.available_quantity > 3 && (
-                        <li className="italic">... et {formData.available_quantity - 3} autres</li>
-                      )}
-                    </ul>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Nom *
+                  </label>
+                  <input
+                    type="text"
+                    name="name"
+                    required
+                    value={formData.name}
+                    onChange={handleChange}
+                    className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Numéro de série *
+                  </label>
+                  <input
+                    type="text"
+                    name="serial_number"
+                    required
+                    value={formData.serial_number}
+                    onChange={handleChange}
+                    className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Catégorie
+                  </label>
+                  <select
+                    name="category_id"
+                    value={formData.category_id}
+                    onChange={handleChange}
+                    className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
+                  >
+                    <option value="">Sélectionner une catégorie</option>
+                    {categories.map(category => (
+                      <option key={category.id} value={category.id}>
+                        {category.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Fournisseur
+                  </label>
+                  <select
+                    name="supplier_id"
+                    value={formData.supplier_id}
+                    onChange={handleChange}
+                    className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
+                  >
+                    <option value="">Sélectionner un fournisseur</option>
+                    {suppliers.map(supplier => (
+                      <option key={supplier.id} value={supplier.id}>
+                        {supplier.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Statut
+                  </label>
+                  <select
+                    name="status"
+                    value={formData.status}
+                    onChange={handleChange}
+                    className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
+                  >
+                    <option value="available">Disponible</option>
+                    <option value="checked-out">Emprunté</option>
+                    <option value="maintenance">En maintenance</option>
+                    <option value="retired">Retiré</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Quantité disponible *
+                  </label>
+                  <input
+                    type="number"
+                    name="available_quantity"
+                    min="1"
+                    required
+                    value={formData.available_quantity}
+                    onChange={(e) => setFormData(prev => ({ ...prev, available_quantity: parseInt(e.target.value) || 1 }))}
+                    className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Description
+                </label>
+                <textarea
+                  name="description"
+                  value={formData.description}
+                  onChange={handleChange}
+                  rows={3}
+                  className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
+                />
+              </div>
+
+              <div className="flex justify-end gap-3">
+                <Button
+                  variant="outline"
+                  onClick={onClose}
+                >
+                  Annuler
+                </Button>
+                <Button
+                  variant="primary"
+                  type="submit"
+                >
+                  Suivant
+                </Button>
+              </div>
+            </form>
+          </Accordion>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {/* Configuration QR */}
+          <Accordion
+            title="CONFIGURATION QR CODES"
+            icon={<QrCode size={18} className="text-purple-600 dark:text-purple-400" />}
+            defaultOpen={true}
+          >
+            <div className="space-y-4">
+              <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
+                <h4 className="font-medium text-gray-900 dark:text-white mb-2">
+                  Quantité configurée
+                </h4>
+                <div className="flex items-center gap-2">
+                  <Package size={20} className="text-blue-600 dark:text-blue-400" />
+                  <span className="text-lg font-semibold text-blue-600 dark:text-blue-400">
+                    {formData.available_quantity} unité{formData.available_quantity > 1 ? 's' : ''}
+                  </span>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                  Type de QR Code
+                </label>
+                <div className="space-y-3">
+                  <div 
+                    className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${
+                      quantityData.qrType === 'individual' 
+                        ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20' 
+                        : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+                    }`}
+                    onClick={() => handleQuantityChange('qrType', 'individual')}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className={`w-4 h-4 rounded-full border-2 mt-1 ${
+                        quantityData.qrType === 'individual' 
+                          ? 'border-primary-500 bg-primary-500' 
+                          : 'border-gray-300 dark:border-gray-600'
+                      }`}>
+                        {quantityData.qrType === 'individual' && (
+                          <div className="w-2 h-2 bg-white rounded-full m-0.5"></div>
+                        )}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <QrCode size={18} className="text-primary-600 dark:text-primary-400" />
+                          <h4 className="font-medium text-gray-900 dark:text-gray-100">
+                            QR Code individuel par pièce
+                          </h4>
+                        </div>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          Chaque pièce aura son propre QR code unique. Idéal pour le suivi individuel.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div 
+                    className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${
+                      quantityData.qrType === 'batch' 
+                        ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20' 
+                        : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+                    }`}
+                    onClick={() => handleQuantityChange('qrType', 'batch')}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className={`w-4 h-4 rounded-full border-2 mt-1 ${
+                        quantityData.qrType === 'batch' 
+                          ? 'border-primary-500 bg-primary-500' 
+                          : 'border-gray-300 dark:border-gray-600'
+                      }`}>
+                        {quantityData.qrType === 'batch' && (
+                          <div className="w-2 h-2 bg-white rounded-full m-0.5"></div>
+                        )}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <Copy size={18} className="text-green-600 dark:text-green-400" />
+                          <h4 className="font-medium text-gray-900 dark:text-gray-100">
+                            QR Code unique pour le lot
+                          </h4>
+                        </div>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          Un seul QR code pour toutes les pièces. Idéal pour les articles identiques.
+                        </p>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          )}
 
-          <div className="flex justify-between gap-3">
-            <Button
-              variant="outline"
-              onClick={() => setStep('basic')}
-            >
-              Retour
-            </Button>
-            <div className="flex gap-3">
-              <Button
-                variant="outline"
-                onClick={onClose}
-              >
-                Annuler
-              </Button>
-              <Button
-                variant="primary"
-                onClick={handleFinalSubmit}
-                disabled={isLoading}
-              >
-                {isLoading ? 'Création en cours...' : 'Créer le matériel'}
-              </Button>
+              <div className="flex justify-between gap-3">
+                <Button
+                  variant="outline"
+                  onClick={() => setStep('basic')}
+                >
+                  Retour
+                </Button>
+                <div className="flex gap-3">
+                  <Button
+                    variant="outline"
+                    onClick={onClose}
+                  >
+                    Annuler
+                  </Button>
+                  <Button
+                    variant="primary"
+                    onClick={handleFinalSubmit}
+                    disabled={isLoading}
+                  >
+                    {isLoading ? 'Création en cours...' : 'Créer le matériel'}
+                  </Button>
+                </div>
+              </div>
             </div>
-          </div>
+          </Accordion>
         </div>
       )}
     </Modal>

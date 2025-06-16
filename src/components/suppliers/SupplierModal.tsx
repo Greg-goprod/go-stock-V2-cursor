@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import Modal from '../common/Modal';
 import Button from '../common/Button';
+import Accordion from '../common/Accordion';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { supabase } from '../../lib/supabase';
 import toast from 'react-hot-toast';
 import { Supplier } from '../../types';
+import { Building2, User, Mail, Phone, Globe } from 'lucide-react';
 
 interface SupplierModalProps {
   isOpen: boolean;
@@ -103,92 +105,110 @@ const SupplierModal: React.FC<SupplierModalProps> = ({ isOpen, onClose, supplier
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={supplier ? t('editSupplier') : t('addSupplier')}
+      title={supplier ? 'MODIFIER LE FOURNISSEUR' : 'AJOUTER UN FOURNISSEUR'}
       size="md"
     >
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            {t('name')} *
-          </label>
-          <input
-            type="text"
-            name="name"
-            required
-            value={formData.name}
-            onChange={handleChange}
-            className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
-          />
-        </div>
+      <div className="space-y-4">
+        {/* Informations de base */}
+        <Accordion
+          title="INFORMATIONS DE BASE"
+          icon={<Building2 size={18} className="text-blue-600 dark:text-blue-400" />}
+          defaultOpen={true}
+        >
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                {t('name')} *
+              </label>
+              <input
+                type="text"
+                name="name"
+                required
+                value={formData.name}
+                onChange={handleChange}
+                className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
+              />
+            </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            {t('contactPerson')}
-          </label>
-          <input
-            type="text"
-            name="contact_person"
-            value={formData.contact_person}
-            onChange={handleChange}
-            className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
-          />
-        </div>
+            <div className="flex justify-end gap-3">
+              <Button
+                variant="outline"
+                onClick={onClose}
+              >
+                {t('cancel')}
+              </Button>
+              <Button
+                variant="primary"
+                type="submit"
+                disabled={isLoading}
+              >
+                {isLoading ? t('saving') : supplier ? t('save') : t('add')}
+              </Button>
+            </div>
+          </form>
+        </Accordion>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            {t('email')}
-          </label>
-          <input
-            type="email"
-            name="email"
-            value={formData.email}
-            onChange={handleChange}
-            className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
-          />
-        </div>
+        {/* Contact */}
+        <Accordion
+          title="CONTACT"
+          icon={<User size={18} className="text-green-600 dark:text-green-400" />}
+          defaultOpen={false}
+        >
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                {t('contactPerson')}
+              </label>
+              <input
+                type="text"
+                name="contact_person"
+                value={formData.contact_person}
+                onChange={handleChange}
+                className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
+              />
+            </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            {t('phone')}
-          </label>
-          <input
-            type="tel"
-            name="phone"
-            value={formData.phone}
-            onChange={handleChange}
-            className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
-          />
-        </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                {t('email')}
+              </label>
+              <input
+                type="email"
+                name="email"
+                value={formData.email}
+                onChange={handleChange}
+                className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
+              />
+            </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            {t('website')}
-          </label>
-          <input
-            type="url"
-            name="website"
-            value={formData.website}
-            onChange={handleChange}
-            className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
-          />
-        </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                {t('phone')}
+              </label>
+              <input
+                type="tel"
+                name="phone"
+                value={formData.phone}
+                onChange={handleChange}
+                className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
+              />
+            </div>
 
-        <div className="flex justify-end gap-3">
-          <Button
-            variant="outline"
-            onClick={onClose}
-          >
-            {t('cancel')}
-          </Button>
-          <Button
-            variant="primary"
-            type="submit"
-            disabled={isLoading}
-          >
-            {isLoading ? t('saving') : supplier ? t('save') : t('add')}
-          </Button>
-        </div>
-      </form>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                {t('website')}
+              </label>
+              <input
+                type="url"
+                name="website"
+                value={formData.website}
+                onChange={handleChange}
+                className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
+              />
+            </div>
+          </div>
+        </Accordion>
+      </div>
     </Modal>
   );
 };

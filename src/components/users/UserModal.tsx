@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import Modal from '../common/Modal';
 import Button from '../common/Button';
+import Accordion from '../common/Accordion';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { supabase } from '../../lib/supabase';
 import toast from 'react-hot-toast';
 import { User } from '../../types';
+import { User as UserIcon, Mail, Phone, Building2, Shield } from 'lucide-react';
 
 interface UserModalProps {
   isOpen: boolean;
@@ -108,113 +110,140 @@ const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, user }) => {
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={user ? t('editUser') : t('addUser')}
+      title={user ? 'MODIFIER L\'UTILISATEUR' : 'AJOUTER UN UTILISATEUR'}
       size="md"
     >
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Prénom *
-            </label>
-            <input
-              type="text"
-              name="first_name"
-              required
-              value={formData.first_name}
-              onChange={handleChange}
-              className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
-            />
+      <div className="space-y-4">
+        {/* Informations personnelles */}
+        <Accordion
+          title="INFORMATIONS PERSONNELLES"
+          icon={<UserIcon size={18} className="text-blue-600 dark:text-blue-400" />}
+          defaultOpen={true}
+        >
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Prénom *
+                </label>
+                <input
+                  type="text"
+                  name="first_name"
+                  required
+                  value={formData.first_name}
+                  onChange={handleChange}
+                  className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Nom *
+                </label>
+                <input
+                  type="text"
+                  name="last_name"
+                  required
+                  value={formData.last_name}
+                  onChange={handleChange}
+                  className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3">
+              <Button
+                variant="outline"
+                onClick={onClose}
+              >
+                {t('cancel')}
+              </Button>
+              <Button
+                variant="primary"
+                type="submit"
+                disabled={isLoading}
+              >
+                {isLoading ? t('saving') : user ? t('save') : t('add')}
+              </Button>
+            </div>
+          </form>
+        </Accordion>
+
+        {/* Contact */}
+        <Accordion
+          title="CONTACT"
+          icon={<Mail size={18} className="text-green-600 dark:text-green-400" />}
+          defaultOpen={true}
+        >
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                {t('email')} *
+              </label>
+              <input
+                type="email"
+                name="email"
+                required
+                value={formData.email}
+                onChange={handleChange}
+                className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                {t('phone')}
+              </label>
+              <input
+                type="tel"
+                name="phone"
+                value={formData.phone}
+                onChange={handleChange}
+                className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
+              />
+            </div>
           </div>
+        </Accordion>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Nom *
-            </label>
-            <input
-              type="text"
-              name="last_name"
-              required
-              value={formData.last_name}
-              onChange={handleChange}
-              className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
-            />
+        {/* Organisation */}
+        <Accordion
+          title="ORGANISATION"
+          icon={<Building2 size={18} className="text-purple-600 dark:text-purple-400" />}
+          defaultOpen={true}
+        >
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                {t('department')} *
+              </label>
+              <input
+                type="text"
+                name="department"
+                required
+                value={formData.department}
+                onChange={handleChange}
+                className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                {t('role')} *
+              </label>
+              <select
+                name="role"
+                required
+                value={formData.role}
+                onChange={handleChange}
+                className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
+              >
+                <option value="user">{t('user')}</option>
+                <option value="admin">{t('admin')}</option>
+              </select>
+            </div>
           </div>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            {t('email')} *
-          </label>
-          <input
-            type="email"
-            name="email"
-            required
-            value={formData.email}
-            onChange={handleChange}
-            className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            {t('phone')}
-          </label>
-          <input
-            type="tel"
-            name="phone"
-            value={formData.phone}
-            onChange={handleChange}
-            className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            {t('department')} *
-          </label>
-          <input
-            type="text"
-            name="department"
-            required
-            value={formData.department}
-            onChange={handleChange}
-            className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            {t('role')} *
-          </label>
-          <select
-            name="role"
-            required
-            value={formData.role}
-            onChange={handleChange}
-            className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
-          >
-            <option value="user">{t('user')}</option>
-            <option value="admin">{t('admin')}</option>
-          </select>
-        </div>
-
-        <div className="flex justify-end gap-3">
-          <Button
-            variant="outline"
-            onClick={onClose}
-          >
-            {t('cancel')}
-          </Button>
-          <Button
-            variant="primary"
-            type="submit"
-            disabled={isLoading}
-          >
-            {isLoading ? t('saving') : user ? t('save') : t('add')}
-          </Button>
-        </div>
-      </form>
+        </Accordion>
+      </div>
     </Modal>
   );
 };

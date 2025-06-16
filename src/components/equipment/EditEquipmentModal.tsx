@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import Modal from '../common/Modal';
 import Button from '../common/Button';
+import Accordion from '../common/Accordion';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { supabase } from '../../lib/supabase';
 import toast from 'react-hot-toast';
 import { Equipment, Category, Supplier, EquipmentGroup } from '../../types';
-import { Package, QrCode, Copy, AlertTriangle } from 'lucide-react';
+import { Package, QrCode, Copy, AlertTriangle, Info, Settings } from 'lucide-react';
 
 interface EditEquipmentModalProps {
   isOpen: boolean;
@@ -236,189 +237,120 @@ const EditEquipmentModal: React.FC<EditEquipmentModalProps> = ({ isOpen, onClose
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Modifier le Matériel"
+      title="MODIFIER LE MATÉRIEL"
       size="lg"
     >
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Nom du matériel *
-            </label>
-            <input
-              type="text"
-              name="name"
-              required
-              value={formData.name}
-              onChange={handleChange}
-              className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
-            />
-          </div>
+      <div className="space-y-4">
+        {/* Informations de base */}
+        <Accordion
+          title="INFORMATIONS DE BASE"
+          icon={<Info size={18} className="text-blue-600 dark:text-blue-400" />}
+          defaultOpen={true}
+        >
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Nom du matériel *
+                </label>
+                <input
+                  type="text"
+                  name="name"
+                  required
+                  value={formData.name}
+                  onChange={handleChange}
+                  className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
+                />
+              </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              {t('serialNumber')} *
-            </label>
-            <input
-              type="text"
-              name="serial_number"
-              required
-              value={formData.serial_number}
-              onChange={handleChange}
-              className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
-            />
-          </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  {t('serialNumber')} *
+                </label>
+                <input
+                  type="text"
+                  name="serial_number"
+                  required
+                  value={formData.serial_number}
+                  onChange={handleChange}
+                  className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
+                />
+              </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              {t('category')}
-            </label>
-            <select
-              name="category_id"
-              value={formData.category_id}
-              onChange={handleChange}
-              className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
-            >
-              <option value="">{t('select')} {t('category')}</option>
-              {categories.map(category => (
-                <option key={category.id} value={category.id}>
-                  {category.name}
-                </option>
-              ))}
-            </select>
-          </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  {t('category')}
+                </label>
+                <select
+                  name="category_id"
+                  value={formData.category_id}
+                  onChange={handleChange}
+                  className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
+                >
+                  <option value="">{t('select')} {t('category')}</option>
+                  {categories.map(category => (
+                    <option key={category.id} value={category.id}>
+                      {category.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              {t('group')}
-            </label>
-            <select
-              name="group_id"
-              value={formData.group_id}
-              onChange={handleChange}
-              className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
-            >
-              <option value="">{t('select')} {t('group')}</option>
-              {groups.map(group => (
-                <option key={group.id} value={group.id}>
-                  {group.name}
-                </option>
-              ))}
-            </select>
-          </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  {t('status')}
+                </label>
+                <select
+                  name="status"
+                  value={formData.status}
+                  onChange={handleChange}
+                  className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
+                >
+                  <option value="available">{t('available')}</option>
+                  <option value="checked-out">{t('checkedOut')}</option>
+                  <option value="maintenance">{t('maintenance')}</option>
+                  <option value="retired">{t('retired')}</option>
+                </select>
+              </div>
+            </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              {t('supplier')}
-            </label>
-            <select
-              name="supplier_id"
-              value={formData.supplier_id}
-              onChange={handleChange}
-              className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
-            >
-              <option value="">{t('select')} {t('supplier')}</option>
-              {suppliers.map(supplier => (
-                <option key={supplier.id} value={supplier.id}>
-                  {supplier.name}
-                </option>
-              ))}
-            </select>
-          </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                {t('description')}
+              </label>
+              <textarea
+                name="description"
+                value={formData.description}
+                onChange={handleChange}
+                rows={3}
+                className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
+              />
+            </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              {t('status')}
-            </label>
-            <select
-              name="status"
-              value={formData.status}
-              onChange={handleChange}
-              className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
-            >
-              <option value="available">{t('available')}</option>
-              <option value="checked-out">{t('checkedOut')}</option>
-              <option value="maintenance">{t('maintenance')}</option>
-              <option value="retired">{t('retired')}</option>
-            </select>
-          </div>
+            <div className="flex justify-end gap-3">
+              <Button
+                variant="outline"
+                onClick={onClose}
+              >
+                {t('cancel')}
+              </Button>
+              <Button
+                variant="primary"
+                type="submit"
+                disabled={isLoading}
+              >
+                {isLoading ? t('saving') : t('save')}
+              </Button>
+            </div>
+          </form>
+        </Accordion>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              {t('location')}
-            </label>
-            <input
-              type="text"
-              name="location"
-              value={formData.location}
-              onChange={handleChange}
-              className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              {t('totalQuantity')}
-            </label>
-            <input
-              type="number"
-              name="total_quantity"
-              min="1"
-              value={formData.total_quantity}
-              onChange={handleChange}
-              className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
-            />
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-              La quantité disponible est calculée automatiquement selon les sorties et maintenances
-            </p>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Titre court
-            </label>
-            <input
-              type="text"
-              name="short_title"
-              value={formData.short_title}
-              onChange={handleChange}
-              className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              URL de l'image
-            </label>
-            <input
-              type="url"
-              name="image_url"
-              value={formData.image_url}
-              onChange={handleChange}
-              className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
-            />
-          </div>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            {t('description')}
-          </label>
-          <textarea
-            name="description"
-            value={formData.description}
-            onChange={handleChange}
-            rows={3}
-            className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
-          />
-        </div>
-
-        {/* Section QR Code Type */}
-        <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
-          <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
-            Configuration des QR Codes
-          </h3>
-          
+        {/* Configuration QR Codes */}
+        <Accordion
+          title="CONFIGURATION QR CODES"
+          icon={<QrCode size={18} className="text-purple-600 dark:text-purple-400" />}
+          defaultOpen={false}
+        >
           <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div 
@@ -519,24 +451,8 @@ const EditEquipmentModal: React.FC<EditEquipmentModalProps> = ({ isOpen, onClose
               </div>
             )}
           </div>
-        </div>
-
-        <div className="flex justify-end gap-3">
-          <Button
-            variant="outline"
-            onClick={onClose}
-          >
-            {t('cancel')}
-          </Button>
-          <Button
-            variant="primary"
-            type="submit"
-            disabled={isLoading}
-          >
-            {isLoading ? t('saving') : t('save')}
-          </Button>
-        </div>
-      </form>
+        </Accordion>
+      </div>
     </Modal>
   );
 };

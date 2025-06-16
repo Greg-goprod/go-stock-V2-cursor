@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import Modal from '../common/Modal';
 import Button from '../common/Button';
+import Accordion from '../common/Accordion';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { supabase } from '../../lib/supabase';
 import toast from 'react-hot-toast';
 import { Category } from '../../types';
+import { Tag, FileText } from 'lucide-react';
 
 interface CategoryModalProps {
   isOpen: boolean;
@@ -88,53 +90,69 @@ const CategoryModal: React.FC<CategoryModalProps> = ({ isOpen, onClose, category
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={category ? t('editCategory') : t('addCategory')}
+      title={category ? 'MODIFIER LA CATÉGORIE' : 'AJOUTER UNE CATÉGORIE'}
       size="md"
     >
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            {t('name')} *
-          </label>
-          <input
-            type="text"
-            name="name"
-            required
-            value={formData.name}
-            onChange={handleChange}
-            className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
-          />
-        </div>
+      <div className="space-y-4">
+        {/* Informations de base */}
+        <Accordion
+          title="INFORMATIONS DE BASE"
+          icon={<Tag size={18} className="text-blue-600 dark:text-blue-400" />}
+          defaultOpen={true}
+        >
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                {t('name')} *
+              </label>
+              <input
+                type="text"
+                name="name"
+                required
+                value={formData.name}
+                onChange={handleChange}
+                className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
+              />
+            </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            {t('description')}
-          </label>
-          <textarea
-            name="description"
-            value={formData.description}
-            onChange={handleChange}
-            rows={3}
-            className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
-          />
-        </div>
+            <div className="flex justify-end gap-3">
+              <Button
+                variant="outline"
+                onClick={onClose}
+              >
+                {t('cancel')}
+              </Button>
+              <Button
+                variant="primary"
+                type="submit"
+                disabled={isLoading}
+              >
+                {isLoading ? t('saving') : category ? t('save') : t('add')}
+              </Button>
+            </div>
+          </form>
+        </Accordion>
 
-        <div className="flex justify-end gap-3">
-          <Button
-            variant="outline"
-            onClick={onClose}
-          >
-            {t('cancel')}
-          </Button>
-          <Button
-            variant="primary"
-            type="submit"
-            disabled={isLoading}
-          >
-            {isLoading ? t('saving') : category ? t('save') : t('add')}
-          </Button>
-        </div>
-      </form>
+        {/* Description */}
+        <Accordion
+          title="DESCRIPTION"
+          icon={<FileText size={18} className="text-green-600 dark:text-green-400" />}
+          defaultOpen={false}
+        >
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              {t('description')}
+            </label>
+            <textarea
+              name="description"
+              value={formData.description}
+              onChange={handleChange}
+              rows={3}
+              className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
+            />
+          </div>
+        </Accordion>
+      </div>
     </Modal>
   );
 };

@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import Modal from '../common/Modal';
 import Button from '../common/Button';
+import Accordion from '../common/Accordion';
 import ColorPicker from '../common/ColorPicker';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { supabase } from '../../lib/supabase';
 import toast from 'react-hot-toast';
 import { Department } from '../../types';
+import { Building2, FileText, Palette } from 'lucide-react';
 
 interface DepartmentModalProps {
   isOpen: boolean;
@@ -97,65 +99,88 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({ isOpen, onClose, depa
       title={department ? 'MODIFIER LE DÉPARTEMENT' : 'AJOUTER UN DÉPARTEMENT'}
       size="md"
     >
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            Nom *
-          </label>
-          <input
-            type="text"
-            name="name"
-            required
-            value={formData.name}
-            onChange={handleChange}
-            className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
-          />
-        </div>
+      <div className="space-y-4">
+        {/* Informations de base */}
+        <Accordion
+          title="INFORMATIONS DE BASE"
+          icon={<Building2 size={18} className="text-blue-600 dark:text-blue-400" />}
+          defaultOpen={true}
+        >
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Nom *
+              </label>
+              <input
+                type="text"
+                name="name"
+                required
+                value={formData.name}
+                onChange={handleChange}
+                className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
+              />
+            </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            Description
-          </label>
-          <textarea
-            name="description"
-            value={formData.description}
-            onChange={handleChange}
-            rows={3}
-            className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
-          />
-        </div>
+            <div className="flex justify-end gap-3">
+              <Button
+                variant="outline"
+                onClick={onClose}
+              >
+                ANNULER
+              </Button>
+              <Button
+                variant="primary"
+                type="submit"
+                disabled={isLoading}
+              >
+                {isLoading ? 'SAUVEGARDE...' : department ? 'MODIFIER' : 'AJOUTER'}
+              </Button>
+            </div>
+          </form>
+        </Accordion>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            Couleur
-          </label>
-          <div className="flex items-center gap-3">
-            <ColorPicker
-              color={formData.color}
-              onChange={(color) => setFormData(prev => ({ ...prev, color }))}
+        {/* Description */}
+        <Accordion
+          title="DESCRIPTION"
+          icon={<FileText size={18} className="text-green-600 dark:text-green-400" />}
+          defaultOpen={false}
+        >
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Description
+            </label>
+            <textarea
+              name="description"
+              value={formData.description}
+              onChange={handleChange}
+              rows={3}
+              className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
             />
-            <span className="text-sm text-gray-500 dark:text-gray-400">
-              {formData.color}
-            </span>
           </div>
-        </div>
+        </Accordion>
 
-        <div className="flex justify-end gap-3">
-          <Button
-            variant="outline"
-            onClick={onClose}
-          >
-            ANNULER
-          </Button>
-          <Button
-            variant="primary"
-            type="submit"
-            disabled={isLoading}
-          >
-            {isLoading ? 'SAUVEGARDE...' : department ? 'MODIFIER' : 'AJOUTER'}
-          </Button>
-        </div>
-      </form>
+        {/* Couleur */}
+        <Accordion
+          title="COULEUR"
+          icon={<Palette size={18} className="text-purple-600 dark:text-purple-400" />}
+          defaultOpen={false}
+        >
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Couleur
+            </label>
+            <div className="flex items-center gap-3">
+              <ColorPicker
+                color={formData.color}
+                onChange={(color) => setFormData(prev => ({ ...prev, color }))}
+              />
+              <span className="text-sm text-gray-500 dark:text-gray-400">
+                {formData.color}
+              </span>
+            </div>
+          </div>
+        </Accordion>
+      </div>
     </Modal>
   );
 };

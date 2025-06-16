@@ -74,29 +74,29 @@ const Modal: React.FC<ModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
       {/* Backdrop avec effet de flou */}
-      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm transition-opacity duration-300" />
+      <div className="fixed inset-0 bg-black/30 backdrop-blur-sm transition-opacity duration-300" />
       
-      {/* Container centré */}
-      <div className="flex min-h-full items-center justify-center p-4">
+      {/* Container flottant - position plus haute et moins de hauteur */}
+      <div className="flex min-h-full items-start justify-center p-4 pt-16">
         <div
           ref={modalRef}
           className={`${sizeClasses[size]} w-full transform transition-all duration-300 scale-100`}
         >
-          {/* Modal flottant avec ombre et bordure */}
-          <div className="relative bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-            {/* Header avec effet glassmorphism */}
-            <div className="flex items-center justify-between px-6 py-4 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-b border-gray-200 dark:border-gray-700">
-              <h2 className="text-xl font-semibold text-gray-800 dark:text-white">{title}</h2>
+          {/* Modal flottant avec ombre douce et bordure subtile */}
+          <div className="relative bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-100 dark:border-gray-700 overflow-hidden max-h-[75vh]">
+            {/* Header compact avec effet glassmorphism */}
+            <div className="flex items-center justify-between px-4 py-3 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border-b border-gray-100 dark:border-gray-700">
+              <h2 className="text-lg font-bold text-gray-800 dark:text-white uppercase tracking-wide">{title}</h2>
               <button
                 onClick={onClose}
-                className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200 group"
+                className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200 group"
               >
-                <X size={20} className="text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-200" />
+                <X size={18} className="text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-200" />
               </button>
             </div>
             
-            {/* Content avec padding optimisé et couleurs corrigées */}
-            <div className="p-6 max-h-[calc(100vh-200px)] overflow-y-auto text-gray-900 dark:text-white">
+            {/* Content avec padding réduit et scroll optimisé */}
+            <div className="p-4 overflow-y-auto max-h-[calc(75vh-60px)] text-gray-900 dark:text-white">
               {children}
             </div>
           </div>

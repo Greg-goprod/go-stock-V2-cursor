@@ -4,7 +4,7 @@ import Button from '../common/Button';
 import QRCodeScanner from '../QRCode/QRCodeScanner';
 import { User, Equipment } from '../../types';
 import { supabase } from '../../lib/supabase';
-import { Search, UserPlus, Package, Plus, Trash2, Calendar, Printer, List, Filter } from 'lucide-react';
+import { Search, UserPlus, Package, Plus, Trash2, Calendar, Printer, List, Filter, X, CheckCircle, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface CheckoutModalProps {
@@ -32,11 +32,11 @@ interface StockInfo {
 
 interface ScanHistoryItem {
   id: string;
-  qrCode: string;
+  scannedValue: string;
   timestamp: string;
-  status: 'success' | 'error';
-  equipmentName?: string;
-  errorMessage?: string;
+  status: 'success' | 'error' | 'duplicate';
+  message: string;
+  equipment?: Equipment;
 }
 
 const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
@@ -49,7 +49,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
   const [isLoading, setIsLoading] = useState(false);
   
   // User selection states
-  const [userSelectionMode, setUserSelectionMode] = useState<'list' | 'new'>('list');
+  const [userSelectionMode, setUserSelectionMode] = useState<'new' | 'list'>('list');
   const [userSearch, setUserSearch] = useState('');
   const [users, setUsers] = useState<User[]>([]);
   const [newUserData, setNewUserData] = useState({
@@ -73,6 +73,8 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
     description: ''
   });
   const [stockInfo, setStockInfo] = useState<Record<string, StockInfo>>({});
+  
+  // Scan history
   const [scanHistory, setScanHistory] = useState<ScanHistoryItem[]>([]);
 
   useEffect(() => {
@@ -192,123 +194,75 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
     }
   };
 
-  // Fonction de normalisation des QR codes
-  const normalizeQRCode = (qrCode: string): string[] => {
-    const clean = qrCode.replace(/[\r\n\t\s]/g, '').trim();
-    console.log('🧹 QR Code nettoyé:', clean);
+  const addToScanHistory = (scannedValue: string, status: 'success' | 'error' | 'duplicate', message: string, equipment?: Equipment) => {
+    const historyItem: ScanHistoryItem = {
+      id: `scan-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      scannedValue,
+      timestamp: new Date().toISOString(),
+      status,
+      message,
+      equipment
+    };
     
-    const variants: string[] = [clean];
-    
-    // Variantes avec différents séparateurs
-    if (clean.includes("'")) {
-      variants.push(clean.replace(/'/g, '-'));
-      variants.push(clean.replace(/'/g, '_'));
-      variants.push(clean.replace(/'/g, ''));
-    }
-    
-    if (clean.includes('-')) {
-      variants.push(clean.replace(/-/g, "'"));
-      variants.push(clean.replace(/-/g, '_'));
-      variants.push(clean.replace(/-/g, ''));
-    }
-    
-    if (clean.includes('_')) {
-      variants.push(clean.replace(/_/g, '-'));
-      variants.push(clean.replace(/_/g, "'"));
-      variants.push(clean.replace(/_/g, ''));
-    }
-    
-    // Variantes sans séparateurs
-    const noSeparators = clean.replace(/[-'_]/g, '');
-    if (noSeparators !== clean) {
-      variants.push(noSeparators);
-    }
-    
-    console.log('🔄 Variantes générées:', variants);
-    return [...new Set(variants)]; // Supprimer les doublons
+    setScanHistory(prev => [historyItem, ...prev.slice(0, 9)]); // Garder les 10 derniers
   };
 
-  const findEquipmentByQR = (qrCode: string): Equipment | null => {
-    const variants = normalizeQRCode(qrCode);
-    
-    for (const variant of variants) {
-      console.log('🔍 Test variante:', variant);
-      
-      // Test par ID
-      let found = equipment.find(eq => eq.id === variant);
-      if (found) {
-        console.log('✅ Trouvé par ID:', found.name);
-        return found;
-      }
-      
-      // Test par article_number
-      found = equipment.find(eq => eq.articleNumber === variant);
-      if (found) {
-        console.log('✅ Trouvé par article_number:', found.name);
-        return found;
-      }
-      
-      // Test par serial_number
-      found = equipment.find(eq => eq.serialNumber === variant);
-      if (found) {
-        console.log('✅ Trouvé par serial_number:', found.name);
-        return found;
-      }
-      
-      // Test par article_number normalisé
-      found = equipment.find(eq => {
-        if (!eq.articleNumber) return false;
-        const normalizedArticle = normalizeQRCode(eq.articleNumber);
-        return normalizedArticle.includes(variant);
-      });
-      if (found) {
-        console.log('✅ Trouvé par article_number normalisé:', found.name);
-        return found;
-      }
-    }
-    
-    console.log('❌ Aucun équipement trouvé pour:', qrCode);
-    return null;
+  const clearScanHistory = () => {
+    setScanHistory([]);
   };
 
   const handleEquipmentScan = async (scannedId: string) => {
     console.log('🔍 Scan reçu:', scannedId);
     
-    const equipmentItem = findEquipmentByQR(scannedId);
-    
-    const scanHistoryItem: ScanHistoryItem = {
-      id: Date.now().toString(),
-      qrCode: scannedId,
-      timestamp: new Date().toLocaleTimeString('fr-FR'),
-      status: equipmentItem ? 'success' : 'error',
-      equipmentName: equipmentItem?.name,
-      errorMessage: equipmentItem ? undefined : 'Matériel non trouvé'
-    };
-    
-    // Ajouter à l'historique (max 10 items)
-    setScanHistory(prev => [scanHistoryItem, ...prev.slice(0, 9)]);
-    
-    if (equipmentItem) {
+    try {
+      // Rechercher l'équipement par ID, article number ou serial number
+      let equipmentItem = equipment.find(e => 
+        e.id === scannedId || 
+        e.articleNumber === scannedId || 
+        e.serialNumber === scannedId
+      );
+
+      // Si pas trouvé par les méthodes ci-dessus, chercher dans les instances
+      if (!equipmentItem) {
+        const { data: instances, error: instanceError } = await supabase
+          .from('equipment_instances')
+          .select('equipment_id, qr_code')
+          .eq('qr_code', scannedId);
+
+        if (!instanceError && instances && instances.length > 0) {
+          const equipmentId = instances[0].equipment_id;
+          equipmentItem = equipment.find(e => e.id === equipmentId);
+        }
+      }
+
+      if (!equipmentItem) {
+        console.log('❌ Matériel non trouvé pour:', scannedId);
+        addToScanHistory(scannedId, 'error', 'Matériel non trouvé');
+        toast.error('Matériel non trouvé');
+        return;
+      }
+
+      console.log('✅ Matériel trouvé:', equipmentItem.name);
+
+      // Vérifier la disponibilité
       const stock = stockInfo[equipmentItem.id];
       if (!stock || stock.available === 0) {
-        scanHistoryItem.status = 'error';
-        scanHistoryItem.errorMessage = 'Matériel non disponible';
-        setScanHistory(prev => [scanHistoryItem, ...prev.slice(1)]);
+        addToScanHistory(scannedId, 'error', 'Matériel non disponible', equipmentItem);
         toast.error('Ce matériel n\'est pas disponible');
         return;
       }
 
+      // Vérifier si déjà dans la liste
       const existingItem = checkoutItems.find(item => item.equipment.id === equipmentItem.id);
       const currentQuantity = existingItem ? existingItem.quantity : 0;
       
       if (currentQuantity >= stock.available) {
-        scanHistoryItem.status = 'error';
-        scanHistoryItem.errorMessage = 'Quantité maximale atteinte';
-        setScanHistory(prev => [scanHistoryItem, ...prev.slice(1)]);
+        addToScanHistory(scannedId, 'duplicate', 'Quantité maximale atteinte', equipmentItem);
         toast.error('Quantité maximale atteinte pour ce matériel');
         return;
       }
 
+      // Ajouter ou incrémenter
       if (existingItem) {
         setCheckoutItems(prev => 
           prev.map(item => 
@@ -317,12 +271,18 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
               : item
           )
         );
+        addToScanHistory(scannedId, 'success', `Quantité augmentée (${currentQuantity + 1})`, equipmentItem);
       } else {
         setCheckoutItems(prev => [...prev, { equipment: equipmentItem, quantity: 1 }]);
+        addToScanHistory(scannedId, 'success', 'Ajouté à la liste', equipmentItem);
       }
+      
       toast.success(`${equipmentItem.name} ajouté`);
-    } else {
-      toast.error('Matériel non trouvé');
+      
+    } catch (error) {
+      console.error('Erreur lors du scan:', error);
+      addToScanHistory(scannedId, 'error', 'Erreur de traitement');
+      toast.error('Erreur lors du traitement du scan');
     }
   };
 
@@ -396,11 +356,6 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
     setTempNewEquipment({ name: '', serialNumber: '', description: '' });
     setShowNewEquipmentForm(false);
     toast.success('Matériel ajouté à la liste');
-  };
-
-  const clearScanHistory = () => {
-    setScanHistory([]);
-    toast.success('Historique effacé');
   };
 
   const handleCheckout = async () => {
@@ -849,18 +804,18 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
           <div className="space-y-4">
             <div className="flex gap-3">
               <Button
-                variant={userSelectionMode === 'list' ? 'primary' : 'outline'}
-                icon={<List size={18} />}
-                onClick={() => setUserSelectionMode('list')}
-              >
-                Liste Utilisateurs
-              </Button>
-              <Button
                 variant={userSelectionMode === 'new' ? 'primary' : 'outline'}
                 icon={<UserPlus size={18} />}
                 onClick={() => setUserSelectionMode('new')}
               >
                 Nouvel Utilisateur
+              </Button>
+              <Button
+                variant={userSelectionMode === 'list' ? 'primary' : 'outline'}
+                icon={<List size={18} />}
+                onClick={() => setUserSelectionMode('list')}
+              >
+                Liste Utilisateurs
               </Button>
             </div>
 
@@ -998,7 +953,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
 
             {equipmentMode === 'scan' && (
               <div className="space-y-4">
-                {/* Scanner QR simplifié */}
+                {/* Scanner */}
                 <div className="border rounded-lg p-4">
                   <QRCodeScanner onScan={handleEquipmentScan} />
                 </div>
@@ -1007,9 +962,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
                 {scanHistory.length > 0 && (
                   <div className="border rounded-lg p-4">
                     <div className="flex justify-between items-center mb-3">
-                      <h4 className="font-medium text-gray-900 dark:text-white">
-                        Historique des scans ({scanHistory.length})
-                      </h4>
+                      <h4 className="font-medium">Historique des scans ({scanHistory.length})</h4>
                       <Button
                         variant="outline"
                         size="sm"
@@ -1018,26 +971,35 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
                         Effacer
                       </Button>
                     </div>
-                    <div className="space-y-2 max-h-32 overflow-y-auto">
+                    <div className="space-y-2 max-h-40 overflow-y-auto">
                       {scanHistory.map((scan) => (
                         <div
                           key={scan.id}
-                          className={`flex justify-between items-center p-2 rounded text-sm ${
+                          className={`flex items-center justify-between p-2 rounded text-sm ${
                             scan.status === 'success' 
                               ? 'bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-200' 
+                              : scan.status === 'duplicate'
+                              ? 'bg-yellow-50 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-200'
                               : 'bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-200'
                           }`}
                         >
                           <div className="flex items-center gap-2">
-                            <span className="font-mono text-xs">{scan.qrCode}</span>
-                            {scan.equipmentName && (
-                              <span className="font-medium">→ {scan.equipmentName}</span>
+                            {scan.status === 'success' ? (
+                              <CheckCircle size={16} />
+                            ) : (
+                              <AlertCircle size={16} />
                             )}
-                            {scan.errorMessage && (
-                              <span className="text-xs">({scan.errorMessage})</span>
+                            <span className="font-mono text-xs">{scan.scannedValue}</span>
+                            {scan.equipment && (
+                              <span className="font-medium">({scan.equipment.name})</span>
                             )}
                           </div>
-                          <span className="text-xs font-medium">{scan.timestamp}</span>
+                          <div className="text-right">
+                            <div className="font-medium">{scan.message}</div>
+                            <div className="text-xs opacity-75">
+                              {new Date(scan.timestamp).toLocaleTimeString()}
+                            </div>
+                          </div>
                         </div>
                       ))}
                     </div>

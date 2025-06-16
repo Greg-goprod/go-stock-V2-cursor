@@ -53,7 +53,6 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
   
   // Equipment states
   const [equipmentMode, setEquipmentMode] = useState<'scan' | 'list' | 'new'>('scan');
-  const [showScanner, setShowScanner] = useState(false);
   const [equipment, setEquipment] = useState<Equipment[]>([]);
   const [filteredEquipment, setFilteredEquipment] = useState<Equipment[]>([]);
   const [equipmentSearch, setEquipmentSearch] = useState('');
@@ -65,6 +64,15 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
     description: ''
   });
   const [stockInfo, setStockInfo] = useState<Record<string, StockInfo>>({});
+
+  // Scan tracking
+  const [scanHistory, setScanHistory] = useState<Array<{
+    id: string;
+    value: string;
+    timestamp: number;
+    status: 'success' | 'error';
+    message: string;
+  }>>([]);
 
   useEffect(() => {
     if (isOpen) {
@@ -183,37 +191,175 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
     }
   };
 
-  const handleEquipmentScan = (scannedId: string) => {
-    const equipmentItem = equipment.find(e => e.id === scannedId);
-    if (equipmentItem) {
-      const stock = stockInfo[equipmentItem.id];
-      if (!stock || stock.available === 0) {
-        toast.error('Ce matériel n\'est pas disponible');
-        return;
-      }
-
-      const existingItem = checkoutItems.find(item => item.equipment.id === equipmentItem.id);
-      const currentQuantity = existingItem ? existingItem.quantity : 0;
-      
-      if (currentQuantity >= stock.available) {
-        toast.error('Quantité maximale atteinte pour ce matériel');
-        return;
-      }
-
-      if (existingItem) {
-        setCheckoutItems(prev => 
-          prev.map(item => 
-            item.equipment.id === equipmentItem.id 
-              ? { ...item, quantity: item.quantity + 1 }
-              : item
-          )
+  // Fonction de normalisation intelligente des QR codes
+  const normalizeQRCode = (qrValue: string): string[] => {
+    console.log('🔍 Normalisation du QR code:', qrValue);
+    
+    const variants: string[] = [];
+    const cleanValue = qrValue.replace(/[\r\n\t\s]/g, '').trim();
+    
+    // Ajouter la valeur originale
+    variants.push(cleanValue);
+    variants.push(qrValue.trim());
+    
+    // Générer des variantes avec différents séparateurs
+    const withoutSeparators = cleanValue.replace(/[-'_]/g, '');
+    const withDashes = cleanValue.replace(/['_]/g, '-');
+    const withUnderscores = cleanValue.replace(/[-']/g, '_');
+    const withQuotes = cleanValue.replace(/[-_]/g, "'");
+    
+    variants.push(withoutSeparators, withDashes, withUnderscores, withQuotes);
+    
+    // Variantes avec différents formats de date
+    if (cleanValue.includes('20')) {
+      const dateMatch = cleanValue.match(/(\w+)['_-]?(\d{8})['_-]?(\d+)['_-]?(\d+)?/);
+      if (dateMatch) {
+        const [, prefix, date, num1, num2] = dateMatch;
+        variants.push(
+          `${prefix}-${date}-${num1}`,
+          `${prefix}'${date}'${num1}'${num2 || '001'}`,
+          `${prefix}_${date}_${num1}_${num2 || '001'}`,
+          `${prefix}${date}${num1}${num2 || '001'}`
         );
-      } else {
-        setCheckoutItems(prev => [...prev, { equipment: equipmentItem, quantity: 1 }]);
       }
-      toast.success(`${equipmentItem.name} ajouté`);
-    } else {
-      toast.error('Matériel non trouvé');
+    }
+    
+    // Supprimer les doublons et retourner
+    const uniqueVariants = [...new Set(variants)].filter(Boolean);
+    console.log('🔄 Variantes générées:', uniqueVariants);
+    return uniqueVariants;
+  };
+
+  const handleEquipmentScan = async (scannedId: string) => {
+    console.log('🎯 Scan matériel reçu:', scannedId);
+    
+    const scanId = Date.now().toString();
+    const timestamp = Date.now();
+    
+    try {
+      // Générer toutes les variantes possibles
+      const variants = normalizeQRCode(scannedId);
+      console.log('🔍 Test des variantes:', variants);
+      
+      let foundEquipment: Equipment | null = null;
+      let matchedVariant = '';
+      
+      // Tester chaque variante contre tous les champs
+      for (const variant of variants) {
+        console.log(`🔎 Test variante: "${variant}"`);
+        
+        // Test par ID
+        foundEquipment = equipment.find(e => e.id.toLowerCase() === variant.toLowerCase());
+        if (foundEquipment) {
+          matchedVariant = variant;
+          console.log('✅ Trouvé par ID:', foundEquipment.name);
+          break;
+        }
+        
+        // Test par numéro d'article
+        foundEquipment = equipment.find(e => 
+          e.articleNumber && e.articleNumber.toLowerCase() === variant.toLowerCase()
+        );
+        if (foundEquipment) {
+          matchedVariant = variant;
+          console.log('✅ Trouvé par article_number:', foundEquipment.name);
+          break;
+        }
+        
+        // Test par numéro de série
+        foundEquipment = equipment.find(e => 
+          e.serialNumber && e.serialNumber.toLowerCase() === variant.toLowerCase()
+        );
+        if (foundEquipment) {
+          matchedVariant = variant;
+          console.log('✅ Trouvé par serial_number:', foundEquipment.name);
+          break;
+        }
+      }
+      
+      if (foundEquipment) {
+        const stock = stockInfo[foundEquipment.id];
+        if (!stock || stock.available === 0) {
+          const errorMsg = 'Ce matériel n\'est pas disponible';
+          setScanHistory(prev => [...prev, {
+            id: scanId,
+            value: scannedId,
+            timestamp,
+            status: 'error',
+            message: errorMsg
+          }]);
+          toast.error(errorMsg);
+          return;
+        }
+
+        const existingItem = checkoutItems.find(item => item.equipment.id === foundEquipment!.id);
+        const currentQuantity = existingItem ? existingItem.quantity : 0;
+        
+        if (currentQuantity >= stock.available) {
+          const errorMsg = 'Quantité maximale atteinte pour ce matériel';
+          setScanHistory(prev => [...prev, {
+            id: scanId,
+            value: scannedId,
+            timestamp,
+            status: 'error',
+            message: errorMsg
+          }]);
+          toast.error(errorMsg);
+          return;
+        }
+
+        if (existingItem) {
+          setCheckoutItems(prev => 
+            prev.map(item => 
+              item.equipment.id === foundEquipment!.id 
+                ? { ...item, quantity: item.quantity + 1 }
+                : item
+            )
+          );
+        } else {
+          setCheckoutItems(prev => [...prev, { equipment: foundEquipment!, quantity: 1 }]);
+        }
+        
+        const successMsg = `${foundEquipment.name} ajouté (${matchedVariant})`;
+        setScanHistory(prev => [...prev, {
+          id: scanId,
+          value: scannedId,
+          timestamp,
+          status: 'success',
+          message: successMsg
+        }]);
+        toast.success(successMsg);
+        
+      } else {
+        console.log('❌ Aucune correspondance trouvée pour:', scannedId);
+        console.log('📋 Équipements disponibles:', equipment.map(e => ({
+          id: e.id,
+          article: e.articleNumber,
+          serial: e.serialNumber,
+          name: e.name
+        })));
+        
+        const errorMsg = `Matériel non trouvé: ${scannedId}`;
+        setScanHistory(prev => [...prev, {
+          id: scanId,
+          value: scannedId,
+          timestamp,
+          status: 'error',
+          message: errorMsg
+        }]);
+        toast.error(errorMsg);
+      }
+    } catch (error) {
+      console.error('Erreur lors du scan:', error);
+      const errorMsg = 'Erreur lors du traitement du scan';
+      setScanHistory(prev => [...prev, {
+        id: scanId,
+        value: scannedId,
+        timestamp,
+        status: 'error',
+        message: errorMsg
+      }]);
+      toast.error(errorMsg);
     }
   };
 
@@ -686,14 +832,18 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
     setNotes('');
     setUserSelectionMode('list');
     setEquipmentMode('scan');
-    setShowScanner(false);
     setShowNewEquipmentForm(false);
     setUserSearch('');
     setEquipmentSearch('');
     setEquipmentFilter('');
     setNewUserData({ first_name: '', last_name: '', phone: '', email: '', department: '' });
     setTempNewEquipment({ name: '', serialNumber: '', description: '' });
+    setScanHistory([]);
     onClose();
+  };
+
+  const clearScanHistory = () => {
+    setScanHistory([]);
   };
 
   const filteredUsers = users.filter(user =>
@@ -859,20 +1009,14 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
               <Button
                 variant={equipmentMode === 'scan' ? 'primary' : 'outline'}
                 icon={<Package size={18} />}
-                onClick={() => {
-                  setEquipmentMode('scan');
-                  setShowScanner(true);
-                }}
+                onClick={() => setEquipmentMode('scan')}
               >
                 Scanner QR Code
               </Button>
               <Button
                 variant={equipmentMode === 'list' ? 'primary' : 'outline'}
                 icon={<List size={18} />}
-                onClick={() => {
-                  setEquipmentMode('list');
-                  setShowScanner(false);
-                }}
+                onClick={() => setEquipmentMode('list')}
               >
                 Liste Matériel
               </Button>
@@ -881,7 +1025,6 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
                 icon={<Plus size={18} />}
                 onClick={() => {
                   setEquipmentMode('new');
-                  setShowScanner(false);
                   setShowNewEquipmentForm(true);
                 }}
               >
@@ -889,16 +1032,49 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
               </Button>
             </div>
 
-            {equipmentMode === 'scan' && showScanner && (
-              <div className="border rounded-lg p-4">
-                <QRCodeScanner onScan={handleEquipmentScan} />
-                <Button
-                  variant="outline"
-                  onClick={() => setShowScanner(false)}
-                  className="mt-2"
-                >
-                  Arrêter Scanner
-                </Button>
+            {equipmentMode === 'scan' && (
+              <div className="space-y-4">
+                <div className="border rounded-lg p-4">
+                  <QRCodeScanner onScan={handleEquipmentScan} />
+                </div>
+
+                {/* Historique des scans */}
+                {scanHistory.length > 0 && (
+                  <div className="border rounded-lg p-4">
+                    <div className="flex justify-between items-center mb-3">
+                      <h4 className="font-medium text-gray-900 dark:text-white">
+                        Historique des scans ({scanHistory.length})
+                      </h4>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={clearScanHistory}
+                      >
+                        Effacer
+                      </Button>
+                    </div>
+                    <div className="max-h-32 overflow-y-auto space-y-2">
+                      {scanHistory.slice(-5).reverse().map((scan) => (
+                        <div
+                          key={scan.id}
+                          className={`flex items-center justify-between p-2 rounded text-sm ${
+                            scan.status === 'success' 
+                              ? 'bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-200' 
+                              : 'bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-200'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className={scan.status === 'success' ? '✅' : '❌'} />
+                            <span className="font-mono text-xs">{scan.value}</span>
+                          </div>
+                          <span className="text-xs">
+                            {new Date(scan.timestamp).toLocaleTimeString()}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 

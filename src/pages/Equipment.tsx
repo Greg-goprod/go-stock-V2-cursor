@@ -477,7 +477,7 @@ const EquipmentPage: React.FC = () => {
   );
 
   const renderGridView = () => (
-    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-7 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
       {filteredEquipment.map((item) => {
         const availableCount = item.qrType === 'individual' && (item.totalQuantity || 1) > 1 
           ? getAvailableInstancesCount(item.id)
@@ -485,8 +485,8 @@ const EquipmentPage: React.FC = () => {
         const totalCount = item.totalQuantity || 1;
 
         return (
-          <div key={item.id} className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border-2 border-gray-200 dark:border-gray-700 hover:shadow-lg hover:border-gray-300 dark:hover:border-gray-600 transition-all duration-200 overflow-hidden">
-            <div className="p-3">
+          <div key={item.id} className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border-2 border-gray-200 dark:border-gray-700 hover:shadow-lg hover:border-gray-300 dark:hover:border-gray-600 transition-all duration-200 overflow-hidden flex flex-col h-full">
+            <div className="p-3 flex-1 flex flex-col">
               {/* Image avec fond blanc en mode sombre */}
               <div className="relative mb-3">
                 {item.imageUrl ? (
@@ -526,8 +526,8 @@ const EquipmentPage: React.FC = () => {
                 )}
               </div>
 
-              {/* Informations principales */}
-              <div className="space-y-1 mb-3">
+              {/* Informations principales - flex-1 pour pousser les actions en bas */}
+              <div className="space-y-1 mb-3 flex-1">
                 <h3 className="text-sm font-black text-gray-800 dark:text-white line-clamp-2 leading-tight">
                   {item.name}
                 </h3>
@@ -560,40 +560,42 @@ const EquipmentPage: React.FC = () => {
                     </span>
                   </div>
                 )}
-              </div>
 
-              {/* Description tronquée */}
-              {item.description && (
-                <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-2 mb-3 font-light">
-                  {item.description}
-                </p>
-              )}
+                {/* Description tronquée */}
+                {item.description && (
+                  <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-2 font-light">
+                    {item.description}
+                  </p>
+                )}
+              </div>
               
-              {/* Actions */}
-              <div className="flex justify-between items-center gap-1">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  icon={<QrCode size={14} />}
-                  onClick={() => handleShowQR(item.id)}
-                  className="text-xs px-2 py-1 font-medium"
-                >
-                  QR
-                </Button>
+              {/* Actions - toujours en bas */}
+              <div className="mt-auto">
+                <div className="flex justify-between items-center gap-1 mb-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    icon={<QrCode size={14} />}
+                    onClick={() => handleShowQR(item.id)}
+                    className="text-xs px-2 py-1 font-medium flex-1"
+                  >
+                    QR
+                  </Button>
+                </div>
                 <div className="flex gap-1">
                   <Button
                     variant="outline"
                     size="sm"
                     icon={<Pencil size={14} />}
                     onClick={() => handleEditClick(item)}
-                    className="px-2 py-1"
+                    className="px-2 py-1 flex-1"
                   />
                   <Button
                     variant="danger"
                     size="sm"
                     icon={<Trash2 size={14} />}
                     onClick={() => handleDeleteClick(item)}
-                    className="px-2 py-1"
+                    className="px-2 py-1 flex-1"
                   />
                 </div>
               </div>

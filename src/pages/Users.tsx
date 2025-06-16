@@ -64,6 +64,20 @@ const Users: React.FC = () => {
     if (!userToDelete) return;
 
     try {
+      // Check if user has active checkouts
+      const { data: checkouts, error: checkoutError } = await supabase
+        .from('checkouts')
+        .select('id')
+        .eq('user_id', userToDelete.id)
+        .eq('status', 'active');
+
+      if (checkoutError) throw checkoutError;
+
+      if (checkouts && checkouts.length > 0) {
+        toast.error('Impossible de supprimer un utilisateur ayant des emprunts actifs');
+        return;
+      }
+
       const { error } = await supabase
         .from('users')
         .delete()
@@ -72,10 +86,10 @@ const Users: React.FC = () => {
       if (error) throw error;
 
       setUsers(prev => prev.filter(user => user.id !== userToDelete.id));
-      toast.success('User deleted successfully');
+      toast.success('Utilisateur supprimé avec succès');
     } catch (error: any) {
       console.error('Error deleting user:', error);
-      toast.error(error.message || 'Failed to delete user');
+      toast.error(error.message || 'Erreur lors de la suppression');
     }
   };
 

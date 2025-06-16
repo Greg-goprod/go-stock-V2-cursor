@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Card from '../components/common/Card';
 import AccordionCard from '../components/common/AccordionCard';
 import Button from '../components/common/Button';
+import ConfirmModal from '../components/common/ConfirmModal';
 import { useTheme } from '../contexts/ThemeContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { Sun, Moon, Languages, Plus, Pencil, Trash2, Tag, UserCheck, Save, X, Upload, Download, Settings as SettingsIcon, Image, Building2 } from 'lucide-react';
@@ -37,6 +38,13 @@ const Settings: React.FC = () => {
   const [showDepartmentModal, setShowDepartmentModal] = useState(false);
   const [selectedDepartment, setSelectedDepartment] = useState<Department | undefined>();
   const [showExcelImport, setShowExcelImport] = useState(false);
+
+  // Delete confirmation states
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteItem, setDeleteItem] = useState<{
+    type: 'category' | 'supplier' | 'group' | 'department';
+    item: any;
+  } | null>(null);
 
   // Settings states
   const [articlePrefix, setArticlePrefix] = useState('GOMAT');
@@ -122,21 +130,9 @@ const Settings: React.FC = () => {
     setShowCategoryModal(true);
   };
 
-  const handleDeleteCategory = async (categoryId: string) => {
-    try {
-      const { error } = await supabase
-        .from('categories')
-        .delete()
-        .eq('id', categoryId);
-
-      if (error) throw error;
-      
-      setCategories(prev => prev.filter(c => c.id !== categoryId));
-      toast.success(t('success'));
-    } catch (error: any) {
-      console.error('Error deleting category:', error);
-      toast.error(error.message || t('error'));
-    }
+  const handleDeleteCategory = (category: Category) => {
+    setDeleteItem({ type: 'category', item: category });
+    setShowDeleteConfirm(true);
   };
 
   const handleEditSupplier = (supplier: Supplier) => {
@@ -149,21 +145,9 @@ const Settings: React.FC = () => {
     setShowSupplierModal(true);
   };
 
-  const handleDeleteSupplier = async (supplierId: string) => {
-    try {
-      const { error } = await supabase
-        .from('suppliers')
-        .delete()
-        .eq('id', supplierId);
-
-      if (error) throw error;
-      
-      setSuppliers(prev => prev.filter(s => s.id !== supplierId));
-      toast.success(t('success'));
-    } catch (error: any) {
-      console.error('Error deleting supplier:', error);
-      toast.error(error.message || t('error'));
-    }
+  const handleDeleteSupplier = (supplier: Supplier) => {
+    setDeleteItem({ type: 'supplier', item: supplier });
+    setShowDeleteConfirm(true);
   };
 
   const handleEditGroup = (group: EquipmentGroup) => {
@@ -176,21 +160,9 @@ const Settings: React.FC = () => {
     setShowGroupModal(true);
   };
 
-  const handleDeleteGroup = async (groupId: string) => {
-    try {
-      const { error } = await supabase
-        .from('equipment_groups')
-        .delete()
-        .eq('id', groupId);
-
-      if (error) throw error;
-      
-      setGroups(prev => prev.filter(g => g.id !== groupId));
-      toast.success(t('success'));
-    } catch (error: any) {
-      console.error('Error deleting group:', error);
-      toast.error(error.message || t('error'));
-    }
+  const handleDeleteGroup = (group: EquipmentGroup) => {
+    setDeleteItem({ type: 'group', item: group });
+    setShowDeleteConfirm(true);
   };
 
   const handleEditDepartment = (department: Department) => {
@@ -203,26 +175,66 @@ const Settings: React.FC = () => {
     setShowDepartmentModal(true);
   };
 
-  const handleDeleteDepartment = async (departmentName: string) => {
+  const handleDeleteDepartment = (department: Department) => {
+    setDeleteItem({ type: 'department', item: department });
+    setShowDeleteConfirm(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteItem) return;
+
     try {
-      // Check if any users are using this department
-      const { data: usersWithDept, error: checkError } = await supabase
-        .from('users')
-        .select('id')
-        .eq('department', departmentName);
+      const { type, item } = deleteItem;
 
-      if (checkError) throw checkError;
+      switch (type) {
+        case 'category':
+          const { error: categoryError } = await supabase
+            .from('categories')
+            .delete()
+            .eq('id', item.id);
+          if (categoryError) throw categoryError;
+          setCategories(prev => prev.filter(c => c.id !== item.id));
+          break;
 
-      if (usersWithDept && usersWithDept.length > 0) {
-        toast.error(`Impossible de supprimer le département "${departmentName}" car ${usersWithDept.length} utilisateur(s) l'utilisent encore.`);
-        return;
+        case 'supplier':
+          const { error: supplierError } = await supabase
+            .from('suppliers')
+            .delete()
+            .eq('id', item.id);
+          if (supplierError) throw supplierError;
+          setSuppliers(prev => prev.filter(s => s.id !== item.id));
+          break;
+
+        case 'group':
+          const { error: groupError } = await supabase
+            .from('equipment_groups')
+            .delete()
+            .eq('id', item.id);
+          if (groupError) throw groupError;
+          setGroups(prev => prev.filter(g => g.id !== item.id));
+          break;
+
+        case 'department':
+          // Check if any users are using this department
+          const { data: usersWithDept, error: checkError } = await supabase
+            .from('users')
+            .select('id')
+            .eq('department', item.name);
+
+          if (checkError) throw checkError;
+
+          if (usersWithDept && usersWithDept.length > 0) {
+            toast.error(`Impossible de supprimer le département "${item.name}" car ${usersWithDept.length} utilisateur(s) l'utilisent encore.`);
+            return;
+          }
+
+          setDepartments(prev => prev.filter(d => d.name !== item.name));
+          break;
       }
 
-      // Remove from local state since it's derived from users table
-      setDepartments(prev => prev.filter(d => d.name !== departmentName));
-      toast.success('Département supprimé avec succès');
+      toast.success('Élément supprimé avec succès');
     } catch (error: any) {
-      console.error('Error deleting department:', error);
+      console.error('Error deleting item:', error);
       toast.error(error.message || 'Erreur lors de la suppression');
     }
   };
@@ -351,6 +363,25 @@ const Settings: React.FC = () => {
     setShowDepartmentModal(false);
     setSelectedDepartment(undefined);
     fetchData(); // Refresh data
+  };
+
+  const getDeleteMessage = () => {
+    if (!deleteItem) return '';
+    
+    const { type, item } = deleteItem;
+    
+    switch (type) {
+      case 'category':
+        return `Êtes-vous sûr de vouloir supprimer la catégorie "${item.name}" ? Cette action est irréversible.`;
+      case 'supplier':
+        return `Êtes-vous sûr de vouloir supprimer le fournisseur "${item.name}" ? Cette action est irréversible.`;
+      case 'group':
+        return `Êtes-vous sûr de vouloir supprimer le groupe "${item.name}" ? Cette action est irréversible.`;
+      case 'department':
+        return `Êtes-vous sûr de vouloir supprimer le département "${item.name}" ? Cette action est irréversible.`;
+      default:
+        return 'Êtes-vous sûr de vouloir supprimer cet élément ?';
+    }
   };
 
   if (loading) {
@@ -637,7 +668,7 @@ const Settings: React.FC = () => {
                         variant="danger"
                         size="sm"
                         icon={<Trash2 size={16} />}
-                        onClick={() => handleDeleteCategory(category.id)}
+                        onClick={() => handleDeleteCategory(category)}
                       />
                     </div>
                   </div>
@@ -705,7 +736,7 @@ const Settings: React.FC = () => {
                           variant="danger"
                           size="sm"
                           icon={<Trash2 size={16} />}
-                          onClick={() => handleDeleteDepartment(department.name)}
+                          onClick={() => handleDeleteDepartment(department)}
                         />
                       </div>
                     </div>
@@ -766,7 +797,7 @@ const Settings: React.FC = () => {
                         variant="danger"
                         size="sm"
                         icon={<Trash2 size={16} />}
-                        onClick={() => handleDeleteGroup(group.id)}
+                        onClick={() => handleDeleteGroup(group)}
                       />
                     </div>
                   </div>
@@ -821,7 +852,7 @@ const Settings: React.FC = () => {
                         variant="danger"
                         size="sm"
                         icon={<Trash2 size={16} />}
-                        onClick={() => handleDeleteSupplier(supplier.id)}
+                        onClick={() => handleDeleteSupplier(supplier)}
                       />
                     </div>
                   </div>
@@ -863,6 +894,19 @@ const Settings: React.FC = () => {
         onImportComplete={() => {
           console.log('Import completed');
         }}
+      />
+
+      <ConfirmModal
+        isOpen={showDeleteConfirm}
+        onClose={() => {
+          setShowDeleteConfirm(false);
+          setDeleteItem(null);
+        }}
+        onConfirm={handleDeleteConfirm}
+        title="CONFIRMER LA SUPPRESSION"
+        message={getDeleteMessage()}
+        confirmLabel="SUPPRIMER"
+        cancelLabel="ANNULER"
       />
     </div>
   );

@@ -18,10 +18,12 @@ import {
   AlertCircle,
   Wrench,
   Calendar,
-  Clock
+  Clock,
+  Wifi,
+  WifiOff
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
-import { supabase } from '../lib/supabase';
+import { supabase, testSupabaseConnection } from '../lib/supabase';
 import { Equipment, User, CheckoutRecord, EquipmentMaintenance } from '../types';
 import Button from '../components/common/Button';
 
@@ -43,6 +45,8 @@ const Dashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected' | 'testing'>('testing');
+  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
     fetchDashboardData();
@@ -87,21 +91,27 @@ const Dashboard: React.FC = () => {
         setRefreshing(true);
       }
 
-      // Test connection first
-      const { data: testData, error: testError } = await supabase
-        .from('equipment')
-        .select('id')
-        .limit(1);
+      setConnectionStatus('testing');
 
-      if (testError) {
-        throw new Error(`Connection failed: ${testError.message}`);
+      // Test connection first with timeout
+      const connectionTest = await Promise.race([
+        testSupabaseConnection(),
+        new Promise<{ success: boolean; error: string }>((_, reject) => 
+          setTimeout(() => reject(new Error('Connection timeout')), 10000)
+        )
+      ]);
+
+      if (!connectionTest.success) {
+        throw new Error(`Connection failed: ${connectionTest.error}`);
       }
+
+      setConnectionStatus('connected');
+      setRetryCount(0);
 
       // Fetch equipment avec les quantités réelles
       const { data: equipment, error: equipmentError } = await supabase
         .from('equipment')
-        .select('id, status, total_quantity, available_quantity')
-        .throwOnError();
+        .select('id, status, total_quantity, available_quantity');
 
       if (equipmentError) {
         throw new Error(`Equipment fetch failed: ${equipmentError.message}`);
@@ -111,8 +121,7 @@ const Dashboard: React.FC = () => {
       const { data: activeCheckouts, error: checkoutsError } = await supabase
         .from('checkouts')
         .select('equipment_id')
-        .eq('status', 'active')
-        .throwOnError();
+        .eq('status', 'active');
 
       if (checkoutsError) {
         throw new Error(`Checkouts fetch failed: ${checkoutsError.message}`);
@@ -143,8 +152,7 @@ const Dashboard: React.FC = () => {
         .from('checkouts')
         .select('id')
         .eq('status', 'active')
-        .lt('due_date', new Date().toISOString())
-        .throwOnError();
+        .lt('due_date', new Date().toISOString());
 
       if (overdueError) {
         throw new Error(`Overdue checkouts fetch failed: ${overdueError.message}`);
@@ -163,11 +171,11 @@ const Dashboard: React.FC = () => {
         `)
         .in('status', ['active', 'overdue'])
         .order('checkout_date', { ascending: false })
-        .limit(5)
-        .throwOnError();
+        .limit(5);
 
       if (recentCheckoutsError) {
-        throw new Error(`Recent checkouts fetch failed: ${recentCheckoutsError.message}`);
+        console.warn('Recent checkouts fetch failed:', recentCheckoutsError.message);
+        // Don't fail the entire dashboard if recent checkouts fail
       }
 
       // Fetch equipment in maintenance with maintenance details
@@ -192,7 +200,7 @@ const Dashboard: React.FC = () => {
         .limit(10);
 
       if (maintenanceError) {
-        console.error('Maintenance fetch error:', maintenanceError);
+        console.warn('Maintenance fetch error:', maintenanceError.message);
         // Ne pas faire échouer le dashboard si les maintenances ne se chargent pas
       }
 
@@ -229,7 +237,24 @@ const Dashboard: React.FC = () => {
 
     } catch (error: any) {
       console.error('Error fetching dashboard data:', error);
-      setError(error.message || 'Une erreur est survenue lors du chargement des données');
+      setConnectionStatus('disconnected');
+      
+      let errorMessage = 'Une erreur est survenue lors du chargement des données';
+      
+      if (error.message?.includes('Connection timeout')) {
+        errorMessage = 'Délai de connexion dépassé. Vérifiez votre connexion internet.';
+      } else if (error.message?.includes('Failed to fetch')) {
+        errorMessage = 'Impossible de se connecter au serveur. Vérifiez votre connexion internet et les paramètres Supabase.';
+      } else if (error.message?.includes('Invalid URL')) {
+        errorMessage = 'URL Supabase invalide. Vérifiez votre configuration dans le fichier .env';
+      } else if (error.message?.includes('Missing Supabase environment variables')) {
+        errorMessage = 'Variables d\'environnement Supabase manquantes. Vérifiez votre fichier .env';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      setError(errorMessage);
+      setRetryCount(prev => prev + 1);
       
       // Set default values on error
       setStats({
@@ -297,7 +322,13 @@ const Dashboard: React.FC = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-gray-500 dark:text-gray-400 font-medium">{t('loading')}</div>
+        <div className="text-center">
+          <RefreshCw size={32} className="mx-auto animate-spin text-primary-600 mb-4" />
+          <div className="text-gray-500 dark:text-gray-400 font-medium">{t('loading')}</div>
+          <div className="text-sm text-gray-400 dark:text-gray-500 mt-2">
+            {connectionStatus === 'testing' ? 'Test de connexion...' : 'Chargement des données...'}
+          </div>
+        </div>
       </div>
     );
   }
@@ -307,15 +338,27 @@ const Dashboard: React.FC = () => {
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <h2 className="text-3xl font-black text-gray-800 dark:text-white tracking-tight uppercase">TABLEAU DE BORD</h2>
-          <Button
-            variant="outline"
-            size="sm"
-            icon={<RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />}
-            onClick={handleManualRefresh}
-            disabled={refreshing}
-          >
-            {refreshing ? 'Actualisation...' : 'Réessayer'}
-          </Button>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              {connectionStatus === 'connected' ? (
+                <Wifi size={16} className="text-green-500" />
+              ) : (
+                <WifiOff size={16} className="text-red-500" />
+              )}
+              <span className="text-sm text-gray-500 dark:text-gray-400">
+                {connectionStatus === 'connected' ? 'Connecté' : 'Déconnecté'}
+              </span>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              icon={<RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />}
+              onClick={handleManualRefresh}
+              disabled={refreshing}
+            >
+              {refreshing ? 'Reconnexion...' : 'Réessayer'}
+            </Button>
+          </div>
         </div>
         
         <Card className="p-8">
@@ -327,14 +370,31 @@ const Dashboard: React.FC = () => {
             <p className="text-gray-600 dark:text-gray-400 mb-4">
               {error}
             </p>
-            <Button
-              variant="primary"
-              onClick={handleManualRefresh}
-              disabled={refreshing}
-              icon={<RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />}
-            >
-              {refreshing ? 'Reconnexion...' : 'Réessayer'}
-            </Button>
+            {retryCount > 0 && (
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                Tentatives de reconnexion: {retryCount}
+              </p>
+            )}
+            <div className="space-y-3">
+              <Button
+                variant="primary"
+                onClick={handleManualRefresh}
+                disabled={refreshing}
+                icon={<RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />}
+              >
+                {refreshing ? 'Reconnexion...' : 'Réessayer'}
+              </Button>
+              
+              <div className="text-left bg-gray-50 dark:bg-gray-800 rounded-lg p-4 text-sm">
+                <h4 className="font-medium text-gray-900 dark:text-white mb-2">Vérifications à effectuer:</h4>
+                <ul className="space-y-1 text-gray-600 dark:text-gray-400">
+                  <li>• Vérifiez votre connexion internet</li>
+                  <li>• Vérifiez que les variables VITE_SUPABASE_URL et VITE_SUPABASE_ANON_KEY sont correctement configurées dans le fichier .env</li>
+                  <li>• Vérifiez que votre projet Supabase est actif</li>
+                  <li>• Redémarrez le serveur de développement si nécessaire</li>
+                </ul>
+              </div>
+            </div>
           </div>
         </Card>
       </div>
@@ -346,15 +406,27 @@ const Dashboard: React.FC = () => {
       <div className="flex flex-col gap-4">
         <div className="flex justify-between items-center">
           <h2 className="text-3xl font-black text-gray-800 dark:text-white tracking-tight uppercase">TABLEAU DE BORD</h2>
-          <Button
-            variant="outline"
-            size="sm"
-            icon={<RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />}
-            onClick={handleManualRefresh}
-            disabled={refreshing}
-          >
-            {refreshing ? 'Actualisation...' : 'Actualiser'}
-          </Button>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              {connectionStatus === 'connected' ? (
+                <Wifi size={16} className="text-green-500" />
+              ) : (
+                <WifiOff size={16} className="text-red-500" />
+              )}
+              <span className="text-sm text-gray-500 dark:text-gray-400">
+                {connectionStatus === 'connected' ? 'Connecté' : 'Déconnecté'}
+              </span>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              icon={<RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />}
+              onClick={handleManualRefresh}
+              disabled={refreshing}
+            >
+              {refreshing ? 'Actualisation...' : 'Actualiser'}
+            </Button>
+          </div>
         </div>
 
         <div className="flex gap-3">
@@ -364,6 +436,7 @@ const Dashboard: React.FC = () => {
             icon={<LogOut size={20} />}
             className="flex-1 font-bold text-lg tracking-wide"
             onClick={() => setShowCheckoutModal(true)}
+            disabled={connectionStatus !== 'connected'}
           >
             SORTIE MATÉRIEL
           </Button>
@@ -373,6 +446,7 @@ const Dashboard: React.FC = () => {
             icon={<LogIn size={20} />}
             className="flex-1 font-bold text-lg tracking-wide"
             onClick={() => setShowReturnModal(true)}
+            disabled={connectionStatus !== 'connected'}
           >
             RETOUR MATÉRIEL
           </Button>

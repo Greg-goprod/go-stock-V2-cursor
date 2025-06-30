@@ -109,7 +109,7 @@ const ColorPicker: React.FC<ColorPickerProps> = ({ color, onChange }) => {
       />
 
       {isOpen && (
-        <div className="absolute z-50 mt-2 p-3 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 grid grid-cols-6 gap-2 max-w-[300px]">
+        <div className="fixed z-[9999] mt-2 p-3 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 grid grid-cols-6 gap-2 max-w-[300px]" style={{ top: pickerRef.current?.getBoundingClientRect().bottom, left: pickerRef.current?.getBoundingClientRect().left }}>
           {colors.map((c) => (
             <button
               key={c}

@@ -16,6 +16,7 @@ export interface Equipment {
   availableQuantity?: number;
   shortTitle?: string;
   group?: string;
+  subgroup?: string;
 }
 
 export interface EquipmentInstance {
@@ -94,6 +95,15 @@ export interface EquipmentGroup {
   name: string;
   description?: string;
   color: string;
+  createdAt: string;
+}
+
+export interface EquipmentSubgroup {
+  id: string;
+  name: string;
+  description?: string;
+  color: string;
+  groupId: string;
   createdAt: string;
 }
 

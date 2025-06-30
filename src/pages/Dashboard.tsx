@@ -189,12 +189,21 @@ const Dashboard: React.FC = () => {
         `)
         .eq('status', 'maintenance')
         .eq('equipment_maintenance.status', 'in_progress')
-        .order('equipment_maintenance(start_date)', { ascending: false })
         .limit(10);
 
       if (maintenanceError) {
         console.error('Maintenance fetch error:', maintenanceError);
         // Ne pas faire échouer le dashboard si les maintenances ne se chargent pas
+      }
+
+      // Sort maintenance data by start_date in JavaScript since we can't order by related table fields
+      let sortedMaintenanceData = maintenanceData || [];
+      if (sortedMaintenanceData.length > 0) {
+        sortedMaintenanceData = sortedMaintenanceData.sort((a, b) => {
+          const aDate = new Date(a.equipment_maintenance[0]?.start_date || 0);
+          const bDate = new Date(b.equipment_maintenance[0]?.start_date || 0);
+          return bDate.getTime() - aDate.getTime(); // Descending order (most recent first)
+        });
       }
 
       // Compter les notifications non lues
@@ -215,7 +224,7 @@ const Dashboard: React.FC = () => {
       });
 
       setRecentCheckouts(checkouts || []);
-      setMaintenanceEquipment(maintenanceData || []);
+      setMaintenanceEquipment(sortedMaintenanceData);
       setError(null);
 
     } catch (error: any) {

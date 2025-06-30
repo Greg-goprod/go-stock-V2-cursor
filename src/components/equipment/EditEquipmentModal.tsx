@@ -5,7 +5,7 @@ import Accordion from '../common/Accordion';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { supabase } from '../../lib/supabase';
 import toast from 'react-hot-toast';
-import { Equipment, Category, Supplier, EquipmentGroup } from '../../types';
+import { Equipment, Category, Supplier, EquipmentGroup, EquipmentSubgroup } from '../../types';
 import { Package, QrCode, Copy, AlertTriangle, Info, Settings } from 'lucide-react';
 
 interface EditEquipmentModalProps {
@@ -19,6 +19,8 @@ const EditEquipmentModal: React.FC<EditEquipmentModalProps> = ({ isOpen, onClose
   const [categories, setCategories] = useState<Category[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [groups, setGroups] = useState<EquipmentGroup[]>([]);
+  const [subgroups, setSubgroups] = useState<EquipmentSubgroup[]>([]);
+  const [filteredSubgroups, setFilteredSubgroups] = useState<EquipmentSubgroup[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [currentQrType, setCurrentQrType] = useState<'individual' | 'batch'>('individual');
   const [instances, setInstances] = useState<any[]>([]);
@@ -27,6 +29,7 @@ const EditEquipmentModal: React.FC<EditEquipmentModalProps> = ({ isOpen, onClose
     description: '',
     category_id: '',
     group_id: '',
+    subgroup_id: '',
     serial_number: '',
     status: 'available',
     supplier_id: '',
@@ -46,6 +49,7 @@ const EditEquipmentModal: React.FC<EditEquipmentModalProps> = ({ isOpen, onClose
         description: equipment.description || '',
         category_id: '', // Will be set after fetching categories
         group_id: '', // Will be set after fetching groups
+        subgroup_id: '', // Will be set after fetching subgroups
         serial_number: equipment.serialNumber,
         status: equipment.status,
         supplier_id: '', // Will be set after fetching suppliers
@@ -58,6 +62,22 @@ const EditEquipmentModal: React.FC<EditEquipmentModalProps> = ({ isOpen, onClose
       setCurrentQrType(equipment.qrType || 'individual');
     }
   }, [isOpen, equipment]);
+
+  // Filter subgroups when group changes
+  useEffect(() => {
+    if (formData.group_id) {
+      const filtered = subgroups.filter(sg => sg.groupId === formData.group_id);
+      setFilteredSubgroups(filtered);
+      
+      // Reset subgroup selection if current selection is not valid for new group
+      if (formData.subgroup_id && !filtered.find(sg => sg.id === formData.subgroup_id)) {
+        setFormData(prev => ({ ...prev, subgroup_id: '' }));
+      }
+    } else {
+      setFilteredSubgroups([]);
+      setFormData(prev => ({ ...prev, subgroup_id: '' }));
+    }
+  }, [formData.group_id, subgroups]);
 
   const fetchRelatedData = async () => {
     try {
@@ -88,6 +108,25 @@ const EditEquipmentModal: React.FC<EditEquipmentModalProps> = ({ isOpen, onClose
       if (groupsError) throw groupsError;
       setGroups(groupsData || []);
 
+      // Fetch subgroups
+      const { data: subgroupsData, error: subgroupsError } = await supabase
+        .from('equipment_subgroups')
+        .select('*')
+        .order('name');
+      
+      if (subgroupsError) throw subgroupsError;
+      
+      // Transform subgroups data
+      const transformedSubgroups: EquipmentSubgroup[] = subgroupsData?.map(sg => ({
+        id: sg.id,
+        name: sg.name,
+        description: sg.description,
+        color: sg.color,
+        groupId: sg.group_id,
+        createdAt: sg.created_at
+      })) || [];
+      setSubgroups(transformedSubgroups);
+
       // Get current equipment data with relations
       const { data: equipmentData, error: equipmentError } = await supabase
         .from('equipment')
@@ -95,7 +134,8 @@ const EditEquipmentModal: React.FC<EditEquipmentModalProps> = ({ isOpen, onClose
           *,
           categories(id, name),
           suppliers(id, name),
-          equipment_groups(id, name)
+          equipment_groups(id, name),
+          equipment_subgroups(id, name)
         `)
         .eq('id', equipment.id)
         .single();
@@ -107,7 +147,8 @@ const EditEquipmentModal: React.FC<EditEquipmentModalProps> = ({ isOpen, onClose
         ...prev,
         category_id: equipmentData.category_id || '',
         supplier_id: equipmentData.supplier_id || '',
-        group_id: equipmentData.group_id || ''
+        group_id: equipmentData.group_id || '',
+        subgroup_id: equipmentData.subgroup_id || ''
       }));
 
       // Fetch instances if individual QR type
@@ -202,6 +243,7 @@ const EditEquipmentModal: React.FC<EditEquipmentModalProps> = ({ isOpen, onClose
         category_id: formData.category_id || null,
         supplier_id: formData.supplier_id || null,
         group_id: formData.group_id || null,
+        subgroup_id: formData.subgroup_id || null,
         image_url: formData.image_url || null,
         description: formData.description || null,
         location: formData.location || null,
@@ -231,6 +273,16 @@ const EditEquipmentModal: React.FC<EditEquipmentModalProps> = ({ isOpen, onClose
       ...prev,
       [name]: value
     }));
+  };
+
+  const getGroupName = (groupId: string) => {
+    const group = groups.find(g => g.id === groupId);
+    return group?.name || '';
+  };
+
+  const getGroupColor = (groupId: string) => {
+    const group = groups.find(g => g.id === groupId);
+    return group?.color || '#64748b';
   };
 
   return (
@@ -298,6 +350,75 @@ const EditEquipmentModal: React.FC<EditEquipmentModalProps> = ({ isOpen, onClose
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Groupe
+                </label>
+                <select
+                  name="group_id"
+                  value={formData.group_id}
+                  onChange={handleChange}
+                  className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
+                >
+                  <option value="">Sélectionner un groupe</option>
+                  {groups.map(group => (
+                    <option key={group.id} value={group.id}>
+                      {group.name}
+                    </option>
+                  ))}
+                </select>
+                {formData.group_id && (
+                  <div className="mt-1 flex items-center gap-2">
+                    <div
+                      className="w-3 h-3 rounded-full"
+                      style={{ backgroundColor: getGroupColor(formData.group_id) }}
+                    />
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                      📁 {getGroupName(formData.group_id)}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Sous-groupe
+                </label>
+                <select
+                  name="subgroup_id"
+                  value={formData.subgroup_id}
+                  onChange={handleChange}
+                  disabled={!formData.group_id}
+                  className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <option value="">
+                    {!formData.group_id ? 'Sélectionnez d\'abord un groupe' : 'Sélectionner un sous-groupe'}
+                  </option>
+                  {filteredSubgroups.map(subgroup => (
+                    <option key={subgroup.id} value={subgroup.id}>
+                      {subgroup.name}
+                    </option>
+                  ))}
+                </select>
+                {formData.subgroup_id && (
+                  <div className="mt-1 flex items-center gap-2">
+                    <div className="flex items-center gap-1">
+                      <div
+                        className="w-2 h-2 rounded-full"
+                        style={{ backgroundColor: getGroupColor(formData.group_id) }}
+                      />
+                      <div
+                        className="w-3 h-3 rounded-full"
+                        style={{ backgroundColor: filteredSubgroups.find(sg => sg.id === formData.subgroup_id)?.color || '#64748b' }}
+                      />
+                    </div>
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                      📂 {filteredSubgroups.find(sg => sg.id === formData.subgroup_id)?.name}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   {t('status')}
                 </label>
                 <select
@@ -326,6 +447,42 @@ const EditEquipmentModal: React.FC<EditEquipmentModalProps> = ({ isOpen, onClose
                 className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
               />
             </div>
+
+            {/* Aperçu hiérarchique */}
+            {(formData.group_id || formData.subgroup_id) && (
+              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                <h4 className="text-sm font-medium text-blue-800 dark:text-blue-200 mb-2">
+                  📁 Hiérarchie actuelle
+                </h4>
+                <div className="flex items-center gap-2 flex-wrap">
+                  {formData.group_id && (
+                    <>
+                      <span 
+                        className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium text-white"
+                        style={{ backgroundColor: getGroupColor(formData.group_id) }}
+                      >
+                        📁 {getGroupName(formData.group_id)}
+                      </span>
+                      {formData.subgroup_id && <span className="text-gray-400">→</span>}
+                    </>
+                  )}
+                  {formData.subgroup_id && (
+                    <>
+                      <span 
+                        className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium text-white"
+                        style={{ backgroundColor: filteredSubgroups.find(sg => sg.id === formData.subgroup_id)?.color || '#64748b' }}
+                      >
+                        📂 {filteredSubgroups.find(sg => sg.id === formData.subgroup_id)?.name}
+                      </span>
+                      <span className="text-gray-400">→</span>
+                    </>
+                  )}
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary-100 dark:bg-primary-900 text-primary-800 dark:text-primary-200">
+                    💻 {formData.name}
+                  </span>
+                </div>
+              </div>
+            )}
 
             <div className="flex justify-end gap-3">
               <Button

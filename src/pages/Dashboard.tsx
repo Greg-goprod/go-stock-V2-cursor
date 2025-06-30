@@ -189,7 +189,7 @@ const Dashboard: React.FC = () => {
         `)
         .eq('status', 'maintenance')
         .eq('equipment_maintenance.status', 'in_progress')
-        .order('equipment_maintenance.start_date', { ascending: false })
+        .order('start_date', { ascending: false, foreignTable: 'equipment_maintenance' })
         .limit(10);
 
       if (maintenanceError) {

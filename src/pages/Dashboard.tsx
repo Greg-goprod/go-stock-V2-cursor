@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import Card from '../components/common/Card';
 import Badge from '../components/common/Badge';
+import StatusBadge from '../components/common/StatusBadge';
 import CheckoutModal from '../components/checkout/CheckoutModal';
 import ReturnModal from '../components/checkout/ReturnModal';
+import MaintenanceModal from '../components/maintenance/MaintenanceModal';
 import { 
   AlertTriangle, 
   Package, 
@@ -13,24 +15,31 @@ import {
   LogOut,
   LogIn,
   RefreshCw,
-  AlertCircle
+  AlertCircle,
+  Wrench,
+  Calendar,
+  Clock
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { supabase } from '../lib/supabase';
-import { Equipment, User, CheckoutRecord } from '../types';
+import { Equipment, User, CheckoutRecord, EquipmentMaintenance } from '../types';
 import Button from '../components/common/Button';
 
 const Dashboard: React.FC = () => {
   const { t } = useLanguage();
   const [showCheckoutModal, setShowCheckoutModal] = useState(false);
   const [showReturnModal, setShowReturnModal] = useState(false);
+  const [showMaintenanceModal, setShowMaintenanceModal] = useState(false);
+  const [selectedEquipment, setSelectedEquipment] = useState<Equipment | null>(null);
   const [stats, setStats] = useState({
     availableEquipment: 0,
     checkedOutEquipment: 0,
     overdueEquipment: 0,
+    maintenanceEquipment: 0,
     unreadNotifications: 0
   });
   const [recentCheckouts, setRecentCheckouts] = useState<any[]>([]);
+  const [maintenanceEquipment, setMaintenanceEquipment] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -161,6 +170,33 @@ const Dashboard: React.FC = () => {
         throw new Error(`Recent checkouts fetch failed: ${recentCheckoutsError.message}`);
       }
 
+      // Fetch equipment in maintenance with maintenance details
+      const { data: maintenanceData, error: maintenanceError } = await supabase
+        .from('equipment')
+        .select(`
+          id,
+          name,
+          serial_number,
+          article_number,
+          last_maintenance,
+          equipment_maintenance!inner(
+            id,
+            title,
+            start_date,
+            status,
+            maintenance_types(name, color)
+          )
+        `)
+        .eq('status', 'maintenance')
+        .eq('equipment_maintenance.status', 'in_progress')
+        .order('equipment_maintenance.start_date', { ascending: false })
+        .limit(10);
+
+      if (maintenanceError) {
+        console.error('Maintenance fetch error:', maintenanceError);
+        // Ne pas faire échouer le dashboard si les maintenances ne se chargent pas
+      }
+
       // Compter les notifications non lues
       let unreadNotificationsCount = 0;
       try {
@@ -174,10 +210,12 @@ const Dashboard: React.FC = () => {
         availableEquipment: totalAvailable,
         checkedOutEquipment: totalCheckedOut,
         overdueEquipment: overdueCheckouts?.length || 0,
+        maintenanceEquipment: maintenanceCount,
         unreadNotifications: unreadNotificationsCount
       });
 
       setRecentCheckouts(checkouts || []);
+      setMaintenanceEquipment(maintenanceData || []);
       setError(null);
 
     } catch (error: any) {
@@ -189,9 +227,11 @@ const Dashboard: React.FC = () => {
         availableEquipment: 0,
         checkedOutEquipment: 0,
         overdueEquipment: 0,
+        maintenanceEquipment: 0,
         unreadNotifications: 0
       });
       setRecentCheckouts([]);
+      setMaintenanceEquipment([]);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -213,6 +253,33 @@ const Dashboard: React.FC = () => {
   const handleReturnModalClose = () => {
     setShowReturnModal(false);
     // Rafraîchir les données après fermeture du modal de retour
+    setTimeout(() => {
+      fetchDashboardData();
+    }, 500);
+  };
+
+  const handleMaintenanceClick = (equipment: any) => {
+    setSelectedEquipment({
+      id: equipment.id,
+      name: equipment.name,
+      serialNumber: equipment.serial_number,
+      articleNumber: equipment.article_number,
+      status: 'maintenance',
+      description: '',
+      category: '',
+      addedDate: '',
+      location: '',
+      qrType: 'individual',
+      totalQuantity: 1,
+      availableQuantity: 0
+    });
+    setShowMaintenanceModal(true);
+  };
+
+  const handleMaintenanceModalClose = () => {
+    setShowMaintenanceModal(false);
+    setSelectedEquipment(null);
+    // Rafraîchir les données après fermeture du modal de maintenance
     setTimeout(() => {
       fetchDashboardData();
     }, 500);
@@ -303,7 +370,7 @@ const Dashboard: React.FC = () => {
         </div>
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         <Card className="flex items-center p-4 hover:shadow-md transition-shadow">
           <div className="rounded-full bg-primary-100 dark:bg-primary-900/50 p-3 mr-4">
             <Package size={24} className="text-primary-600 dark:text-primary-300" />
@@ -342,6 +409,19 @@ const Dashboard: React.FC = () => {
             </p>
           </div>
         </Card>
+
+        <Card className="flex items-center p-4 hover:shadow-md transition-shadow">
+          <div className="rounded-full bg-blue-100 dark:bg-blue-900/50 p-3 mr-4">
+            <Wrench size={24} className="text-blue-600 dark:text-blue-300" />
+          </div>
+          <div>
+            <p className="text-gray-500 dark:text-gray-400 text-sm font-medium uppercase tracking-wide">Maintenance</p>
+            <p className="text-2xl font-black text-gray-800 dark:text-white">
+              {stats.maintenanceEquipment}
+              {refreshing && <RefreshCw size={16} className="inline ml-2 animate-spin text-gray-400" />}
+            </p>
+          </div>
+        </Card>
         
         <Card className="flex items-center p-4 hover:shadow-md transition-shadow">
           <div className="rounded-full bg-danger-100 dark:bg-danger-900/50 p-3 mr-4">
@@ -356,68 +436,144 @@ const Dashboard: React.FC = () => {
           </div>
         </Card>
       </div>
-      
-      <Card title="EMPRUNTS RÉCENTS">
-        {recentCheckouts.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-              <thead className="bg-gray-50 dark:bg-gray-800">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    MATÉRIEL
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    UTILISATEUR
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    DATE SORTIE
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    DATE RETOUR
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    STATUT
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
-                {recentCheckouts.map(checkout => {
-                  const isOverdue = new Date(checkout.due_date) < new Date();
-                  
-                  return (
-                    <tr key={checkout.id} className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
-                      <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">
-                        {checkout.equipment?.name || 'Matériel inconnu'}
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">
-                        {checkout.users ? `${checkout.users.first_name} ${checkout.users.last_name}` : 'Utilisateur inconnu'}
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 font-medium">
-                        {new Date(checkout.checkout_date).toLocaleDateString('fr-FR')}
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 font-medium">
-                        {new Date(checkout.due_date).toLocaleDateString('fr-FR')}
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm">
-                        <Badge
-                          variant={isOverdue ? 'danger' : 'success'}
-                        >
-                          {isOverdue ? 'EN RETARD' : 'ACTIF'}
-                        </Badge>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <div className="text-center py-8">
-            <Package size={48} className="mx-auto text-gray-400 mb-4" />
-            <p className="text-gray-500 dark:text-gray-400 font-medium">Aucun emprunt actif</p>
-          </div>
-        )}
-      </Card>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Emprunts récents */}
+        <Card title="EMPRUNTS RÉCENTS">
+          {recentCheckouts.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <thead className="bg-gray-50 dark:bg-gray-800">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      MATÉRIEL
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      UTILISATEUR
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      DATE SORTIE
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      DATE RETOUR
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      STATUT
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
+                  {recentCheckouts.map(checkout => {
+                    const isOverdue = new Date(checkout.due_date) < new Date();
+                    
+                    return (
+                      <tr key={checkout.id} className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                        <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">
+                          {checkout.equipment?.name || 'Matériel inconnu'}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">
+                          {checkout.users ? `${checkout.users.first_name} ${checkout.users.last_name}` : 'Utilisateur inconnu'}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 font-medium">
+                          {new Date(checkout.checkout_date).toLocaleDateString('fr-FR')}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 font-medium">
+                          {new Date(checkout.due_date).toLocaleDateString('fr-FR')}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm">
+                          <Badge
+                            variant={isOverdue ? 'danger' : 'success'}
+                          >
+                            {isOverdue ? 'EN RETARD' : 'ACTIF'}
+                          </Badge>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <Package size={48} className="mx-auto text-gray-400 mb-4" />
+              <p className="text-gray-500 dark:text-gray-400 font-medium">Aucun emprunt actif</p>
+            </div>
+          )}
+        </Card>
+
+        {/* Matériel en maintenance */}
+        <Card title="MATÉRIEL EN MAINTENANCE">
+          {maintenanceEquipment.length > 0 ? (
+            <div className="space-y-3">
+              {maintenanceEquipment.map(equipment => {
+                const maintenance = equipment.equipment_maintenance[0];
+                const daysSinceMaintenance = Math.floor(
+                  (new Date().getTime() - new Date(maintenance.start_date).getTime()) / (1000 * 60 * 60 * 24)
+                );
+                
+                return (
+                  <div 
+                    key={equipment.id} 
+                    className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer"
+                    onClick={() => handleMaintenanceClick(equipment)}
+                  >
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Wrench size={16} className="text-blue-600 dark:text-blue-400" />
+                          <h4 className="font-medium text-gray-900 dark:text-white">
+                            {equipment.name}
+                          </h4>
+                          <span 
+                            className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium text-white"
+                            style={{ backgroundColor: maintenance.maintenance_types?.color || '#3b82f6' }}
+                          >
+                            {maintenance.maintenance_types?.name || 'Maintenance'}
+                          </span>
+                        </div>
+                        
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
+                          {maintenance.title}
+                        </p>
+                        
+                        <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
+                          <div className="flex items-center gap-1">
+                            <Calendar size={12} />
+                            <span>Début: {new Date(maintenance.start_date).toLocaleDateString('fr-FR')}</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Clock size={12} />
+                            <span className={daysSinceMaintenance > 7 ? 'text-red-600 dark:text-red-400 font-medium' : ''}>
+                              {daysSinceMaintenance} jour{daysSinceMaintenance > 1 ? 's' : ''}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="text-right">
+                        <p className="text-xs text-gray-500 dark:text-gray-400 font-mono">
+                          {equipment.serial_number}
+                        </p>
+                        {daysSinceMaintenance > 7 && (
+                          <div className="flex items-center gap-1 text-red-600 dark:text-red-400 text-xs font-medium mt-1">
+                            <AlertTriangle size={12} />
+                            <span>Maintenance prolongée</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <Wrench size={48} className="mx-auto text-gray-400 mb-4" />
+              <p className="text-gray-500 dark:text-gray-400 font-medium">Aucun matériel en maintenance</p>
+            </div>
+          )}
+        </Card>
+      </div>
 
       {/* Modals */}
       <CheckoutModal
@@ -429,6 +585,14 @@ const Dashboard: React.FC = () => {
         isOpen={showReturnModal}
         onClose={handleReturnModalClose}
       />
+
+      {selectedEquipment && (
+        <MaintenanceModal
+          isOpen={showMaintenanceModal}
+          onClose={handleMaintenanceModalClose}
+          equipment={selectedEquipment}
+        />
+      )}
     </div>
   );
 };

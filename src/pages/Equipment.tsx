@@ -3,7 +3,8 @@ import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import Badge from '../components/common/Badge';
 import StatusBadge from '../components/common/StatusBadge';
-import { Plus, Filter, QrCode, LayoutGrid, List, ArrowUpDown, Pencil, Trash2, Package } from 'lucide-react';
+import MaintenanceModal from '../components/maintenance/MaintenanceModal';
+import { Plus, Filter, QrCode, LayoutGrid, List, ArrowUpDown, Pencil, Trash2, Package, Wrench } from 'lucide-react';
 import QRCodeGenerator from '../components/QRCode/QRCodeGenerator';
 import QRCodesModal from '../components/equipment/QRCodesModal';
 import Modal from '../components/common/Modal';
@@ -44,6 +45,8 @@ const EquipmentPage: React.FC = () => {
   const [editingEquipment, setEditingEquipment] = useState<Equipment | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [equipmentToDelete, setEquipmentToDelete] = useState<Equipment | null>(null);
+  const [showMaintenanceModal, setShowMaintenanceModal] = useState(false);
+  const [selectedEquipmentForMaintenance, setSelectedEquipmentForMaintenance] = useState<Equipment | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -143,6 +146,11 @@ const EquipmentPage: React.FC = () => {
     setShowDeleteConfirm(true);
   };
 
+  const handleMaintenanceClick = (equipment: Equipment) => {
+    setSelectedEquipmentForMaintenance(equipment);
+    setShowMaintenanceModal(true);
+  };
+
   const handleDeleteConfirm = async () => {
     if (!equipmentToDelete) return;
 
@@ -231,6 +239,12 @@ const EquipmentPage: React.FC = () => {
     setShowEditModal(false);
     setEditingEquipment(null);
     fetchData(); // Refresh data after editing equipment
+  };
+
+  const handleCloseMaintenanceModal = () => {
+    setShowMaintenanceModal(false);
+    setSelectedEquipmentForMaintenance(null);
+    fetchData(); // Refresh data after maintenance changes
   };
 
   const getEquipmentInstances = (equipmentId: string) => {
@@ -447,6 +461,15 @@ const EquipmentPage: React.FC = () => {
                     >
                       QR Code
                     </Button>
+                    {item.status === 'maintenance' && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        icon={<Wrench size={16} />}
+                        onClick={() => handleMaintenanceClick(item)}
+                        className="text-blue-600 border-blue-600 hover:bg-blue-50"
+                      />
+                    )}
                     <Button
                       variant="outline"
                       size="sm"
@@ -505,7 +528,7 @@ const EquipmentPage: React.FC = () => {
                     {totalCount > 1 ? `${availableCount}/${totalCount}` : 
                      item.status === 'available' ? 'Dispo' :
                      item.status === 'checked-out' ? 'Emprunté' :
-                     item.status === 'maintenance' ? 'Maint.' : 'Retiré'}
+                     item.status === 'maintenance' ? 'M' : 'R'}
                   </Badge>
                 </div>
 
@@ -554,17 +577,17 @@ const EquipmentPage: React.FC = () => {
                   </div>
                 )}
 
-                {/* Status badge */}
-                <div className="pt-1">
-                  <StatusBadge status={item.status} />
-                </div>
-
                 {/* Description tronquée */}
                 {item.description && (
                   <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-2 font-light">
                     {item.description}
                   </p>
                 )}
+
+                {/* Status badge */}
+                <div className="pt-1">
+                  <StatusBadge status={item.status} />
+                </div>
               </div>
               
               {/* Actions - toujours en bas sur une seule ligne */}
@@ -579,6 +602,23 @@ const EquipmentPage: React.FC = () => {
                   >
                     QR
                   </Button>
+                  {item.status === 'maintenance' ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      icon={<Wrench size={14} />}
+                      onClick={() => handleMaintenanceClick(item)}
+                      className="px-2 py-1 flex-1 text-blue-600 border-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                    />
+                  ) : (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      icon={<Wrench size={14} />}
+                      onClick={() => handleMaintenanceClick(item)}
+                      className="px-2 py-1 flex-1"
+                    />
+                  )}
                   <Button
                     variant="outline"
                     size="sm"
@@ -790,6 +830,14 @@ const EquipmentPage: React.FC = () => {
         confirmLabel="SUPPRIMER"
         cancelLabel="ANNULER"
       />
+
+      {selectedEquipmentForMaintenance && (
+        <MaintenanceModal
+          isOpen={showMaintenanceModal}
+          onClose={handleCloseMaintenanceModal}
+          equipment={selectedEquipmentForMaintenance}
+        />
+      )}
     </div>
   );
 };

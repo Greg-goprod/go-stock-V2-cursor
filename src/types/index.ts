@@ -133,3 +133,29 @@ export interface SystemSetting {
   description?: string;
   updatedAt: string;
 }
+
+export interface MaintenanceType {
+  id: string;
+  name: string;
+  description?: string;
+  color: string;
+  createdAt: string;
+}
+
+export interface EquipmentMaintenance {
+  id: string;
+  equipmentId: string;
+  maintenanceTypeId: string;
+  title: string;
+  description?: string;
+  startDate: string;
+  endDate?: string;
+  status: 'in_progress' | 'completed' | 'cancelled';
+  technicianName?: string;
+  cost?: number;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+  maintenanceType?: MaintenanceType;
+  equipment?: Equipment;
+}

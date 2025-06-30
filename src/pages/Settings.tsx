@@ -5,7 +5,7 @@ import Button from '../components/common/Button';
 import ConfirmModal from '../components/common/ConfirmModal';
 import { useTheme } from '../contexts/ThemeContext';
 import { useLanguage } from '../contexts/LanguageContext';
-import { Sun, Moon, Languages, Plus, Pencil, Trash2, Tag, UserCheck, Save, X, Upload, Download, Settings as SettingsIcon, Image, Building2, Palette, Layers } from 'lucide-react';
+import { Sun, Moon, Languages, Plus, Pencil, Trash2, Tag, UserCheck, Save, X, Upload, Download, Settings as SettingsIcon, Image, Building2, Palette, Layers, Wrench } from 'lucide-react';
 import ColorPicker from '../components/common/ColorPicker';
 import CategoryModal from '../components/categories/CategoryModal';
 import SupplierModal from '../components/suppliers/SupplierModal';
@@ -13,8 +13,9 @@ import GroupModal from '../components/groups/GroupModal';
 import SubgroupModal from '../components/subgroups/SubgroupModal';
 import DepartmentModal from '../components/departments/DepartmentModal';
 import StatusModal from '../components/settings/StatusModal';
+import MaintenanceTypeModal from '../components/settings/MaintenanceTypeModal';
 import ExcelImport from '../components/import/ExcelImport';
-import { Category, Supplier, EquipmentGroup, EquipmentSubgroup, SystemSetting, Department, StatusConfig } from '../types';
+import { Category, Supplier, EquipmentGroup, EquipmentSubgroup, SystemSetting, Department, StatusConfig, MaintenanceType } from '../types';
 import { supabase } from '../lib/supabase';
 import toast from 'react-hot-toast';
 
@@ -29,6 +30,7 @@ const Settings: React.FC = () => {
   const [subgroups, setSubgroups] = useState<EquipmentSubgroup[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [statusConfigs, setStatusConfigs] = useState<StatusConfig[]>([]);
+  const [maintenanceTypes, setMaintenanceTypes] = useState<MaintenanceType[]>([]);
   const [systemSettings, setSystemSettings] = useState<SystemSetting[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -45,12 +47,14 @@ const Settings: React.FC = () => {
   const [selectedDepartment, setSelectedDepartment] = useState<Department | undefined>();
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState<StatusConfig | undefined>();
+  const [showMaintenanceTypeModal, setShowMaintenanceTypeModal] = useState(false);
+  const [selectedMaintenanceType, setSelectedMaintenanceType] = useState<MaintenanceType | undefined>();
   const [showExcelImport, setShowExcelImport] = useState(false);
 
   // Delete confirmation states
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteItem, setDeleteItem] = useState<{
-    type: 'category' | 'supplier' | 'group' | 'subgroup' | 'department' | 'status';
+    type: 'category' | 'supplier' | 'group' | 'subgroup' | 'department' | 'status' | 'maintenanceType';
     item: any;
   } | null>(null);
 
@@ -70,12 +74,13 @@ const Settings: React.FC = () => {
       setLoading(true);
       
       // Fetch all data in parallel
-      const [categoriesRes, suppliersRes, groupsRes, subgroupsRes, statusRes, settingsRes] = await Promise.all([
+      const [categoriesRes, suppliersRes, groupsRes, subgroupsRes, statusRes, maintenanceTypesRes, settingsRes] = await Promise.all([
         supabase.from('categories').select('*').order('name'),
         supabase.from('suppliers').select('*').order('name'),
         supabase.from('equipment_groups').select('*').order('name'),
         supabase.from('equipment_subgroups').select('*, equipment_groups(id, name, color)').order('name'),
         supabase.from('status_configs').select('*').order('name'),
+        supabase.from('maintenance_types').select('*').order('name'),
         supabase.from('system_settings').select('*')
       ]);
 
@@ -84,6 +89,7 @@ const Settings: React.FC = () => {
       if (groupsRes.error) throw groupsRes.error;
       if (subgroupsRes.error) throw subgroupsRes.error;
       if (statusRes.error) throw statusRes.error;
+      if (maintenanceTypesRes.error) throw maintenanceTypesRes.error;
       if (settingsRes.error) throw settingsRes.error;
 
       setCategories(categoriesRes.data || []);
@@ -101,6 +107,16 @@ const Settings: React.FC = () => {
         createdAt: sg.created_at
       })) || [];
       setSubgroups(transformedSubgroups);
+
+      // Transform maintenance types
+      const transformedMaintenanceTypes: MaintenanceType[] = maintenanceTypesRes.data?.map(mt => ({
+        id: mt.id,
+        name: mt.name,
+        description: mt.description,
+        color: mt.color,
+        createdAt: mt.created_at
+      })) || [];
+      setMaintenanceTypes(transformedMaintenanceTypes);
 
       // Set status configs with defaults if none exist
       if (!statusRes.data || statusRes.data.length === 0) {
@@ -249,6 +265,21 @@ const Settings: React.FC = () => {
     setShowDeleteConfirm(true);
   };
 
+  const handleEditMaintenanceType = (type: MaintenanceType) => {
+    setSelectedMaintenanceType(type);
+    setShowMaintenanceTypeModal(true);
+  };
+
+  const handleAddMaintenanceType = () => {
+    setSelectedMaintenanceType(undefined);
+    setShowMaintenanceTypeModal(true);
+  };
+
+  const handleDeleteMaintenanceType = (type: MaintenanceType) => {
+    setDeleteItem({ type: 'maintenanceType', item: type });
+    setShowDeleteConfirm(true);
+  };
+
   const handleDeleteConfirm = async () => {
     if (!deleteItem) return;
 
@@ -368,6 +399,28 @@ const Settings: React.FC = () => {
             .eq('id', item.id);
           if (statusError) throw statusError;
           setStatusConfigs(prev => prev.filter(s => s.id !== item.id));
+          break;
+
+        case 'maintenanceType':
+          // Check if any maintenance records are using this type
+          const { data: maintenanceWithType, error: maintenanceError } = await supabase
+            .from('equipment_maintenance')
+            .select('id')
+            .eq('maintenance_type_id', item.id);
+
+          if (maintenanceError) throw maintenanceError;
+
+          if (maintenanceWithType && maintenanceWithType.length > 0) {
+            toast.error(`Impossible de supprimer le type de maintenance "${item.name}" car ${maintenanceWithType.length} maintenance(s) l'utilisent encore.`);
+            return;
+          }
+
+          const { error: typeError } = await supabase
+            .from('maintenance_types')
+            .delete()
+            .eq('id', item.id);
+          if (typeError) throw typeError;
+          setMaintenanceTypes(prev => prev.filter(mt => mt.id !== item.id));
           break;
       }
 
@@ -516,6 +569,12 @@ const Settings: React.FC = () => {
     fetchData(); // Refresh data
   };
 
+  const handleCloseMaintenanceTypeModal = () => {
+    setShowMaintenanceTypeModal(false);
+    setSelectedMaintenanceType(undefined);
+    fetchData(); // Refresh data
+  };
+
   const getDeleteMessage = () => {
     if (!deleteItem) return '';
     
@@ -534,6 +593,8 @@ const Settings: React.FC = () => {
         return `Êtes-vous sûr de vouloir supprimer le département "${item.name}" ? Cette action est irréversible.`;
       case 'status':
         return `Êtes-vous sûr de vouloir supprimer le statut "${item.name}" ? Cette action est irréversible.`;
+      case 'maintenanceType':
+        return `Êtes-vous sûr de vouloir supprimer le type de maintenance "${item.name}" ? Cette action est irréversible.`;
       default:
         return 'Êtes-vous sûr de vouloir supprimer cet élément ?';
     }
@@ -852,6 +913,72 @@ const Settings: React.FC = () => {
             </div>
           </AccordionCard>
 
+          {/* Maintenance Types - Accordion */}
+          <AccordionCard
+            title="TYPES DE MAINTENANCE/PANNE"
+            icon={<Wrench className="w-5 h-5 text-primary-600 dark:text-primary-400" />}
+            defaultOpen={false}
+          >
+            <div className="space-y-4">
+              <div className="flex justify-end">
+                <Button 
+                  variant="primary" 
+                  size="sm" 
+                  icon={<Plus size={16} />}
+                  onClick={handleAddMaintenanceType}
+                  className="font-bold"
+                >
+                  AJOUTER TYPE
+                </Button>
+              </div>
+              <div className="space-y-2 max-h-48 overflow-y-auto">
+                {maintenanceTypes.map((type) => (
+                  <div
+                    key={type.id}
+                    className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div
+                        className="w-4 h-4 rounded-full"
+                        style={{ backgroundColor: type.color }}
+                      />
+                      <div>
+                        <h4 className="font-black text-gray-800 dark:text-white">
+                          {type.name}
+                        </h4>
+                        {type.description && (
+                          <p className="text-sm text-gray-500 dark:text-gray-400">
+                            {type.description}
+                          </p>
+                        )}
+                      </div>
+                      <span 
+                        className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium text-white"
+                        style={{ backgroundColor: type.color }}
+                      >
+                        {type.name}
+                      </span>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        icon={<Pencil size={16} />}
+                        onClick={() => handleEditMaintenanceType(type)}
+                      />
+                      <Button
+                        variant="danger"
+                        size="sm"
+                        icon={<Trash2 size={16} />}
+                        onClick={() => handleDeleteMaintenanceType(type)}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </AccordionCard>
+
           {/* Categories - Accordion */}
           <AccordionCard
             title="CATÉGORIES"
@@ -902,75 +1029,6 @@ const Settings: React.FC = () => {
                     </div>
                   </div>
                 ))}
-              </div>
-            </div>
-          </AccordionCard>
-
-          {/* Departments - Accordion */}
-          <AccordionCard
-            title="DÉPARTEMENTS"
-            icon={<Building2 className="w-5 h-5 text-primary-600 dark:text-primary-400" />}
-            defaultOpen={false}
-          >
-            <div className="space-y-4">
-              <div className="flex justify-end">
-                <Button 
-                  variant="primary" 
-                  size="sm" 
-                  icon={<Plus size={16} />}
-                  onClick={handleAddDepartment}
-                  className="font-bold"
-                >
-                  AJOUTER DÉPARTEMENT
-                </Button>
-              </div>
-              <div className="space-y-2 max-h-48 overflow-y-auto">
-                {departments.length === 0 ? (
-                  <div className="text-center py-4">
-                    <Building2 size={32} className="mx-auto text-gray-400 mb-2" />
-                    <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">
-                      Aucun département trouvé. Les départements sont créés automatiquement lors de l'ajout d'utilisateurs.
-                    </p>
-                  </div>
-                ) : (
-                  departments.map((department) => (
-                    <div
-                      key={department.id}
-                      className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div
-                          className="w-4 h-4 rounded-full"
-                          style={{ backgroundColor: department.color }}
-                        />
-                        <div>
-                          <h4 className="font-black text-gray-800 dark:text-white">
-                            {department.name}
-                          </h4>
-                          {department.description && (
-                            <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">
-                              {department.description}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          icon={<Pencil size={16} />}
-                          onClick={() => handleEditDepartment(department)}
-                        />
-                        <Button
-                          variant="danger"
-                          size="sm"
-                          icon={<Trash2 size={16} />}
-                          onClick={() => handleDeleteDepartment(department)}
-                        />
-                      </div>
-                    </div>
-                  ))
-                )}
               </div>
             </div>
           </AccordionCard>
@@ -1125,6 +1183,75 @@ const Settings: React.FC = () => {
             </div>
           </AccordionCard>
 
+          {/* Departments - Accordion */}
+          <AccordionCard
+            title="DÉPARTEMENTS"
+            icon={<Building2 className="w-5 h-5 text-primary-600 dark:text-primary-400" />}
+            defaultOpen={false}
+          >
+            <div className="space-y-4">
+              <div className="flex justify-end">
+                <Button 
+                  variant="primary" 
+                  size="sm" 
+                  icon={<Plus size={16} />}
+                  onClick={handleAddDepartment}
+                  className="font-bold"
+                >
+                  AJOUTER DÉPARTEMENT
+                </Button>
+              </div>
+              <div className="space-y-2 max-h-48 overflow-y-auto">
+                {departments.length === 0 ? (
+                  <div className="text-center py-4">
+                    <Building2 size={32} className="mx-auto text-gray-400 mb-2" />
+                    <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">
+                      Aucun département trouvé. Les départements sont créés automatiquement lors de l'ajout d'utilisateurs.
+                    </p>
+                  </div>
+                ) : (
+                  departments.map((department) => (
+                    <div
+                      key={department.id}
+                      className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div
+                          className="w-4 h-4 rounded-full"
+                          style={{ backgroundColor: department.color }}
+                        />
+                        <div>
+                          <h4 className="font-black text-gray-800 dark:text-white">
+                            {department.name}
+                          </h4>
+                          {department.description && (
+                            <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">
+                              {department.description}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          icon={<Pencil size={16} />}
+                          onClick={() => handleEditDepartment(department)}
+                        />
+                        <Button
+                          variant="danger"
+                          size="sm"
+                          icon={<Trash2 size={16} />}
+                          onClick={() => handleDeleteDepartment(department)}
+                        />
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </AccordionCard>
+
           {/* Suppliers - Accordion */}
           <AccordionCard
             title="FOURNISSEURS"
@@ -1218,6 +1345,12 @@ const Settings: React.FC = () => {
         isOpen={showStatusModal}
         onClose={handleCloseStatusModal}
         status={selectedStatus}
+      />
+
+      <MaintenanceTypeModal
+        isOpen={showMaintenanceTypeModal}
+        onClose={handleCloseMaintenanceTypeModal}
+        maintenanceType={selectedMaintenanceType}
       />
 
       <ExcelImport

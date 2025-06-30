@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import Badge from '../components/common/Badge';
+import StatusBadge from '../components/common/StatusBadge';
 import { Plus, Filter, QrCode, LayoutGrid, List, ArrowUpDown, Pencil, Trash2, Package } from 'lucide-react';
 import QRCodeGenerator from '../components/QRCode/QRCodeGenerator';
 import QRCodesModal from '../components/equipment/QRCodesModal';
@@ -11,6 +12,7 @@ import AddEquipmentModal from '../components/equipment/AddEquipmentModal';
 import EditEquipmentModal from '../components/equipment/EditEquipmentModal';
 import ConfirmModal from '../components/common/ConfirmModal';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useStatusColors } from '../hooks/useStatusColors';
 import { Equipment, Category, Supplier, EquipmentGroup, EquipmentInstance } from '../types';
 import { supabase } from '../lib/supabase';
 import toast from 'react-hot-toast';
@@ -21,6 +23,7 @@ type SortDirection = 'asc' | 'desc';
 
 const EquipmentPage: React.FC = () => {
   const { t } = useLanguage();
+  const { statusConfigs, getStatusColor } = useStatusColors();
   const [equipment, setEquipment] = useState<Equipment[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
@@ -244,12 +247,10 @@ const EquipmentPage: React.FC = () => {
       id: 'status',
       label: 'Statut',
       type: 'select',
-      options: [
-        { value: 'available', label: 'Disponible' },
-        { value: 'checked-out', label: 'Emprunté' },
-        { value: 'maintenance', label: 'En maintenance' },
-        { value: 'retired', label: 'Retiré' },
-      ],
+      options: statusConfigs.map(status => ({
+        value: status.id,
+        label: status.name,
+      })),
     },
     {
       id: 'category',
@@ -435,15 +436,7 @@ const EquipmentPage: React.FC = () => {
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <Badge
-                      variant={
-                        item.status === 'available' ? 'success' :
-                        item.status === 'checked-out' ? 'warning' :
-                        item.status === 'maintenance' ? 'info' : 'neutral'
-                      }
-                    >
-                      {item.status}
-                    </Badge>
+                    <StatusBadge status={item.status} />
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right space-x-2">
                     <Button
@@ -560,6 +553,11 @@ const EquipmentPage: React.FC = () => {
                     </span>
                   </div>
                 )}
+
+                {/* Status badge */}
+                <div className="pt-1">
+                  <StatusBadge status={item.status} />
+                </div>
 
                 {/* Description tronquée */}
                 {item.description && (

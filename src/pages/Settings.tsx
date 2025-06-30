@@ -5,14 +5,15 @@ import Button from '../components/common/Button';
 import ConfirmModal from '../components/common/ConfirmModal';
 import { useTheme } from '../contexts/ThemeContext';
 import { useLanguage } from '../contexts/LanguageContext';
-import { Sun, Moon, Languages, Plus, Pencil, Trash2, Tag, UserCheck, Save, X, Upload, Download, Settings as SettingsIcon, Image, Building2 } from 'lucide-react';
+import { Sun, Moon, Languages, Plus, Pencil, Trash2, Tag, UserCheck, Save, X, Upload, Download, Settings as SettingsIcon, Image, Building2, Palette } from 'lucide-react';
 import ColorPicker from '../components/common/ColorPicker';
 import CategoryModal from '../components/categories/CategoryModal';
 import SupplierModal from '../components/suppliers/SupplierModal';
 import GroupModal from '../components/groups/GroupModal';
 import DepartmentModal from '../components/departments/DepartmentModal';
+import StatusModal from '../components/settings/StatusModal';
 import ExcelImport from '../components/import/ExcelImport';
-import { Category, Supplier, EquipmentGroup, SystemSetting, Department } from '../types';
+import { Category, Supplier, EquipmentGroup, SystemSetting, Department, StatusConfig } from '../types';
 import { supabase } from '../lib/supabase';
 import toast from 'react-hot-toast';
 
@@ -25,6 +26,7 @@ const Settings: React.FC = () => {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [groups, setGroups] = useState<EquipmentGroup[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
+  const [statusConfigs, setStatusConfigs] = useState<StatusConfig[]>([]);
   const [systemSettings, setSystemSettings] = useState<SystemSetting[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -37,12 +39,14 @@ const Settings: React.FC = () => {
   const [selectedGroup, setSelectedGroup] = useState<EquipmentGroup | undefined>();
   const [showDepartmentModal, setShowDepartmentModal] = useState(false);
   const [selectedDepartment, setSelectedDepartment] = useState<Department | undefined>();
+  const [showStatusModal, setShowStatusModal] = useState(false);
+  const [selectedStatus, setSelectedStatus] = useState<StatusConfig | undefined>();
   const [showExcelImport, setShowExcelImport] = useState(false);
 
   // Delete confirmation states
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteItem, setDeleteItem] = useState<{
-    type: 'category' | 'supplier' | 'group' | 'department';
+    type: 'category' | 'supplier' | 'group' | 'department' | 'status';
     item: any;
   } | null>(null);
 
@@ -62,22 +66,40 @@ const Settings: React.FC = () => {
       setLoading(true);
       
       // Fetch all data in parallel
-      const [categoriesRes, suppliersRes, groupsRes, settingsRes] = await Promise.all([
+      const [categoriesRes, suppliersRes, groupsRes, statusRes, settingsRes] = await Promise.all([
         supabase.from('categories').select('*').order('name'),
         supabase.from('suppliers').select('*').order('name'),
         supabase.from('equipment_groups').select('*').order('name'),
+        supabase.from('status_configs').select('*').order('name'),
         supabase.from('system_settings').select('*')
       ]);
 
       if (categoriesRes.error) throw categoriesRes.error;
       if (suppliersRes.error) throw suppliersRes.error;
       if (groupsRes.error) throw groupsRes.error;
+      if (statusRes.error) throw statusRes.error;
       if (settingsRes.error) throw settingsRes.error;
 
       setCategories(categoriesRes.data || []);
       setSuppliers(suppliersRes.data || []);
       setGroups(groupsRes.data || []);
       setSystemSettings(settingsRes.data || []);
+
+      // Set status configs with defaults if none exist
+      if (!statusRes.data || statusRes.data.length === 0) {
+        const defaultStatuses: StatusConfig[] = [
+          { id: 'available', name: 'Disponible', color: '#10b981' },
+          { id: 'checked-out', name: 'Emprunté', color: '#f59e0b' },
+          { id: 'maintenance', name: 'En maintenance', color: '#3b82f6' },
+          { id: 'retired', name: 'Retiré', color: '#ef4444' }
+        ];
+        setStatusConfigs(defaultStatuses);
+        
+        // Insert default statuses into database
+        await supabase.from('status_configs').insert(defaultStatuses);
+      } else {
+        setStatusConfigs(statusRes.data);
+      }
 
       // Fetch departments from users table (unique departments)
       const { data: usersData, error: usersError } = await supabase
@@ -180,6 +202,21 @@ const Settings: React.FC = () => {
     setShowDeleteConfirm(true);
   };
 
+  const handleEditStatus = (status: StatusConfig) => {
+    setSelectedStatus(status);
+    setShowStatusModal(true);
+  };
+
+  const handleAddStatus = () => {
+    setSelectedStatus(undefined);
+    setShowStatusModal(true);
+  };
+
+  const handleDeleteStatus = (status: StatusConfig) => {
+    setDeleteItem({ type: 'status', item: status });
+    setShowDeleteConfirm(true);
+  };
+
   const handleDeleteConfirm = async () => {
     if (!deleteItem) return;
 
@@ -229,6 +266,28 @@ const Settings: React.FC = () => {
           }
 
           setDepartments(prev => prev.filter(d => d.name !== item.name));
+          break;
+
+        case 'status':
+          // Check if any equipment is using this status
+          const { data: equipmentWithStatus, error: equipmentError } = await supabase
+            .from('equipment')
+            .select('id')
+            .eq('status', item.id);
+
+          if (equipmentError) throw equipmentError;
+
+          if (equipmentWithStatus && equipmentWithStatus.length > 0) {
+            toast.error(`Impossible de supprimer le statut "${item.name}" car ${equipmentWithStatus.length} équipement(s) l'utilisent encore.`);
+            return;
+          }
+
+          const { error: statusError } = await supabase
+            .from('status_configs')
+            .delete()
+            .eq('id', item.id);
+          if (statusError) throw statusError;
+          setStatusConfigs(prev => prev.filter(s => s.id !== item.id));
           break;
       }
 
@@ -365,6 +424,12 @@ const Settings: React.FC = () => {
     fetchData(); // Refresh data
   };
 
+  const handleCloseStatusModal = () => {
+    setShowStatusModal(false);
+    setSelectedStatus(undefined);
+    fetchData(); // Refresh data
+  };
+
   const getDeleteMessage = () => {
     if (!deleteItem) return '';
     
@@ -379,6 +444,8 @@ const Settings: React.FC = () => {
         return `Êtes-vous sûr de vouloir supprimer le groupe "${item.name}" ? Cette action est irréversible.`;
       case 'department':
         return `Êtes-vous sûr de vouloir supprimer le département "${item.name}" ? Cette action est irréversible.`;
+      case 'status':
+        return `Êtes-vous sûr de vouloir supprimer le statut "${item.name}" ? Cette action est irréversible.`;
       default:
         return 'Êtes-vous sûr de vouloir supprimer cet élément ?';
     }
@@ -623,6 +690,70 @@ const Settings: React.FC = () => {
         </div>
 
         <div className="space-y-6">
+          {/* Status Configurations - Accordion */}
+          <AccordionCard
+            title="STATUTS DU MATÉRIEL"
+            icon={<Palette className="w-5 h-5 text-primary-600 dark:text-primary-400" />}
+            defaultOpen={false}
+          >
+            <div className="space-y-4">
+              <div className="flex justify-end">
+                <Button 
+                  variant="primary" 
+                  size="sm" 
+                  icon={<Plus size={16} />}
+                  onClick={handleAddStatus}
+                  className="font-bold"
+                >
+                  AJOUTER STATUT
+                </Button>
+              </div>
+              <div className="space-y-2 max-h-48 overflow-y-auto">
+                {statusConfigs.map((status) => (
+                  <div
+                    key={status.id}
+                    className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div
+                        className="w-4 h-4 rounded-full"
+                        style={{ backgroundColor: status.color }}
+                      />
+                      <div>
+                        <h4 className="font-black text-gray-800 dark:text-white">
+                          {status.name}
+                        </h4>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 font-mono">
+                          {status.color}
+                        </p>
+                      </div>
+                      <span 
+                        className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium text-white"
+                        style={{ backgroundColor: status.color }}
+                      >
+                        {status.name}
+                      </span>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        icon={<Pencil size={16} />}
+                        onClick={() => handleEditStatus(status)}
+                      />
+                      <Button
+                        variant="danger"
+                        size="sm"
+                        icon={<Trash2 size={16} />}
+                        onClick={() => handleDeleteStatus(status)}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </AccordionCard>
+
           {/* Categories - Accordion */}
           <AccordionCard
             title="CATÉGORIES"
@@ -886,6 +1017,12 @@ const Settings: React.FC = () => {
         isOpen={showGroupModal}
         onClose={handleCloseGroupModal}
         group={selectedGroup}
+      />
+
+      <StatusModal
+        isOpen={showStatusModal}
+        onClose={handleCloseStatusModal}
+        status={selectedStatus}
       />
 
       <ExcelImport

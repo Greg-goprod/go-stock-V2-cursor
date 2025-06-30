@@ -1,9 +1,18 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Check } from 'lucide-react';
+import { supabase } from '../../lib/supabase';
 
 interface ColorPickerProps {
   color: string;
   onChange: (color: string) => void;
+}
+
+interface ColorUsage {
+  color: string;
+  usedBy: {
+    type: 'category' | 'group' | 'subgroup' | 'department' | 'status' | 'maintenance';
+    name: string;
+  }[];
 }
 
 // Palette de couleurs étendue avec plus de choix
@@ -85,6 +94,8 @@ const colors = [
 
 const ColorPicker: React.FC<ColorPickerProps> = ({ color, onChange }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [colorUsage, setColorUsage] = useState<ColorUsage[]>([]);
+  const [hoveredColor, setHoveredColor] = useState<string | null>(null);
   const pickerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -97,6 +108,110 @@ const ColorPicker: React.FC<ColorPickerProps> = ({ color, onChange }) => {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  useEffect(() => {
+    if (isOpen) {
+      fetchColorUsage();
+    }
+  }, [isOpen]);
+
+  const fetchColorUsage = async () => {
+    try {
+      // Récupérer les utilisations de couleurs dans différentes tables
+      const [categoriesRes, groupsRes, subgroupsRes, departmentsRes, statusRes, maintenanceRes] = await Promise.all([
+        supabase.from('categories').select('name, color'),
+        supabase.from('equipment_groups').select('name, color'),
+        supabase.from('equipment_subgroups').select('name, color'),
+        supabase.from('departments').select('name, color'),
+        supabase.from('status_configs').select('name, color'),
+        supabase.from('maintenance_types').select('name, color')
+      ]);
+
+      // Créer un mapping des couleurs et de leurs utilisations
+      const usageMap = new Map<string, { type: string; name: string }[]>();
+
+      // Ajouter les catégories
+      if (categoriesRes.data) {
+        categoriesRes.data.forEach(cat => {
+          if (!cat.color) return;
+          const existing = usageMap.get(cat.color) || [];
+          usageMap.set(cat.color, [...existing, { type: 'category', name: cat.name }]);
+        });
+      }
+
+      // Ajouter les groupes
+      if (groupsRes.data) {
+        groupsRes.data.forEach(group => {
+          if (!group.color) return;
+          const existing = usageMap.get(group.color) || [];
+          usageMap.set(group.color, [...existing, { type: 'group', name: group.name }]);
+        });
+      }
+
+      // Ajouter les sous-groupes
+      if (subgroupsRes.data) {
+        subgroupsRes.data.forEach(subgroup => {
+          if (!subgroup.color) return;
+          const existing = usageMap.get(subgroup.color) || [];
+          usageMap.set(subgroup.color, [...existing, { type: 'subgroup', name: subgroup.name }]);
+        });
+      }
+
+      // Ajouter les départements
+      if (departmentsRes.data) {
+        departmentsRes.data.forEach(dept => {
+          if (!dept.color) return;
+          const existing = usageMap.get(dept.color) || [];
+          usageMap.set(dept.color, [...existing, { type: 'department', name: dept.name }]);
+        });
+      }
+
+      // Ajouter les statuts
+      if (statusRes.data) {
+        statusRes.data.forEach(status => {
+          if (!status.color) return;
+          const existing = usageMap.get(status.color) || [];
+          usageMap.set(status.color, [...existing, { type: 'status', name: status.name }]);
+        });
+      }
+
+      // Ajouter les types de maintenance
+      if (maintenanceRes.data) {
+        maintenanceRes.data.forEach(maint => {
+          if (!maint.color) return;
+          const existing = usageMap.get(maint.color) || [];
+          usageMap.set(maint.color, [...existing, { type: 'maintenance', name: maint.name }]);
+        });
+      }
+
+      // Convertir le Map en tableau pour l'état
+      const colorUsageArray: ColorUsage[] = [];
+      usageMap.forEach((usedBy, color) => {
+        colorUsageArray.push({ color, usedBy });
+      });
+
+      setColorUsage(colorUsageArray);
+    } catch (error) {
+      console.error('Error fetching color usage:', error);
+    }
+  };
+
+  const getColorUsage = (color: string) => {
+    const usage = colorUsage.find(u => u.color.toLowerCase() === color.toLowerCase());
+    return usage?.usedBy || [];
+  };
+
+  const getTypeLabel = (type: string) => {
+    switch (type) {
+      case 'category': return 'Catégorie';
+      case 'group': return 'Groupe';
+      case 'subgroup': return 'Sous-groupe';
+      case 'department': return 'Département';
+      case 'status': return 'Statut';
+      case 'maintenance': return 'Type de maintenance';
+      default: return type;
+    }
+  };
 
   return (
     <div className="relative" ref={pickerRef}>
@@ -117,20 +232,49 @@ const ColorPicker: React.FC<ColorPickerProps> = ({ color, onChange }) => {
             width: '400px'
           }}
         >
-          {colors.map((c) => (
-            <button
-              key={c}
-              className="w-8 h-8 rounded-full flex items-center justify-center hover:scale-110 transition-transform relative"
-              style={{ backgroundColor: c }}
-              onClick={() => {
-                onChange(c);
-                setIsOpen(false);
-              }}
-              aria-label={`Couleur ${c}`}
-            >
-              {color === c && <Check className="text-white" size={16} />}
-            </button>
-          ))}
+          {colors.map((c) => {
+            const usage = getColorUsage(c);
+            const isUsed = usage.length > 0;
+            
+            return (
+              <div 
+                key={c} 
+                className="relative"
+                onMouseEnter={() => setHoveredColor(c)}
+                onMouseLeave={() => setHoveredColor(null)}
+              >
+                <button
+                  className={`w-8 h-8 rounded-full flex items-center justify-center hover:scale-110 transition-transform relative ${isUsed ? 'ring-2 ring-offset-2 ring-gray-300 dark:ring-gray-600' : ''}`}
+                  style={{ backgroundColor: c }}
+                  onClick={() => {
+                    onChange(c);
+                    setIsOpen(false);
+                  }}
+                  aria-label={`Couleur ${c}`}
+                >
+                  {color === c && <Check className="text-white" size={16} />}
+                </button>
+                
+                {/* Tooltip pour les couleurs utilisées */}
+                {hoveredColor === c && usage.length > 0 && (
+                  <div className="absolute z-[10000] left-1/2 transform -translate-x-1/2 bottom-full mb-2 w-48 bg-white dark:bg-gray-900 shadow-lg rounded-lg p-2 text-xs">
+                    <div className="font-bold text-gray-800 dark:text-white mb-1">
+                      Utilisée par:
+                    </div>
+                    <ul className="space-y-1">
+                      {usage.map((item, index) => (
+                        <li key={index} className="text-gray-600 dark:text-gray-300 flex items-center gap-1">
+                          <span className="w-2 h-2 rounded-full" style={{ backgroundColor: c }}></span>
+                          <span className="font-medium">{getTypeLabel(item.type)}:</span> {item.name}
+                        </li>
+                      ))}
+                    </ul>
+                    <div className="absolute left-1/2 transform -translate-x-1/2 -bottom-1 w-2 h-2 rotate-45 bg-white dark:bg-gray-900"></div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

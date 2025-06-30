@@ -43,10 +43,9 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
       setSearchTerm('');
       setUserSearchTerm('');
       
-      // Set default due date to 7 days from now
-      const defaultDueDate = new Date();
-      defaultDueDate.setDate(defaultDueDate.getDate() + 7);
-      setDueDate(defaultDueDate.toISOString().split('T')[0]);
+      // Set default due date to today (same day as scan)
+      const today = new Date();
+      setDueDate(today.toISOString().split('T')[0]);
     }
   }, [isOpen]);
 
@@ -773,6 +772,11 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Date de retour prévue *
                 </label>
+                <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3 mb-2">
+                  <p className="text-sm text-yellow-800 dark:text-yellow-200 font-medium">
+                    📅 Par défaut : retour le jour même ({new Date().toLocaleDateString('fr-FR')})
+                  </p>
+                </div>
                 <input
                   type="date"
                   value={dueDate}

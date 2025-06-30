@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react';
 import Modal from '../common/Modal';
 import Button from '../common/Button';
 import QRCodeScanner from '../QRCode/QRCodeScanner';
-import { User, Equipment } from '../../types';
+import { User, Equipment, Category, Supplier } from '../../types';
 import { supabase } from '../../lib/supabase';
-import { Search, UserPlus, Package, Plus, Trash2, Calendar, Printer, List, Filter, X, CheckCircle, AlertCircle } from 'lucide-react';
+import { Search, Package, Calendar, Printer, User as UserIcon, Plus, Minus, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface CheckoutModalProps {
@@ -17,70 +17,32 @@ interface CheckoutItem {
   quantity: number;
 }
 
-interface NewEquipment {
-  name: string;
-  serialNumber: string;
-  description: string;
-}
-
-interface StockInfo {
-  total: number;
-  borrowed: number;
-  maintenance: number;
-  available: number;
-}
-
-interface ScanHistoryItem {
-  id: string;
-  scannedValue: string;
-  timestamp: string;
-  status: 'success' | 'error' | 'duplicate';
-  message: string;
-  equipment?: Equipment;
-}
-
 const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
   const [step, setStep] = useState<'user' | 'equipment' | 'summary'>('user');
+  const [users, setUsers] = useState<User[]>([]);
+  const [equipment, setEquipment] = useState<Equipment[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [checkoutItems, setCheckoutItems] = useState<CheckoutItem[]>([]);
-  const [newEquipment, setNewEquipment] = useState<NewEquipment[]>([]);
   const [dueDate, setDueDate] = useState('');
   const [notes, setNotes] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  
-  // User selection states
-  const [userSelectionMode, setUserSelectionMode] = useState<'new' | 'list'>('list');
-  const [userSearch, setUserSearch] = useState('');
-  const [users, setUsers] = useState<User[]>([]);
-  const [newUserData, setNewUserData] = useState({
-    first_name: '',
-    last_name: '',
-    phone: '',
-    email: '',
-    department: ''
-  });
-  
-  // Equipment states
-  const [equipmentMode, setEquipmentMode] = useState<'scan' | 'list' | 'new'>('scan');
-  const [equipment, setEquipment] = useState<Equipment[]>([]);
-  const [filteredEquipment, setFilteredEquipment] = useState<Equipment[]>([]);
-  const [equipmentSearch, setEquipmentSearch] = useState('');
-  const [equipmentFilter, setEquipmentFilter] = useState('');
-  const [showNewEquipmentForm, setShowNewEquipmentForm] = useState(false);
-  const [tempNewEquipment, setTempNewEquipment] = useState<NewEquipment>({
-    name: '',
-    serialNumber: '',
-    description: ''
-  });
-  const [stockInfo, setStockInfo] = useState<Record<string, StockInfo>>({});
-  
-  // Scan history
-  const [scanHistory, setScanHistory] = useState<ScanHistoryItem[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [userSearchTerm, setUserSearchTerm] = useState('');
 
   useEffect(() => {
     if (isOpen) {
-      fetchUsers();
-      fetchEquipment();
+      fetchData();
+      // Reset state when modal opens
+      setStep('user');
+      setSelectedUser(null);
+      setCheckoutItems([]);
+      setDueDate('');
+      setNotes('');
+      setSearchTerm('');
+      setUserSearchTerm('');
+      
       // Set default due date to 7 days from now
       const defaultDueDate = new Date();
       defaultDueDate.setDate(defaultDueDate.getDate() + 7);
@@ -88,54 +50,36 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
     }
   }, [isOpen]);
 
-  useEffect(() => {
-    // Filter equipment based on search and filter
-    let filtered = equipment;
-    
-    if (equipmentSearch) {
-      filtered = filtered.filter(eq => 
-        eq.name.toLowerCase().includes(equipmentSearch.toLowerCase()) ||
-        eq.description.toLowerCase().includes(equipmentSearch.toLowerCase()) ||
-        eq.serialNumber.toLowerCase().includes(equipmentSearch.toLowerCase())
-      );
-    }
-    
-    if (equipmentFilter) {
-      filtered = filtered.filter(eq => eq.category === equipmentFilter);
-    }
-    
-    setFilteredEquipment(filtered);
-  }, [equipment, equipmentSearch, equipmentFilter]);
-
-  const fetchUsers = async () => {
+  const fetchData = async () => {
     try {
-      const { data, error } = await supabase
+      setIsLoading(true);
+      
+      // Fetch users
+      const { data: usersData, error: usersError } = await supabase
         .from('users')
         .select('*')
         .order('first_name');
       
-      if (error) throw error;
-      setUsers(data || []);
-    } catch (error) {
-      console.error('Error fetching users:', error);
-    }
-  };
+      if (usersError) throw usersError;
+      setUsers(usersData || []);
 
-  const fetchEquipment = async () => {
-    try {
-      const { data, error } = await supabase
+      // Fetch equipment with related data
+      const { data: equipmentData, error: equipmentError } = await supabase
         .from('equipment')
         .select(`
           *,
           categories(id, name),
-          suppliers(id, name)
+          suppliers(id, name),
+          equipment_groups(id, name)
         `)
+        .eq('status', 'available')
+        .gt('available_quantity', 0)
         .order('name');
-      
-      if (error) throw error;
-      
-      // Transform data to match our interface
-      const transformedEquipment: Equipment[] = data?.map(eq => ({
+
+      if (equipmentError) throw equipmentError;
+
+      // Transform equipment data
+      const transformedEquipment: Equipment[] = equipmentData?.map(eq => ({
         id: eq.id,
         name: eq.name,
         description: eq.description || '',
@@ -150,362 +94,210 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
         articleNumber: eq.article_number,
         qrType: eq.qr_type || 'individual',
         totalQuantity: eq.total_quantity || 1,
-        availableQuantity: eq.available_quantity || 1
+        availableQuantity: eq.available_quantity || 1,
+        shortTitle: eq.short_title,
+        group: eq.equipment_groups?.name || ''
       })) || [];
-      
+
       setEquipment(transformedEquipment);
+
+      // Fetch categories
+      const { data: categoriesData, error: categoriesError } = await supabase
+        .from('categories')
+        .select('*')
+        .order('name');
       
-      // Calculate stock info for each equipment
-      await calculateStockInfo(transformedEquipment);
-    } catch (error) {
-      console.error('Error fetching equipment:', error);
-    }
-  };
+      if (categoriesError) throw categoriesError;
+      setCategories(categoriesData || []);
 
-  const calculateStockInfo = async (equipmentList: Equipment[]) => {
-    try {
-      // Fetch active checkouts
-      const { data: checkouts, error: checkoutError } = await supabase
-        .from('checkouts')
-        .select('equipment_id')
-        .eq('status', 'active');
-
-      if (checkoutError) throw checkoutError;
-
-      const stockInfoMap: Record<string, StockInfo> = {};
-
-      equipmentList.forEach(eq => {
-        const total = eq.totalQuantity || 1;
-        const borrowed = checkouts?.filter(c => c.equipment_id === eq.id).length || 0;
-        const maintenance = eq.status === 'maintenance' ? 1 : 0;
-        const available = Math.max(0, total - borrowed - maintenance);
-
-        stockInfoMap[eq.id] = {
-          total,
-          borrowed,
-          maintenance,
-          available
-        };
-      });
-
-      setStockInfo(stockInfoMap);
-    } catch (error) {
-      console.error('Error calculating stock info:', error);
-    }
-  };
-
-  const addToScanHistory = (scannedValue: string, status: 'success' | 'error' | 'duplicate', message: string, equipment?: Equipment) => {
-    const historyItem: ScanHistoryItem = {
-      id: `scan-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      scannedValue,
-      timestamp: new Date().toISOString(),
-      status,
-      message,
-      equipment
-    };
-    
-    setScanHistory(prev => [historyItem, ...prev.slice(0, 9)]); // Garder les 10 derniers
-  };
-
-  const clearScanHistory = () => {
-    setScanHistory([]);
-  };
-
-  const handleEquipmentScan = async (scannedId: string) => {
-    console.log('🔍 Scan reçu:', scannedId);
-    
-    try {
-      // Rechercher l'équipement par ID, article number ou serial number
-      let equipmentItem = equipment.find(e => 
-        e.id === scannedId || 
-        e.articleNumber === scannedId || 
-        e.serialNumber === scannedId
-      );
-
-      // Si pas trouvé par les méthodes ci-dessus, chercher dans les instances
-      if (!equipmentItem) {
-        const { data: instances, error: instanceError } = await supabase
-          .from('equipment_instances')
-          .select('equipment_id, qr_code')
-          .eq('qr_code', scannedId);
-
-        if (!instanceError && instances && instances.length > 0) {
-          const equipmentId = instances[0].equipment_id;
-          equipmentItem = equipment.find(e => e.id === equipmentId);
-        }
-      }
-
-      if (!equipmentItem) {
-        console.log('❌ Matériel non trouvé pour:', scannedId);
-        addToScanHistory(scannedId, 'error', 'Matériel non trouvé');
-        toast.error('Matériel non trouvé');
-        return;
-      }
-
-      console.log('✅ Matériel trouvé:', equipmentItem.name);
-
-      // Vérifier la disponibilité
-      const stock = stockInfo[equipmentItem.id];
-      if (!stock || stock.available === 0) {
-        addToScanHistory(scannedId, 'error', 'Matériel non disponible', equipmentItem);
-        toast.error('Ce matériel n\'est pas disponible');
-        return;
-      }
-
-      // Vérifier si déjà dans la liste
-      const existingItem = checkoutItems.find(item => item.equipment.id === equipmentItem.id);
-      const currentQuantity = existingItem ? existingItem.quantity : 0;
+      // Fetch suppliers
+      const { data: suppliersData, error: suppliersError } = await supabase
+        .from('suppliers')
+        .select('*')
+        .order('name');
       
-      if (currentQuantity >= stock.available) {
-        addToScanHistory(scannedId, 'duplicate', 'Quantité maximale atteinte', equipmentItem);
-        toast.error('Quantité maximale atteinte pour ce matériel');
-        return;
-      }
+      if (suppliersError) throw suppliersError;
+      setSuppliers(suppliersData || []);
 
-      // Ajouter ou incrémenter
-      if (existingItem) {
-        setCheckoutItems(prev => 
-          prev.map(item => 
-            item.equipment.id === equipmentItem.id 
-              ? { ...item, quantity: item.quantity + 1 }
-              : item
-          )
-        );
-        addToScanHistory(scannedId, 'success', `Quantité augmentée (${currentQuantity + 1})`, equipmentItem);
-      } else {
-        setCheckoutItems(prev => [...prev, { equipment: equipmentItem, quantity: 1 }]);
-        addToScanHistory(scannedId, 'success', 'Ajouté à la liste', equipmentItem);
-      }
-      
-      toast.success(`${equipmentItem.name} ajouté`);
-      
-    } catch (error) {
-      console.error('Erreur lors du scan:', error);
-      addToScanHistory(scannedId, 'error', 'Erreur de traitement');
-      toast.error('Erreur lors du traitement du scan');
-    }
-  };
-
-  const handleSelectEquipmentFromList = (equipmentItem: Equipment) => {
-    const stock = stockInfo[equipmentItem.id];
-    if (!stock || stock.available === 0) {
-      toast.error('Ce matériel n\'est pas disponible');
-      return;
-    }
-
-    const existingItem = checkoutItems.find(item => item.equipment.id === equipmentItem.id);
-    const currentQuantity = existingItem ? existingItem.quantity : 0;
-    
-    if (currentQuantity >= stock.available) {
-      toast.error('Quantité maximale atteinte pour ce matériel');
-      return;
-    }
-
-    if (existingItem) {
-      setCheckoutItems(prev => 
-        prev.map(item => 
-          item.equipment.id === equipmentItem.id 
-            ? { ...item, quantity: item.quantity + 1 }
-            : item
-        )
-      );
-    } else {
-      setCheckoutItems(prev => [...prev, { equipment: equipmentItem, quantity: 1 }]);
-    }
-    toast.success(`${equipmentItem.name} ajouté`);
-  };
-
-  const handleCreateUser = async () => {
-    if (!newUserData.first_name || !newUserData.last_name || !newUserData.phone) {
-      toast.error('Prénom, nom et téléphone obligatoires');
-      return;
-    }
-
-    try {
-      setIsLoading(true);
-      const { data, error } = await supabase
-        .from('users')
-        .insert([{
-          ...newUserData,
-          role: 'user'
-        }])
-        .select()
-        .single();
-
-      if (error) throw error;
-      
-      setSelectedUser(data);
-      setStep('equipment');
-      setUserSelectionMode('list');
-      toast.success('Utilisateur créé avec succès');
     } catch (error: any) {
-      console.error('Error creating user:', error);
-      toast.error(error.message || 'Erreur lors de la création');
+      console.error('Error fetching data:', error);
+      toast.error('Erreur lors du chargement des données');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleAddNewEquipment = () => {
-    if (!tempNewEquipment.name || !tempNewEquipment.serialNumber) {
-      toast.error('Nom et numéro de série obligatoires');
+  const handleUserSelect = (user: User) => {
+    setSelectedUser(user);
+    setStep('equipment');
+    // Le scanner sera automatiquement actif grâce à l'autoFocus dans QRCodeScanner
+  };
+
+  const handleEquipmentScan = (scannedId: string) => {
+    const foundEquipment = equipment.find(eq => 
+      eq.id === scannedId || 
+      eq.articleNumber === scannedId ||
+      eq.serialNumber === scannedId
+    );
+
+    if (foundEquipment) {
+      addEquipmentToCheckout(foundEquipment);
+    } else {
+      toast.error('Matériel non trouvé ou non disponible');
+    }
+  };
+
+  const addEquipmentToCheckout = (eq: Equipment) => {
+    const existingItem = checkoutItems.find(item => item.equipment.id === eq.id);
+    
+    if (existingItem) {
+      if (existingItem.quantity < eq.availableQuantity) {
+        setCheckoutItems(prev =>
+          prev.map(item =>
+            item.equipment.id === eq.id
+              ? { ...item, quantity: item.quantity + 1 }
+              : item
+          )
+        );
+        toast.success(`Quantité augmentée: ${eq.name}`);
+      } else {
+        toast.warning(`Quantité maximale atteinte pour ${eq.name}`);
+      }
+    } else {
+      setCheckoutItems(prev => [...prev, { equipment: eq, quantity: 1 }]);
+      toast.success(`Ajouté: ${eq.name}`);
+    }
+  };
+
+  const removeEquipmentFromCheckout = (equipmentId: string) => {
+    setCheckoutItems(prev => prev.filter(item => item.equipment.id !== equipmentId));
+  };
+
+  const updateQuantity = (equipmentId: string, newQuantity: number) => {
+    const item = checkoutItems.find(item => item.equipment.id === equipmentId);
+    if (!item) return;
+
+    if (newQuantity <= 0) {
+      removeEquipmentFromCheckout(equipmentId);
       return;
     }
 
-    setNewEquipment(prev => [...prev, tempNewEquipment]);
-    setTempNewEquipment({ name: '', serialNumber: '', description: '' });
-    setShowNewEquipmentForm(false);
-    toast.success('Matériel ajouté à la liste');
+    if (newQuantity > item.equipment.availableQuantity) {
+      toast.warning(`Quantité maximale disponible: ${item.equipment.availableQuantity}`);
+      return;
+    }
+
+    setCheckoutItems(prev =>
+      prev.map(item =>
+        item.equipment.id === equipmentId
+          ? { ...item, quantity: newQuantity }
+          : item
+      )
+    );
   };
 
   const handleCheckout = async () => {
-    if (!selectedUser || (checkoutItems.length === 0 && newEquipment.length === 0)) {
-      toast.error('Utilisateur et matériel requis');
+    if (!selectedUser || checkoutItems.length === 0) {
+      toast.error('Veuillez sélectionner un utilisateur et au moins un équipement');
+      return;
+    }
+
+    if (!dueDate) {
+      toast.error('Veuillez sélectionner une date de retour');
       return;
     }
 
     try {
       setIsLoading(true);
 
-      // 1. Créer le bon de sortie
+      // Create delivery note
       const { data: deliveryNote, error: deliveryNoteError } = await supabase
         .from('delivery_notes')
         .insert([{
           user_id: selectedUser.id,
           due_date: dueDate,
-          notes: notes
+          notes: notes || null
         }])
         .select()
         .single();
 
       if (deliveryNoteError) throw deliveryNoteError;
 
-      // 2. Ajouter les nouveaux équipements à la base de données
-      const addedEquipment: Equipment[] = [];
-      for (const newEq of newEquipment) {
-        const { data, error } = await supabase
-          .from('equipment')
-          .insert([{
-            name: newEq.name,
-            serial_number: newEq.serialNumber,
-            description: newEq.description,
-            status: 'checked-out',
-            qr_type: 'individual',
-            total_quantity: 1,
-            available_quantity: 0
-          }])
-          .select()
-          .single();
-
-        if (error) throw error;
+      // Create checkouts for each item
+      const checkoutPromises = checkoutItems.map(async (item) => {
+        const checkouts = [];
         
-        // Transform to match our interface
-        const transformedEquipment: Equipment = {
-          id: data.id,
-          name: data.name,
-          description: data.description || '',
-          category: '',
-          serialNumber: data.serial_number,
-          status: data.status as Equipment['status'],
-          addedDate: data.created_at,
-          lastMaintenance: data.last_maintenance,
-          imageUrl: data.image_url,
-          supplier: '',
-          location: data.location || '',
-          articleNumber: data.article_number,
-          qrType: data.qr_type || 'individual',
-          totalQuantity: data.total_quantity || 1,
-          availableQuantity: data.available_quantity || 0
-        };
-        
-        addedEquipment.push(transformedEquipment);
-      }
-
-      // 3. Créer les enregistrements de checkout pour les équipements existants
-      const checkoutRecords = [];
-      for (const item of checkoutItems) {
         for (let i = 0; i < item.quantity; i++) {
-          checkoutRecords.push({
+          checkouts.push({
             equipment_id: item.equipment.id,
             user_id: selectedUser.id,
             delivery_note_id: deliveryNote.id,
             due_date: dueDate,
             status: 'active',
-            notes: notes
+            notes: notes || null
           });
         }
-      }
 
-      // 4. Créer les enregistrements de checkout pour les nouveaux équipements
-      for (const eq of addedEquipment) {
-        checkoutRecords.push({
-          equipment_id: eq.id,
-          user_id: selectedUser.id,
-          delivery_note_id: deliveryNote.id,
-          due_date: dueDate,
-          status: 'active',
-          notes: notes
-        });
-      }
-
-      if (checkoutRecords.length > 0) {
+        // Insert checkouts
         const { error: checkoutError } = await supabase
           .from('checkouts')
-          .insert(checkoutRecords);
+          .insert(checkouts);
 
         if (checkoutError) throw checkoutError;
 
-        // 5. Mettre à jour le statut et les quantités des équipements
-        for (const item of checkoutItems) {
-          const stock = stockInfo[item.equipment.id];
-          const newAvailableQuantity = Math.max(0, stock.available - item.quantity);
-          const newStatus = newAvailableQuantity === 0 ? 'checked-out' : 'available';
-          
-          await supabase
-            .from('equipment')
-            .update({ 
-              status: newStatus,
-              available_quantity: newAvailableQuantity
-            })
-            .eq('id', item.equipment.id);
-        }
-      }
+        // Update equipment availability
+        const newAvailableQuantity = item.equipment.availableQuantity - item.quantity;
+        const newStatus = newAvailableQuantity === 0 ? 'checked-out' : 'available';
 
-      // 6. Créer une notification de sortie
-      const checkoutNotification = {
-        id: `checkout-${deliveryNote.id}`,
+        const { error: equipmentError } = await supabase
+          .from('equipment')
+          .update({
+            available_quantity: newAvailableQuantity,
+            status: newStatus
+          })
+          .eq('id', item.equipment.id);
+
+        if (equipmentError) throw equipmentError;
+      });
+
+      await Promise.all(checkoutPromises);
+
+      // Add notification to localStorage
+      const notification = {
+        id: `checkout-${Date.now()}`,
         type: 'checkout',
-        title: 'Nouveau bon de sortie créé',
-        message: `Bon N° ${deliveryNote.note_number} créé pour ${selectedUser.first_name} ${selectedUser.last_name} (${checkoutRecords.length} matériel${checkoutRecords.length > 1 ? 's' : ''})`,
+        title: 'Nouvelle sortie de matériel',
+        message: `Bon N° ${deliveryNote.note_number} créé pour ${selectedUser.first_name} ${selectedUser.last_name} (${checkoutItems.length} équipement${checkoutItems.length > 1 ? 's' : ''})`,
         date: new Date().toISOString(),
         priority: 'medium',
         read: false,
         relatedData: {
-          delivery_note_id: deliveryNote.id,
           note_number: deliveryNote.note_number,
           userName: `${selectedUser.first_name} ${selectedUser.last_name}`,
           user_department: selectedUser.department,
-          equipment_count: checkoutRecords.length
+          equipment_count: checkoutItems.reduce((sum, item) => sum + item.quantity, 0)
         }
       };
 
-      // Sauvegarder la notification dans localStorage
       const existingNotifications = JSON.parse(localStorage.getItem('checkout_notifications') || '[]');
-      existingNotifications.unshift(checkoutNotification);
-      localStorage.setItem('checkout_notifications', JSON.stringify(existingNotifications));
+      localStorage.setItem('checkout_notifications', JSON.stringify([notification, ...existingNotifications]));
 
-      toast.success(`Bon de sortie ${deliveryNote.note_number} créé avec succès`);
-      handlePrintCheckout(deliveryNote.note_number);
-      handleClose();
+      toast.success(`Sortie créée avec succès! Bon N° ${deliveryNote.note_number}`);
+      
+      // Print delivery note
+      handlePrintDeliveryNote(deliveryNote, selectedUser, checkoutItems);
+      
+      // Close modal
+      onClose();
     } catch (error: any) {
-      console.error('Error during checkout:', error);
-      toast.error(error.message || 'Erreur lors de la sortie');
+      console.error('Error creating checkout:', error);
+      toast.error(error.message || 'Erreur lors de la création de la sortie');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handlePrintCheckout = async (noteNumber: string) => {
+  const handlePrintDeliveryNote = async (deliveryNote: any, user: User, items: CheckoutItem[]) => {
     try {
       // Récupérer le logo depuis les paramètres système
       const { data: logoSetting } = await supabase
@@ -516,18 +308,13 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
 
       const logoUrl = logoSetting?.value || '';
 
-      const allItems = [
-        ...checkoutItems.map(item => ({ name: item.equipment.name, serialNumber: item.equipment.serialNumber, quantity: item.quantity })),
-        ...newEquipment.map(eq => ({ name: eq.name, serialNumber: eq.serialNumber, quantity: 1 }))
-      ];
-
       const printContent = `
         <html>
           <head>
-            <title>Bon de Sortie ${noteNumber} - GO-Mat</title>
+            <title>Bon de Sortie ${deliveryNote.note_number} - GO-Mat</title>
             <style>
               body { 
-                font-family: Arial, sans-serif; 
+                font-family: 'Roboto', Arial, sans-serif; 
                 margin: 20px; 
                 color: #333;
               }
@@ -634,7 +421,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
               ${logoUrl ? `<img src="${logoUrl}" alt="Logo" class="logo" />` : ''}
               <div class="company-name">GO-Mat</div>
               <div class="subtitle">Gestion de Matériel</div>
-              <div class="note-number">Bon de Sortie N° ${noteNumber}</div>
+              <div class="note-number">Bon de Sortie N° ${deliveryNote.note_number}</div>
               <p>Date d'émission: ${new Date().toLocaleDateString('fr-FR', { 
                 weekday: 'long', 
                 year: 'numeric', 
@@ -647,47 +434,43 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
               <h3 style="margin-top: 0; color: #2563eb;">Informations de l'emprunteur</h3>
               <div class="info-row">
                 <span class="info-label">Nom complet:</span>
-                <span>${selectedUser?.first_name} ${selectedUser?.last_name}</span>
-              </div>
-              <div class="info-row">
-                <span class="info-label">Téléphone:</span>
-                <span>${selectedUser?.phone}</span>
+                <span>${user.first_name} ${user.last_name}</span>
               </div>
               <div class="info-row">
                 <span class="info-label">Email:</span>
-                <span>${selectedUser?.email}</span>
+                <span>${user.email}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Téléphone:</span>
+                <span>${user.phone || '-'}</span>
               </div>
               <div class="info-row">
                 <span class="info-label">Département:</span>
-                <span>${selectedUser?.department}</span>
+                <span>${user.department}</span>
               </div>
               <div class="info-row">
                 <span class="info-label">Date de retour prévue:</span>
                 <span style="font-weight: bold; color: #dc2626;">${new Date(dueDate).toLocaleDateString('fr-FR')}</span>
               </div>
-              ${notes ? `
-                <div class="info-row">
-                  <span class="info-label">Notes:</span>
-                  <span>${notes}</span>
-                </div>
-              ` : ''}
             </div>
 
             <h3 style="color: #2563eb; margin-bottom: 15px;">Matériel emprunté</h3>
             <table class="items">
               <thead>
                 <tr>
-                  <th style="width: 50%;">Matériel</th>
-                  <th style="width: 30%;">Numéro de série</th>
-                  <th style="width: 20%;">Quantité</th>
+                  <th style="width: 40%;">Matériel</th>
+                  <th style="width: 25%;">Numéro de série</th>
+                  <th style="width: 20%;">Article</th>
+                  <th style="width: 15%;">Quantité</th>
                 </tr>
               </thead>
               <tbody>
-                ${allItems.map(item => `
+                ${items.map(item => `
                   <tr>
-                    <td style="font-weight: 500;">${item.name}</td>
-                    <td style="font-family: monospace; color: #666;">${item.serialNumber}</td>
-                    <td style="text-align: center; font-weight: bold;">${item.quantity}</td>
+                    <td style="font-weight: 500;">${item.equipment.name}</td>
+                    <td style="font-family: monospace; color: #666;">${item.equipment.serialNumber}</td>
+                    <td style="font-family: monospace; color: #666;">${item.equipment.articleNumber || '-'}</td>
+                    <td style="text-align: center; font-weight: bold; color: #2563eb;">${item.quantity}</td>
                   </tr>
                 `).join('')}
               </tbody>
@@ -716,7 +499,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
 
             <div class="footer">
               <p><strong>GO-Mat - Système de Gestion de Matériel</strong></p>
-              <p>Pour tout retour, présentez ce bon ou indiquez le numéro: <strong>${noteNumber}</strong></p>
+              <p>Pour tout retour, présentez ce bon ou indiquez le numéro: <strong>${deliveryNote.note_number}</strong></p>
               <p>En cas de problème, contactez le service de gestion du matériel.</p>
             </div>
           </body>
@@ -742,537 +525,292 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
       };
       
     } catch (error) {
-      console.error('Error printing checkout:', error);
+      console.error('Error printing delivery note:', error);
       toast.error('Erreur lors de l\'impression');
     }
   };
 
-  const handleClose = () => {
-    setStep('user');
-    setSelectedUser(null);
-    setCheckoutItems([]);
-    setNewEquipment([]);
-    setNotes('');
-    setUserSelectionMode('list');
-    setEquipmentMode('scan');
-    setShowNewEquipmentForm(false);
-    setUserSearch('');
-    setEquipmentSearch('');
-    setEquipmentFilter('');
-    setNewUserData({ first_name: '', last_name: '', phone: '', email: '', department: '' });
-    setTempNewEquipment({ name: '', serialNumber: '', description: '' });
-    setScanHistory([]);
-    onClose();
-  };
-
   const filteredUsers = users.filter(user =>
-    `${user.first_name} ${user.last_name}`.toLowerCase().includes(userSearch.toLowerCase()) ||
-    user.email.toLowerCase().includes(userSearch.toLowerCase()) ||
-    (user.phone || '').includes(userSearch)
+    `${user.first_name} ${user.last_name}`.toLowerCase().includes(userSearchTerm.toLowerCase()) ||
+    user.email.toLowerCase().includes(userSearchTerm.toLowerCase()) ||
+    user.department.toLowerCase().includes(userSearchTerm.toLowerCase())
   );
 
-  const categories = Array.from(new Set(equipment.map(eq => eq.category))).filter(Boolean);
+  const filteredEquipment = equipment.filter(eq =>
+    eq.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    eq.serialNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (eq.articleNumber || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    eq.category.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const totalItems = checkoutItems.reduce((sum, item) => sum + item.quantity, 0);
 
   return (
     <Modal
       isOpen={isOpen}
-      onClose={handleClose}
-      title="Sortie de Matériel"
+      onClose={onClose}
+      title="SORTIE DE MATÉRIEL"
       size="xl"
     >
       <div className="space-y-6">
-        {/* Progress indicator */}
+        {/* Progress Steps */}
         <div className="flex items-center justify-center space-x-4">
           <div className={`flex items-center ${step === 'user' ? 'text-primary-600' : 'text-gray-400'}`}>
             <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step === 'user' ? 'bg-primary-600 text-white' : 'bg-gray-200'}`}>1</div>
-            <span className="ml-2">Utilisateur</span>
+            <span className="ml-2 font-bold">Utilisateur</span>
           </div>
           <div className="w-8 h-px bg-gray-300"></div>
           <div className={`flex items-center ${step === 'equipment' ? 'text-primary-600' : 'text-gray-400'}`}>
             <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step === 'equipment' ? 'bg-primary-600 text-white' : 'bg-gray-200'}`}>2</div>
-            <span className="ml-2">Matériel</span>
+            <span className="ml-2 font-bold">Matériel</span>
           </div>
           <div className="w-8 h-px bg-gray-300"></div>
           <div className={`flex items-center ${step === 'summary' ? 'text-primary-600' : 'text-gray-400'}`}>
             <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step === 'summary' ? 'bg-primary-600 text-white' : 'bg-gray-200'}`}>3</div>
-            <span className="ml-2">Résumé</span>
+            <span className="ml-2 font-bold">Résumé</span>
           </div>
         </div>
 
         {/* Step 1: User Selection */}
         {step === 'user' && (
           <div className="space-y-4">
-            <div className="flex gap-3">
-              <Button
-                variant={userSelectionMode === 'new' ? 'primary' : 'outline'}
-                icon={<UserPlus size={18} />}
-                onClick={() => setUserSelectionMode('new')}
-              >
-                Nouvel Utilisateur
-              </Button>
-              <Button
-                variant={userSelectionMode === 'list' ? 'primary' : 'outline'}
-                icon={<List size={18} />}
-                onClick={() => setUserSelectionMode('list')}
-              >
-                Liste Utilisateurs
-              </Button>
-            </div>
-
-            {userSelectionMode === 'list' && (
-              <div>
+            <div className="flex items-center gap-4">
+              <div className="flex-1">
                 <input
                   type="text"
                   placeholder="Rechercher un utilisateur..."
-                  value={userSearch}
-                  onChange={(e) => setUserSearch(e.target.value)}
-                  className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm mb-3"
+                  value={userSearchTerm}
+                  onChange={(e) => setUserSearchTerm(e.target.value)}
+                  className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
                 />
-                
-                <div className="max-h-60 overflow-y-auto border rounded-md">
-                  {filteredUsers.map(user => (
-                    <div
-                      key={user.id}
-                      className="p-3 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer border-b last:border-b-0"
-                      onClick={() => {
-                        setSelectedUser(user);
-                        setStep('equipment');
-                      }}
-                    >
-                      <div className="font-medium">{user.first_name} {user.last_name}</div>
-                      <div className="text-sm text-gray-500">{user.phone} • {user.department}</div>
-                    </div>
-                  ))}
-                </div>
               </div>
-            )}
+            </div>
 
-            {userSelectionMode === 'new' && (
-              <div className="border rounded-lg p-4 space-y-4">
-                <h3 className="font-medium">Nouvel Utilisateur</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <input
-                    type="text"
-                    placeholder="Prénom *"
-                    value={newUserData.first_name}
-                    onChange={(e) => setNewUserData(prev => ({ ...prev, first_name: e.target.value }))}
-                    className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm"
-                  />
-                  <input
-                    type="text"
-                    placeholder="Nom *"
-                    value={newUserData.last_name}
-                    onChange={(e) => setNewUserData(prev => ({ ...prev, last_name: e.target.value }))}
-                    className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm"
-                  />
-                  <input
-                    type="tel"
-                    placeholder="Téléphone *"
-                    value={newUserData.phone}
-                    onChange={(e) => setNewUserData(prev => ({ ...prev, phone: e.target.value }))}
-                    className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm"
-                  />
-                  <input
-                    type="email"
-                    placeholder="Email"
-                    value={newUserData.email}
-                    onChange={(e) => setNewUserData(prev => ({ ...prev, email: e.target.value }))}
-                    className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm"
-                  />
-                  <input
-                    type="text"
-                    placeholder="Département"
-                    value={newUserData.department}
-                    onChange={(e) => setNewUserData(prev => ({ ...prev, department: e.target.value }))}
-                    className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm col-span-2"
-                  />
-                </div>
-                <div className="flex gap-3">
-                  <Button
-                    variant="primary"
-                    onClick={handleCreateUser}
-                    disabled={isLoading}
-                  >
-                    Créer et Continuer
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => setUserSelectionMode('list')}
-                  >
-                    Annuler
-                  </Button>
-                </div>
-              </div>
-            )}
-
-            {selectedUser && (
-              <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
-                <h3 className="font-medium text-green-800 dark:text-green-200">Utilisateur sélectionné</h3>
-                <p className="text-green-700 dark:text-green-300">{selectedUser.first_name} {selectedUser.last_name} - {selectedUser.phone}</p>
-                <Button
-                  variant="primary"
-                  onClick={() => setStep('equipment')}
-                  className="mt-2"
+            <div className="max-h-96 overflow-y-auto border rounded-lg">
+              {filteredUsers.map((user) => (
+                <div
+                  key={user.id}
+                  className="flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer border-b last:border-b-0"
+                  onClick={() => handleUserSelect(user)}
                 >
-                  Continuer
-                </Button>
-              </div>
-            )}
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-full bg-primary-100 dark:bg-primary-900 text-primary-600 dark:text-primary-300 flex items-center justify-center">
+                      <span className="font-bold text-sm">
+                        {user.first_name[0]}{user.last_name[0]}
+                      </span>
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-gray-900 dark:text-white">
+                        {user.first_name} {user.last_name}
+                      </h3>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        {user.department} • {user.email}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 
         {/* Step 2: Equipment Selection */}
         {step === 'equipment' && (
           <div className="space-y-4">
-            <div className="flex gap-3">
-              <Button
-                variant={equipmentMode === 'scan' ? 'primary' : 'outline'}
-                icon={<Package size={18} />}
-                onClick={() => setEquipmentMode('scan')}
-              >
-                Scanner QR Code
-              </Button>
-              <Button
-                variant={equipmentMode === 'list' ? 'primary' : 'outline'}
-                icon={<List size={18} />}
-                onClick={() => setEquipmentMode('list')}
-              >
-                Liste Matériel
-              </Button>
-              <Button
-                variant={equipmentMode === 'new' ? 'primary' : 'outline'}
-                icon={<Plus size={18} />}
-                onClick={() => {
-                  setEquipmentMode('new');
-                  setShowNewEquipmentForm(true);
-                }}
-              >
-                Ajouter Matériel
-              </Button>
+            {/* Selected User Info */}
+            {selectedUser && (
+              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                <div className="flex items-center gap-3">
+                  <UserIcon size={20} className="text-blue-600 dark:text-blue-400" />
+                  <div>
+                    <h3 className="font-bold text-blue-800 dark:text-blue-200">
+                      {selectedUser.first_name} {selectedUser.last_name}
+                    </h3>
+                    <p className="text-blue-700 dark:text-blue-300 text-sm">
+                      {selectedUser.department} • {selectedUser.email}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Scanner and Equipment Selection */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Scanner Section */}
+              <div className="space-y-4">
+                <h3 className="font-bold text-gray-900 dark:text-white">Scanner QR Code</h3>
+                <QRCodeScanner onScan={handleEquipmentScan} />
+              </div>
+
+              {/* Manual Selection */}
+              <div className="space-y-4">
+                <h3 className="font-bold text-gray-900 dark:text-white">Sélection manuelle</h3>
+                <input
+                  type="text"
+                  placeholder="Rechercher du matériel..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
+                />
+                
+                <div className="max-h-64 overflow-y-auto border rounded-lg">
+                  {filteredEquipment.slice(0, 10).map((eq) => (
+                    <div
+                      key={eq.id}
+                      className="flex items-center justify-between p-3 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer border-b last:border-b-0"
+                      onClick={() => addEquipmentToCheckout(eq)}
+                    >
+                      <div className="flex-1">
+                        <h4 className="font-medium text-gray-900 dark:text-white text-sm">
+                          {eq.name}
+                        </h4>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          {eq.serialNumber} • Dispo: {eq.availableQuantity}
+                        </p>
+                      </div>
+                      <Plus size={16} className="text-primary-600 dark:text-primary-400" />
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
 
-            {equipmentMode === 'scan' && (
-              <div className="space-y-4">
-                {/* Scanner */}
-                <div className="border rounded-lg p-4">
-                  <QRCodeScanner onScan={handleEquipmentScan} />
-                </div>
-
-                {/* Historique des scans */}
-                {scanHistory.length > 0 && (
-                  <div className="border rounded-lg p-4">
-                    <div className="flex justify-between items-center mb-3">
-                      <h4 className="font-medium">Historique des scans ({scanHistory.length})</h4>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={clearScanHistory}
-                      >
-                        Effacer
-                      </Button>
-                    </div>
-                    <div className="space-y-2 max-h-40 overflow-y-auto">
-                      {scanHistory.map((scan) => (
-                        <div
-                          key={scan.id}
-                          className={`flex items-center justify-between p-2 rounded text-sm ${
-                            scan.status === 'success' 
-                              ? 'bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-200' 
-                              : scan.status === 'duplicate'
-                              ? 'bg-yellow-50 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-200'
-                              : 'bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-200'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2">
-                            {scan.status === 'success' ? (
-                              <CheckCircle size={16} />
-                            ) : (
-                              <AlertCircle size={16} />
-                            )}
-                            <span className="font-mono text-xs">{scan.scannedValue}</span>
-                            {scan.equipment && (
-                              <span className="font-medium">({scan.equipment.name})</span>
-                            )}
-                          </div>
-                          <div className="text-right">
-                            <div className="font-medium">{scan.message}</div>
-                            <div className="text-xs opacity-75">
-                              {new Date(scan.timestamp).toLocaleTimeString()}
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {equipmentMode === 'list' && (
-              <div className="space-y-4">
-                <div className="flex gap-3">
-                  <input
-                    type="text"
-                    placeholder="Rechercher par nom ou description..."
-                    value={equipmentSearch}
-                    onChange={(e) => setEquipmentSearch(e.target.value)}
-                    className="flex-1 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm"
-                  />
-                  <select
-                    value={equipmentFilter}
-                    onChange={(e) => setEquipmentFilter(e.target.value)}
-                    className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm"
-                  >
-                    <option value="">Toutes catégories</option>
-                    {categories.map(category => (
-                      <option key={category} value={category}>{category}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="max-h-60 overflow-y-auto border rounded-md">
-                  {filteredEquipment.map(eq => {
-                    const stock = stockInfo[eq.id] || { total: 0, borrowed: 0, maintenance: 0, available: 0 };
-                    const isUnavailable = stock.available === 0;
-                    const currentQuantity = checkoutItems.find(item => item.equipment.id === eq.id)?.quantity || 0;
-                    const maxQuantity = Math.max(0, stock.available - currentQuantity);
-
-                    return (
-                      <div
-                        key={eq.id}
-                        className={`p-3 border-b last:border-b-0 transition-all ${
-                          isUnavailable 
-                            ? 'bg-gray-100 dark:bg-gray-800 opacity-60 cursor-not-allowed' 
-                            : 'hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer'
-                        }`}
-                      >
-                        <div className="flex justify-between items-start">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-1">
-                              <div className="font-medium">{eq.name}</div>
-                              {isUnavailable && (
-                                <span className="text-red-500 text-xs bg-red-100 dark:bg-red-900/30 px-2 py-1 rounded">
-                                  ⚠️ INDISPONIBLE
-                                </span>
-                              )}
-                            </div>
-                            <div className="text-sm text-gray-500">{eq.serialNumber} • {eq.category}</div>
-                            <div className="text-sm text-gray-400">{eq.description}</div>
-                            
-                            {/* Informations de stock détaillées */}
-                            <div className="flex items-center gap-4 mt-2 text-xs">
-                              <span className={`font-medium ${
-                                stock.available > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
-                              }`}>
-                                ✅ Disponible: {stock.available}/{stock.total}
-                              </span>
-                              {stock.borrowed > 0 && (
-                                <span className="text-orange-600 dark:text-orange-400">
-                                  🟠 Emprunté: {stock.borrowed}
-                                </span>
-                              )}
-                              {stock.maintenance > 0 && (
-                                <span className="text-blue-600 dark:text-blue-400">
-                                  🔵 Maintenance: {stock.maintenance}
-                                </span>
-                              )}
-                              {currentQuantity > 0 && (
-                                <span className="text-purple-600 dark:text-purple-400">
-                                  🟣 Sélectionné: {currentQuantity}
-                                </span>
-                              )}
-                              {!isUnavailable && maxQuantity > 0 && (
-                                <span className="text-gray-600 dark:text-gray-400">
-                                  Max: {maxQuantity}
-                                </span>
-                              )}
-                              {maxQuantity === 0 && currentQuantity > 0 && (
-                                <span className="text-yellow-600 dark:text-yellow-400 font-medium">
-                                  Max atteint
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                          
-                          <div className="ml-4">
-                            {isUnavailable ? (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                disabled
-                                className="cursor-not-allowed opacity-50"
-                              >
-                                Indisponible
-                              </Button>
-                            ) : maxQuantity === 0 ? (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                disabled
-                                className="cursor-not-allowed opacity-50"
-                              >
-                                Max atteint
-                              </Button>
-                            ) : (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleSelectEquipmentFromList(eq)}
-                              >
-                                Ajouter
-                              </Button>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {showNewEquipmentForm && (
-              <div className="border rounded-lg p-4 space-y-4">
-                <h3 className="font-medium">Nouveau Matériel</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <input
-                    type="text"
-                    placeholder="Nom du matériel *"
-                    value={tempNewEquipment.name}
-                    onChange={(e) => setTempNewEquipment(prev => ({ ...prev, name: e.target.value }))}
-                    className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm"
-                  />
-                  <input
-                    type="text"
-                    placeholder="Numéro de série *"
-                    value={tempNewEquipment.serialNumber}
-                    onChange={(e) => setTempNewEquipment(prev => ({ ...prev, serialNumber: e.target.value }))}
-                    className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm"
-                  />
-                </div>
-                <textarea
-                  placeholder="Description"
-                  value={tempNewEquipment.description}
-                  onChange={(e) => setTempNewEquipment(prev => ({ ...prev, description: e.target.value }))}
-                  className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm"
-                  rows={2}
-                />
-                <div className="flex gap-3">
-                  <Button
-                    variant="primary"
-                    onClick={handleAddNewEquipment}
-                  >
-                    Ajouter à la Liste
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => setShowNewEquipmentForm(false)}
-                  >
-                    Annuler
-                  </Button>
-                </div>
-              </div>
-            )}
-
-            {/* Equipment List */}
-            {(checkoutItems.length > 0 || newEquipment.length > 0) && (
+            {/* Selected Items */}
+            {checkoutItems.length > 0 && (
               <div className="border rounded-lg p-4">
-                <h3 className="font-medium mb-3">Matériel sélectionné</h3>
+                <h3 className="font-bold text-gray-900 dark:text-white mb-3">
+                  Matériel sélectionné ({totalItems} article{totalItems > 1 ? 's' : ''})
+                </h3>
                 <div className="space-y-2">
-                  {checkoutItems.map((item, index) => (
-                    <div key={index} className="flex justify-between items-center p-2 bg-gray-50 dark:bg-gray-800 rounded">
-                      <div>
-                        <span className="font-medium">{item.equipment.name}</span>
-                        <span className="text-sm text-gray-500 ml-2">({item.equipment.serialNumber})</span>
-                        <span className="text-sm text-gray-500 ml-2">Qté: {item.quantity}</span>
+                  {checkoutItems.map((item) => (
+                    <div key={item.equipment.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                      <div className="flex-1">
+                        <h4 className="font-medium text-gray-900 dark:text-white">
+                          {item.equipment.name}
+                        </h4>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                          {item.equipment.serialNumber}
+                        </p>
                       </div>
-                      <Button
-                        variant="danger"
-                        size="sm"
-                        icon={<Trash2 size={14} />}
-                        onClick={() => setCheckoutItems(prev => prev.filter((_, i) => i !== index))}
-                      />
-                    </div>
-                  ))}
-                  {newEquipment.map((item, index) => (
-                    <div key={`new-${index}`} className="flex justify-between items-center p-2 bg-blue-50 dark:bg-blue-900/20 rounded">
-                      <div>
-                        <span className="font-medium">{item.name}</span>
-                        <span className="text-sm text-gray-500 ml-2">({item.serialNumber})</span>
-                        <span className="text-xs text-blue-600 dark:text-blue-400 ml-2">[Nouveau]</span>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          icon={<Minus size={14} />}
+                          onClick={() => updateQuantity(item.equipment.id, item.quantity - 1)}
+                        />
+                        <span className="w-8 text-center font-bold">{item.quantity}</span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          icon={<Plus size={14} />}
+                          onClick={() => updateQuantity(item.equipment.id, item.quantity + 1)}
+                          disabled={item.quantity >= item.equipment.availableQuantity}
+                        />
+                        <Button
+                          variant="danger"
+                          size="sm"
+                          icon={<X size={14} />}
+                          onClick={() => removeEquipmentFromCheckout(item.equipment.id)}
+                        />
                       </div>
-                      <Button
-                        variant="danger"
-                        size="sm"
-                        icon={<Trash2 size={14} />}
-                        onClick={() => setNewEquipment(prev => prev.filter((_, i) => i !== index))}
-                      />
                     </div>
                   ))}
                 </div>
               </div>
             )}
 
-            {(checkoutItems.length > 0 || newEquipment.length > 0) && (
+            {/* Navigation */}
+            <div className="flex justify-between">
+              <Button
+                variant="outline"
+                onClick={() => setStep('user')}
+              >
+                Retour
+              </Button>
               <Button
                 variant="primary"
                 onClick={() => setStep('summary')}
+                disabled={checkoutItems.length === 0}
               >
-                Continuer vers le résumé
+                Continuer ({totalItems})
               </Button>
-            )}
+            </div>
           </div>
         )}
 
         {/* Step 3: Summary */}
         {step === 'summary' && (
-          <div className="space-y-4">
-            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-              <h3 className="font-medium text-blue-800 dark:text-blue-200 mb-2">
-                📋 Création du bon de sortie
+          <div className="space-y-6">
+            {/* User Summary */}
+            {selectedUser && (
+              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                <h3 className="font-bold text-blue-800 dark:text-blue-200 mb-2">Emprunteur</h3>
+                <p className="text-blue-700 dark:text-blue-300">
+                  {selectedUser.first_name} {selectedUser.last_name} • {selectedUser.department}
+                </p>
+              </div>
+            )}
+
+            {/* Equipment Summary */}
+            <div className="border rounded-lg p-4">
+              <h3 className="font-bold text-gray-900 dark:text-white mb-3">
+                Matériel à emprunter ({totalItems} article{totalItems > 1 ? 's' : ''})
               </h3>
-              <p className="text-blue-700 dark:text-blue-300 text-sm">
-                Un numéro de bon unique sera généré automatiquement pour faciliter le suivi et les retours.
-              </p>
+              <div className="space-y-2">
+                {checkoutItems.map((item) => (
+                  <div key={item.equipment.id} className="flex justify-between items-center p-2 bg-gray-50 dark:bg-gray-800 rounded">
+                    <span className="font-medium">{item.equipment.name}</span>
+                    <span className="text-sm text-gray-500">Qté: {item.quantity}</span>
+                  </div>
+                ))}
+              </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            {/* Due Date and Notes */}
+            <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-1">Date de retour prévue</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Date de retour prévue *
+                </label>
                 <input
                   type="date"
                   value={dueDate}
                   onChange={(e) => setDueDate(e.target.value)}
-                  className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm"
+                  min={new Date().toISOString().split('T')[0]}
+                  className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Notes (optionnel)
+                </label>
+                <textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  rows={3}
+                  className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
+                  placeholder="Notes concernant cet emprunt..."
                 />
               </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium mb-1">Notes</label>
-              <textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Notes optionnelles..."
-                className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm"
-                rows={3}
-              />
-            </div>
-
-            <div className="flex gap-3">
-              <Button
-                variant="primary"
-                icon={<Printer size={18} />}
-                onClick={handleCheckout}
-                disabled={isLoading}
-              >
-                {isLoading ? 'Création en cours...' : 'Créer le Bon et Imprimer'}
-              </Button>
+            {/* Navigation */}
+            <div className="flex justify-between">
               <Button
                 variant="outline"
                 onClick={() => setStep('equipment')}
               >
                 Retour
+              </Button>
+              <Button
+                variant="primary"
+                icon={<Printer size={18} />}
+                onClick={handleCheckout}
+                disabled={isLoading || !dueDate}
+              >
+                {isLoading ? 'Création en cours...' : 'Créer et Imprimer'}
               </Button>
             </div>
           </div>

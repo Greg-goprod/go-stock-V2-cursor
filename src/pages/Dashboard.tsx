@@ -12,7 +12,8 @@ import {
   ArrowUpRight,
   LogOut,
   LogIn,
-  RefreshCw
+  RefreshCw,
+  AlertCircle
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { supabase } from '../lib/supabase';
@@ -32,6 +33,7 @@ const Dashboard: React.FC = () => {
   const [recentCheckouts, setRecentCheckouts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchDashboardData();
@@ -71,69 +73,102 @@ const Dashboard: React.FC = () => {
     try {
       if (!silent) {
         setLoading(true);
+        setError(null);
       } else {
         setRefreshing(true);
+      }
+
+      // Test connection first
+      const { data: testData, error: testError } = await supabase
+        .from('equipment')
+        .select('id')
+        .limit(1);
+
+      if (testError) {
+        throw new Error(`Connection failed: ${testError.message}`);
       }
 
       // Fetch equipment avec les quantités réelles
       const { data: equipment, error: equipmentError } = await supabase
         .from('equipment')
-        .select('id, status, total_quantity, available_quantity');
+        .select('id, status, total_quantity, available_quantity')
+        .throwOnError();
 
-      if (equipmentError) throw equipmentError;
+      if (equipmentError) {
+        throw new Error(`Equipment fetch failed: ${equipmentError.message}`);
+      }
 
       // Fetch active checkouts pour calculer les emprunts réels
       const { data: activeCheckouts, error: checkoutsError } = await supabase
         .from('checkouts')
         .select('equipment_id')
-        .eq('status', 'active');
+        .eq('status', 'active')
+        .throwOnError();
 
-      if (checkoutsError) throw checkoutsError;
+      if (checkoutsError) {
+        throw new Error(`Checkouts fetch failed: ${checkoutsError.message}`);
+      }
 
       // Calculer les statistiques réelles
       let totalAvailable = 0;
       let totalCheckedOut = 0;
       let maintenanceCount = 0;
 
-      equipment?.forEach(eq => {
-        const total = eq.total_quantity || 1;
-        const available = eq.available_quantity || 0;
-        const borrowed = activeCheckouts?.filter(c => c.equipment_id === eq.id).length || 0;
-        
-        totalAvailable += available;
-        totalCheckedOut += borrowed;
-        
-        if (eq.status === 'maintenance') {
-          maintenanceCount += 1;
-        }
-      });
+      if (equipment) {
+        equipment.forEach(eq => {
+          const total = eq.total_quantity || 1;
+          const available = eq.available_quantity || 0;
+          const borrowed = activeCheckouts?.filter(c => c.equipment_id === eq.id).length || 0;
+          
+          totalAvailable += available;
+          totalCheckedOut += borrowed;
+          
+          if (eq.status === 'maintenance') {
+            maintenanceCount += 1;
+          }
+        });
+      }
 
       // Fetch overdue checkouts
       const { data: overdueCheckouts, error: overdueError } = await supabase
         .from('checkouts')
         .select('id')
         .eq('status', 'active')
-        .lt('due_date', new Date().toISOString());
+        .lt('due_date', new Date().toISOString())
+        .throwOnError();
 
-      if (overdueError) throw overdueError;
+      if (overdueError) {
+        throw new Error(`Overdue checkouts fetch failed: ${overdueError.message}`);
+      }
 
       // Fetch recent checkouts with user and equipment info
       const { data: checkouts, error: recentCheckoutsError } = await supabase
         .from('checkouts')
         .select(`
-          *,
-          equipment(name),
-          users(first_name, last_name)
+          id,
+          checkout_date,
+          due_date,
+          status,
+          equipment!inner(name),
+          users!inner(first_name, last_name)
         `)
         .in('status', ['active', 'overdue'])
         .order('checkout_date', { ascending: false })
-        .limit(5);
+        .limit(5)
+        .throwOnError();
 
-      if (recentCheckoutsError) throw recentCheckoutsError;
+      if (recentCheckoutsError) {
+        throw new Error(`Recent checkouts fetch failed: ${recentCheckoutsError.message}`);
+      }
 
       // Compter les notifications non lues
-      const checkoutNotifications = JSON.parse(localStorage.getItem('checkout_notifications') || '[]');
-      const unreadNotificationsCount = checkoutNotifications.filter((n: any) => !n.read).length;
+      let unreadNotificationsCount = 0;
+      try {
+        const checkoutNotifications = JSON.parse(localStorage.getItem('checkout_notifications') || '[]');
+        unreadNotificationsCount = checkoutNotifications.filter((n: any) => !n.read).length;
+      } catch (e) {
+        console.warn('Error reading notifications from localStorage:', e);
+      }
 
       setStats({
         availableEquipment: totalAvailable,
@@ -143,9 +178,20 @@ const Dashboard: React.FC = () => {
       });
 
       setRecentCheckouts(checkouts || []);
+      setError(null);
 
     } catch (error: any) {
       console.error('Error fetching dashboard data:', error);
+      setError(error.message || 'Une erreur est survenue lors du chargement des données');
+      
+      // Set default values on error
+      setStats({
+        availableEquipment: 0,
+        checkedOutEquipment: 0,
+        overdueEquipment: 0,
+        unreadNotifications: 0
+      });
+      setRecentCheckouts([]);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -176,6 +222,45 @@ const Dashboard: React.FC = () => {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-gray-500 dark:text-gray-400 font-medium">{t('loading')}</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <div className="flex justify-between items-center">
+          <h2 className="text-3xl font-black text-gray-800 dark:text-white tracking-tight uppercase">TABLEAU DE BORD</h2>
+          <Button
+            variant="outline"
+            size="sm"
+            icon={<RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />}
+            onClick={handleManualRefresh}
+            disabled={refreshing}
+          >
+            {refreshing ? 'Actualisation...' : 'Réessayer'}
+          </Button>
+        </div>
+        
+        <Card className="p-8">
+          <div className="text-center">
+            <AlertCircle size={48} className="mx-auto text-red-500 mb-4" />
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+              Erreur de connexion
+            </h3>
+            <p className="text-gray-600 dark:text-gray-400 mb-4">
+              {error}
+            </p>
+            <Button
+              variant="primary"
+              onClick={handleManualRefresh}
+              disabled={refreshing}
+              icon={<RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />}
+            >
+              {refreshing ? 'Reconnexion...' : 'Réessayer'}
+            </Button>
+          </div>
+        </Card>
       </div>
     );
   }

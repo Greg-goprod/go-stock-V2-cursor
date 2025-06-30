@@ -497,6 +497,21 @@ const EquipmentPage: React.FC = () => {
       {filteredEquipment.map((item) => (
         <div key={item.id} className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border-2 border-gray-200 dark:border-gray-700 hover:shadow-lg hover:border-gray-300 dark:hover:border-gray-600 transition-all duration-200 overflow-hidden flex flex-col h-full">
           <div className="p-3 flex-1 flex flex-col">
+            {/* Image */}
+            <div className="relative mb-3">
+              {item.imageUrl ? (
+                <img
+                  src={item.imageUrl}
+                  alt={item.name}
+                  className="w-full h-32 object-contain rounded-md bg-white"
+                />
+              ) : (
+                <div className="w-full h-32 bg-gray-100 dark:bg-gray-700 rounded-md flex items-center justify-center">
+                  <Package size={32} className="text-gray-400" />
+                </div>
+              )}
+            </div>
+            
             {/* Nom de l'appareil avec espace pour 2 lignes */}
             <h3 className="text-sm font-black text-gray-800 dark:text-white line-clamp-2 leading-tight h-10">
               {item.name}

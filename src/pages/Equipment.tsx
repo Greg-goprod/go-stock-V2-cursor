@@ -488,72 +488,90 @@ const EquipmentPage: React.FC = () => {
 
   const renderGridView = () => (
     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3">
-      {filteredEquipment.map((item) => (
-        <div key={item.id} className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-md hover:border-gray-300 dark:hover:border-gray-600 transition-all duration-200 overflow-hidden flex flex-col h-full">
-          <div className="p-2 flex-1 flex flex-col">
-            {/* Image */}
-            <div className="relative mb-2">
-              {item.imageUrl ? (
-                <img
-                  src={item.imageUrl}
-                  alt={item.name}
-                  className="w-full h-24 object-contain rounded-md bg-white"
-                />
-              ) : (
-                <div className="w-full h-24 bg-gray-100 dark:bg-gray-700 rounded-md flex items-center justify-center">
-                  <Package size={24} className="text-gray-400" />
-                </div>
-              )}
-            </div>
-            
-            {/* Nom de l'appareil avec espace pour 2 lignes */}
-            <h3 className="text-xs font-bold text-gray-800 dark:text-white line-clamp-2 leading-tight h-8">
-              {item.name}
-            </h3>
+      {filteredEquipment.map((item) => {
+        const availableCount = item.qrType === 'individual' && (item.totalQuantity || 1) > 1 
+          ? getAvailableInstancesCount(item.id)
+          : item.availableQuantity || 1;
+        const totalCount = item.totalQuantity || 1;
 
-            {/* Status badge */}
-            <div className="mt-1">
-              <StatusBadge status={item.status} />
-            </div>
-            
-            {/* Actions - toujours en bas sur une seule ligne */}
-            <div className="mt-auto pt-2">
-              <div className="flex gap-1">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  icon={<QrCode size={12} />}
-                  onClick={() => handleShowQR(item.id)}
-                  className="text-xs px-1.5 py-0.5 font-medium flex-1"
-                >
-                  QR
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  icon={<Wrench size={12} />}
-                  onClick={() => handleMaintenanceClick(item)}
-                  className={`px-1.5 py-0.5 flex-1 ${item.status === 'maintenance' ? 'text-blue-600 border-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20' : ''}`}
-                />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  icon={<Pencil size={12} />}
-                  onClick={() => handleEditClick(item)}
-                  className="px-1.5 py-0.5 flex-1"
-                />
-                <Button
-                  variant="danger"
-                  size="sm"
-                  icon={<Trash2 size={12} />}
-                  onClick={() => handleDeleteClick(item)}
-                  className="px-1.5 py-0.5 flex-1"
-                />
+        return (
+          <div key={item.id} className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-md hover:border-gray-300 dark:hover:border-gray-600 transition-all duration-200 overflow-hidden flex flex-col h-full">
+            <div className="p-2 flex-1 flex flex-col">
+              {/* Image */}
+              <div className="relative mb-2">
+                {item.imageUrl ? (
+                  <img
+                    src={item.imageUrl}
+                    alt={item.name}
+                    className="w-full h-24 object-contain rounded-md bg-white"
+                  />
+                ) : (
+                  <div className="w-full h-24 bg-gray-100 dark:bg-gray-700 rounded-md flex items-center justify-center">
+                    <Package size={24} className="text-gray-400" />
+                  </div>
+                )}
+                
+                {/* Stock indicator */}
+                <div className="absolute top-1 left-1">
+                  <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
+                    availableCount === 0 ? 'bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-200' :
+                    availableCount < totalCount ? 'bg-yellow-100 dark:bg-yellow-900/50 text-yellow-800 dark:text-yellow-200' :
+                    'bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-200'
+                  }`}>
+                    {availableCount}/{totalCount}
+                  </span>
+                </div>
+              </div>
+              
+              {/* Nom de l'appareil avec espace pour 2 lignes */}
+              <h3 className="text-xs font-bold text-gray-800 dark:text-white line-clamp-2 leading-tight h-8">
+                {item.name}
+              </h3>
+
+              {/* Status badge */}
+              <div className="mt-1">
+                <StatusBadge status={item.status} />
+              </div>
+              
+              {/* Actions - toujours en bas sur une seule ligne */}
+              <div className="mt-auto pt-2">
+                <div className="flex gap-1">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    icon={<QrCode size={12} />}
+                    onClick={() => handleShowQR(item.id)}
+                    className="text-xs px-1.5 py-0.5 font-medium flex-1"
+                  >
+                    QR
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    icon={<Wrench size={12} />}
+                    onClick={() => handleMaintenanceClick(item)}
+                    className={`px-1.5 py-0.5 flex-1 ${item.status === 'maintenance' ? 'text-blue-600 border-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20' : ''}`}
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    icon={<Pencil size={12} />}
+                    onClick={() => handleEditClick(item)}
+                    className="px-1.5 py-0.5 flex-1"
+                  />
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    icon={<Trash2 size={12} />}
+                    onClick={() => handleDeleteClick(item)}
+                    className="px-1.5 py-0.5 flex-1"
+                  />
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 

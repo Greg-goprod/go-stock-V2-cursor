@@ -141,14 +141,14 @@ const EquipmentPage: React.FC = () => {
     setShowEditModal(true);
   };
 
-  const handleDeleteClick = (equipment: Equipment) => {
-    setEquipmentToDelete(equipment);
-    setShowDeleteConfirm(true);
-  };
-
   const handleMaintenanceClick = (equipment: Equipment) => {
     setSelectedEquipmentForMaintenance(equipment);
     setShowMaintenanceModal(true);
+  };
+
+  const handleDeleteClick = (equipment: Equipment) => {
+    setEquipmentToDelete(equipment);
+    setShowDeleteConfirm(true);
   };
 
   const handleDeleteConfirm = async () => {
@@ -494,151 +494,57 @@ const EquipmentPage: React.FC = () => {
 
   const renderGridView = () => (
     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
-      {filteredEquipment.map((item) => {
-        const availableCount = item.qrType === 'individual' && (item.totalQuantity || 1) > 1 
-          ? getAvailableInstancesCount(item.id)
-          : item.availableQuantity || 1;
-        const totalCount = item.totalQuantity || 1;
+      {filteredEquipment.map((item) => (
+        <div key={item.id} className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border-2 border-gray-200 dark:border-gray-700 hover:shadow-lg hover:border-gray-300 dark:hover:border-gray-600 transition-all duration-200 overflow-hidden flex flex-col h-full">
+          <div className="p-3 flex-1 flex flex-col">
+            {/* Nom de l'appareil avec espace pour 2 lignes */}
+            <h3 className="text-sm font-black text-gray-800 dark:text-white line-clamp-2 leading-tight h-10">
+              {item.name}
+            </h3>
 
-        return (
-          <div key={item.id} className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border-2 border-gray-200 dark:border-gray-700 hover:shadow-lg hover:border-gray-300 dark:hover:border-gray-600 transition-all duration-200 overflow-hidden flex flex-col h-full">
-            <div className="p-3 flex-1 flex flex-col">
-              {/* Image avec fond blanc en mode sombre */}
-              <div className="relative mb-3">
-                {item.imageUrl ? (
-                  <img
-                    src={item.imageUrl}
-                    alt={item.name}
-                    className="w-full h-32 object-contain rounded-md bg-white"
-                  />
-                ) : (
-                  <div className="w-full h-32 bg-gray-100 dark:bg-gray-700 rounded-md flex items-center justify-center">
-                    <Package size={32} className="text-gray-400" />
-                  </div>
-                )}
-                
-                {/* Badge de stock en overlay */}
-                <div className="absolute top-1 right-1">
-                  <Badge
-                    variant={
-                      availableCount === 0 ? 'danger' :
-                      availableCount < totalCount ? 'warning' : 'success'
-                    }
-                  >
-                    {totalCount > 1 ? `${availableCount}/${totalCount}` : 
-                     item.status === 'available' ? 'Dispo' :
-                     item.status === 'checked-out' ? 'Emprunté' :
-                     item.status === 'maintenance' ? 'M' : 'R'}
-                  </Badge>
-                </div>
-
-                {/* Badge de type QR */}
-                {totalCount > 1 && (
-                  <div className="absolute top-1 left-1">
-                    <Badge variant={item.qrType === 'individual' ? 'info' : 'neutral'}>
-                      {item.qrType === 'individual' ? 'QR Indiv.' : 'QR Lot'}
-                    </Badge>
-                  </div>
-                )}
-              </div>
-
-              {/* Informations principales - flex-1 pour pousser les actions en bas */}
-              <div className="space-y-1 mb-3 flex-1">
-                <h3 className="text-sm font-black text-gray-800 dark:text-white line-clamp-2 leading-tight">
-                  {item.name}
-                </h3>
-                <p className="text-xs text-gray-600 dark:text-gray-400 font-mono font-medium">
-                  {item.articleNumber}
-                </p>
-                <p className="text-xs text-gray-600 dark:text-gray-400 font-mono font-medium">
-                  {item.serialNumber}
-                </p>
-                {item.category && (
-                  <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">
-                    {item.category}
-                  </p>
-                )}
-                {item.group && (
-                  <p className="text-xs text-blue-600 dark:text-blue-400 font-bold">
-                    📁 {item.group}
-                  </p>
-                )}
-                {item.location && (
-                  <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">
-                    📍 {item.location}
-                  </p>
-                )}
-                {totalCount > 1 && (
-                  <div className="flex items-center gap-1">
-                    <Package size={12} className="text-gray-400" />
-                    <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">
-                      {item.qrType === 'batch' ? `${totalCount} pcs (lot)` : `${totalCount} pcs`}
-                    </span>
-                  </div>
-                )}
-
-                {/* Description tronquée */}
-                {item.description && (
-                  <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-2 font-light">
-                    {item.description}
-                  </p>
-                )}
-
-                {/* Status badge */}
-                <div className="pt-1">
-                  <StatusBadge status={item.status} />
-                </div>
-              </div>
-              
-              {/* Actions - toujours en bas sur une seule ligne */}
-              <div className="mt-auto">
-                <div className="flex gap-1">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    icon={<QrCode size={14} />}
-                    onClick={() => handleShowQR(item.id)}
-                    className="text-xs px-2 py-1 font-medium flex-1"
-                  >
-                    QR
-                  </Button>
-                  {item.status === 'maintenance' ? (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      icon={<Wrench size={14} />}
-                      onClick={() => handleMaintenanceClick(item)}
-                      className="px-2 py-1 flex-1 text-blue-600 border-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20"
-                    />
-                  ) : (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      icon={<Wrench size={14} />}
-                      onClick={() => handleMaintenanceClick(item)}
-                      className="px-2 py-1 flex-1"
-                    />
-                  )}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    icon={<Pencil size={14} />}
-                    onClick={() => handleEditClick(item)}
-                    className="px-2 py-1 flex-1"
-                  />
-                  <Button
-                    variant="danger"
-                    size="sm"
-                    icon={<Trash2 size={14} />}
-                    onClick={() => handleDeleteClick(item)}
-                    className="px-2 py-1 flex-1"
-                  />
-                </div>
+            {/* Status badge */}
+            <div className="mt-2">
+              <StatusBadge status={item.status} />
+            </div>
+            
+            {/* Actions - toujours en bas sur une seule ligne */}
+            <div className="mt-auto pt-3">
+              <div className="flex gap-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  icon={<QrCode size={14} />}
+                  onClick={() => handleShowQR(item.id)}
+                  className="text-xs px-2 py-1 font-medium flex-1"
+                >
+                  QR
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  icon={<Wrench size={14} />}
+                  onClick={() => handleMaintenanceClick(item)}
+                  className={`px-2 py-1 flex-1 ${item.status === 'maintenance' ? 'text-blue-600 border-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20' : ''}`}
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  icon={<Pencil size={14} />}
+                  onClick={() => handleEditClick(item)}
+                  className="px-2 py-1 flex-1"
+                />
+                <Button
+                  variant="danger"
+                  size="sm"
+                  icon={<Trash2 size={14} />}
+                  onClick={() => handleDeleteClick(item)}
+                  className="px-2 py-1 flex-1"
+                />
               </div>
             </div>
           </div>
-        );
-      })}
+        </div>
+      ))}
     </div>
   );
 

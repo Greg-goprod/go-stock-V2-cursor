@@ -174,8 +174,26 @@ const GroupModal: React.FC<GroupModalProps> = ({ isOpen, onClose, group }) => {
                 color={formData.color}
                 onChange={(color) => setFormData(prev => ({ ...prev, color }))}
               />
-              <span className="text-sm text-gray-500 dark:text-gray-400">
+              <span className="text-sm text-gray-500 dark:text-gray-400 font-mono">
                 {formData.color}
+              </span>
+            </div>
+          </div>
+
+          {/* Aperçu */}
+          <div className="mt-4 bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
+            <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Aperçu du badge
+            </h4>
+            <div className="flex items-center gap-2">
+              <span 
+                className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium text-white"
+                style={{ backgroundColor: formData.color }}
+              >
+                {formData.name || 'Nom du groupe'}
+              </span>
+              <span className="text-xs text-gray-500 dark:text-gray-400">
+                Aperçu du rendu final
               </span>
             </div>
           </div>

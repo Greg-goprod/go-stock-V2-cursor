@@ -6,39 +6,39 @@ import ColorPicker from '../common/ColorPicker';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { supabase } from '../../lib/supabase';
 import toast from 'react-hot-toast';
-import { Category } from '../../types';
-import { Tag, FileText, Palette } from 'lucide-react';
+import { MaintenanceType } from '../../types';
+import { Wrench, FileText, Palette } from 'lucide-react';
 
-interface CategoryModalProps {
+interface MaintenanceTypeModalProps {
   isOpen: boolean;
   onClose: () => void;
-  category?: Category;
+  maintenanceType?: MaintenanceType;
 }
 
-const CategoryModal: React.FC<CategoryModalProps> = ({ isOpen, onClose, category }) => {
+const MaintenanceTypeModal: React.FC<MaintenanceTypeModalProps> = ({ isOpen, onClose, maintenanceType }) => {
   const { t } = useLanguage();
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    color: '#64748b'
+    color: '#f59e0b'
   });
 
   useEffect(() => {
-    if (category) {
+    if (maintenanceType) {
       setFormData({
-        name: category.name,
-        description: category.description || '',
-        color: category.color || '#64748b'
+        name: maintenanceType.name,
+        description: maintenanceType.description || '',
+        color: maintenanceType.color || '#f59e0b'
       });
     } else {
       setFormData({
         name: '',
         description: '',
-        color: '#64748b'
+        color: '#f59e0b'
       });
     }
-  }, [category]);
+  }, [maintenanceType]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -51,34 +51,34 @@ const CategoryModal: React.FC<CategoryModalProps> = ({ isOpen, onClose, category
         color: formData.color
       };
 
-      if (category) {
-        // Update existing category
+      if (maintenanceType) {
+        // Update existing maintenance type
         const { error } = await supabase
-          .from('categories')
+          .from('maintenance_types')
           .update(dataToSubmit)
-          .eq('id', category.id);
+          .eq('id', maintenanceType.id);
 
         if (error) throw error;
-        toast.success(t('categoryUpdated'));
+        toast.success('Type de maintenance modifié avec succès');
       } else {
-        // Create new category
+        // Create new maintenance type
         const { error } = await supabase
-          .from('categories')
+          .from('maintenance_types')
           .insert([dataToSubmit]);
 
         if (error) throw error;
-        toast.success(t('categoryAdded'));
+        toast.success('Type de maintenance ajouté avec succès');
       }
 
       onClose();
       setFormData({
         name: '',
         description: '',
-        color: '#64748b'
+        color: '#f59e0b'
       });
     } catch (error: any) {
-      console.error('Error saving category:', error);
-      toast.error(error.message || t('errorSavingCategory'));
+      console.error('Error saving maintenance type:', error);
+      toast.error(error.message || 'Erreur lors de la sauvegarde');
     } finally {
       setIsLoading(false);
     }
@@ -96,20 +96,20 @@ const CategoryModal: React.FC<CategoryModalProps> = ({ isOpen, onClose, category
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={category ? 'MODIFIER LA CATÉGORIE' : 'AJOUTER UNE CATÉGORIE'}
+      title={maintenanceType ? 'MODIFIER LE TYPE DE MAINTENANCE' : 'AJOUTER UN TYPE DE MAINTENANCE'}
       size="md"
     >
       <div className="space-y-4">
         {/* Informations de base */}
         <Accordion
           title="INFORMATIONS DE BASE"
-          icon={<Tag size={18} className="text-blue-600 dark:text-blue-400" />}
+          icon={<Wrench size={18} className="text-blue-600 dark:text-blue-400" />}
           defaultOpen={false}
         >
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                {t('name')} *
+                Nom du type de maintenance *
               </label>
               <input
                 type="text"
@@ -118,6 +118,7 @@ const CategoryModal: React.FC<CategoryModalProps> = ({ isOpen, onClose, category
                 value={formData.name}
                 onChange={handleChange}
                 className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
+                placeholder="Ex: Maintenance préventive, Panne électrique..."
               />
             </div>
 
@@ -126,14 +127,14 @@ const CategoryModal: React.FC<CategoryModalProps> = ({ isOpen, onClose, category
                 variant="outline"
                 onClick={onClose}
               >
-                {t('cancel')}
+                ANNULER
               </Button>
               <Button
                 variant="primary"
                 type="submit"
                 disabled={isLoading}
               >
-                {isLoading ? t('saving') : category ? t('save') : t('add')}
+                {isLoading ? 'SAUVEGARDE...' : maintenanceType ? 'MODIFIER' : 'AJOUTER'}
               </Button>
             </div>
           </form>
@@ -147,7 +148,7 @@ const CategoryModal: React.FC<CategoryModalProps> = ({ isOpen, onClose, category
         >
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              {t('description')}
+              Description
             </label>
             <textarea
               name="description"
@@ -155,6 +156,7 @@ const CategoryModal: React.FC<CategoryModalProps> = ({ isOpen, onClose, category
               onChange={handleChange}
               rows={3}
               className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
+              placeholder="Description du type de maintenance..."
             />
           </div>
         </Accordion>
@@ -190,7 +192,7 @@ const CategoryModal: React.FC<CategoryModalProps> = ({ isOpen, onClose, category
                 className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium text-white"
                 style={{ backgroundColor: formData.color }}
               >
-                {formData.name || 'Nom de la catégorie'}
+                {formData.name || 'Type de maintenance'}
               </span>
               <span className="text-xs text-gray-500 dark:text-gray-400">
                 Aperçu du rendu final
@@ -203,4 +205,4 @@ const CategoryModal: React.FC<CategoryModalProps> = ({ isOpen, onClose, category
   );
 };
 
-export default CategoryModal;
+export default MaintenanceTypeModal;

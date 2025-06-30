@@ -4,12 +4,13 @@ import Button from '../common/Button';
 import QRCodeScanner from '../QRCode/QRCodeScanner';
 import { User, CheckoutRecord, Equipment, DeliveryNote } from '../../types';
 import { supabase } from '../../lib/supabase';
-import { Search, Package, Calendar, Printer, AlertTriangle, List, Filter, FileText, User as UserIcon } from 'lucide-react';
+import { Search, Package, Calendar, Printer, AlertTriangle, List, Filter, FileText, User as UserIcon, RefreshCw, CheckCircle, ArrowLeft } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface ReturnModalProps {
   isOpen: boolean;
   onClose: () => void;
+  initialNoteId?: string; // Optionnel: ID du bon à rouvrir
 }
 
 interface DeliveryNoteWithDetails extends DeliveryNote {
@@ -28,7 +29,11 @@ interface ReturnItem {
   notes?: string;
 }
 
-const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose }) => {
+const ReturnModal: React.FC<ReturnModalProps> = ({ 
+  isOpen, 
+  onClose,
+  initialNoteId
+}) => {
   const [deliveryNotes, setDeliveryNotes] = useState<DeliveryNoteWithDetails[]>([]);
   const [filteredNotes, setFilteredNotes] = useState<DeliveryNoteWithDetails[]>([]);
   const [selectedNote, setSelectedNote] = useState<DeliveryNoteWithDetails | null>(null);
@@ -37,12 +42,24 @@ const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterOverdue, setFilterOverdue] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
+  const [returnSuccess, setReturnSuccess] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
       fetchDeliveryNotes();
     }
   }, [isOpen]);
+
+  useEffect(() => {
+    // Si un ID de bon est fourni, sélectionner ce bon automatiquement
+    if (initialNoteId && deliveryNotes.length > 0) {
+      const noteToSelect = deliveryNotes.find(note => note.id === initialNoteId);
+      if (noteToSelect) {
+        handleSelectNote(noteToSelect);
+      }
+    }
+  }, [initialNoteId, deliveryNotes]);
 
   useEffect(() => {
     // Filter delivery notes based on search and overdue filter
@@ -137,12 +154,20 @@ const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose }) => {
       }) || [];
       
       setDeliveryNotes(notesWithDetails);
+      setFilteredNotes(notesWithDetails);
     } catch (error: any) {
       console.error('Error fetching delivery notes:', error);
       toast.error('Erreur lors du chargement des bons de sortie');
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleRefresh = () => {
+    setRefreshing(true);
+    fetchDeliveryNotes().finally(() => {
+      setRefreshing(false);
+    });
   };
 
   const handleSelectNote = (note: DeliveryNoteWithDetails) => {
@@ -162,17 +187,26 @@ const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose }) => {
       return;
     }
 
-    const checkout = selectedNote.checkouts.find(c => c.equipment.id === scannedId && c.status === 'active');
+    const checkout = selectedNote.checkouts.find(c => 
+      c.equipment.id === scannedId || 
+      c.equipment.serialNumber === scannedId || 
+      c.equipment.articleNumber === scannedId
+    );
+    
     if (checkout) {
-      const existingReturn = returnItems.find(item => item.checkout.id === checkout.id);
-      if (existingReturn) {
-        toast.info('Cet équipement est déjà sélectionné');
-      } else {
-        setReturnItems(prev => [...prev, { checkout, action: 'return' }]);
-        toast.success(`${checkout.equipment.name} ajouté aux retours`);
+      if (checkout.status === 'active') {
+        const existingReturn = returnItems.find(item => item.checkout.id === checkout.id);
+        if (existingReturn) {
+          toast.info('Cet équipement est déjà sélectionné');
+        } else {
+          setReturnItems(prev => [...prev, { checkout, action: 'return' }]);
+          toast.success(`${checkout.equipment.name} ajouté aux retours`);
+        }
+      } else if (checkout.status === 'returned') {
+        toast.info(`${checkout.equipment.name} a déjà été retourné`);
       }
     } else {
-      toast.error('Équipement non trouvé dans ce bon de sortie ou déjà retourné');
+      toast.error('Équipement non trouvé dans ce bon de sortie');
     }
   };
 
@@ -259,9 +293,31 @@ const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose }) => {
           .eq('id', item.checkout.id);
       }
 
+      // Rafraîchir les données pour voir si le bon est maintenant complètement retourné
+      await fetchDeliveryNotes();
+      
+      // Vérifier si le bon sélectionné existe toujours (il pourrait avoir été complètement retourné)
+      const updatedNote = deliveryNotes.find(note => note.id === selectedNote?.id);
+      
+      setReturnSuccess(true);
       toast.success('Opérations de retour enregistrées avec succès');
+      
+      // Imprimer la quittance de retour
       handlePrintReturn();
-      handleClose();
+      
+      // Si le bon est toujours actif ou partiel, le garder sélectionné pour d'autres retours potentiels
+      if (updatedNote && (updatedNote.status === 'active' || updatedNote.status === 'partial')) {
+        setSelectedNote(updatedNote);
+        // Réinitialiser les éléments de retour
+        setReturnItems([]);
+      } else {
+        // Si le bon est complètement retourné, revenir à la liste
+        setTimeout(() => {
+          setSelectedNote(null);
+          setReturnItems([]);
+          setReturnSuccess(false);
+        }, 2000);
+      }
     } catch (error: any) {
       console.error('Error during return:', error);
       toast.error(error.message || 'Erreur lors du retour');
@@ -554,12 +610,14 @@ const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose }) => {
     setSearchTerm('');
     setFilterOverdue(false);
     setShowScanner(false);
+    setReturnSuccess(false);
     onClose();
   };
 
   const overdueCount = deliveryNotes.filter(note => note.status === 'overdue').length;
+  const partialCount = deliveryNotes.filter(note => note.status === 'partial').length;
 
-  if (isLoading) {
+  if (isLoading && !selectedNote) {
     return (
       <Modal isOpen={isOpen} onClose={handleClose} title="Retour de Matériel" size="xl">
         <div className="flex items-center justify-center h-64">
@@ -593,9 +651,23 @@ const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose }) => {
                         • {overdueCount} en retard
                       </span>
                     )}
+                    {partialCount > 0 && (
+                      <span className="ml-2 text-yellow-600 dark:text-yellow-400 font-medium">
+                        • {partialCount} retour partiel
+                      </span>
+                    )}
                   </p>
                 </div>
                 <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    icon={<RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />}
+                    onClick={handleRefresh}
+                    disabled={refreshing}
+                  >
+                    {refreshing ? 'Actualisation...' : 'Actualiser'}
+                  </Button>
                   <Button
                     variant="outline"
                     size="sm"
@@ -725,6 +797,11 @@ const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose }) => {
                                 EN RETARD
                               </div>
                             )}
+                            {isPartial && (
+                              <div className="text-xs text-yellow-500 font-medium">
+                                {note.returnedCount}/{note.equipmentCount} retourné(s)
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -746,6 +823,14 @@ const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose }) => {
                   <p className="text-blue-700 dark:text-blue-300 text-sm">
                     {selectedNote.user.first_name} {selectedNote.user.last_name} • {selectedNote.user.department}
                   </p>
+                  <p className="text-blue-700 dark:text-blue-300 text-sm">
+                    {selectedNote.returnedCount}/{selectedNote.equipmentCount} équipement(s) retourné(s)
+                    {selectedNote.status === 'partial' && (
+                      <span className="ml-2 text-yellow-600 dark:text-yellow-400 font-medium">
+                        • Retour partiel
+                      </span>
+                    )}
+                  </p>
                 </div>
                 <Button
                   variant="outline"
@@ -757,6 +842,30 @@ const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose }) => {
               </div>
             </div>
 
+            {/* Message de succès */}
+            {returnSuccess && (
+              <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4 animate-fade-in">
+                <div className="flex items-center gap-2">
+                  <CheckCircle size={20} className="text-green-600 dark:text-green-400" />
+                  <h3 className="font-medium text-green-800 dark:text-green-200">
+                    Retour enregistré avec succès
+                  </h3>
+                </div>
+                <p className="text-green-700 dark:text-green-300 text-sm mt-1">
+                  {selectedNote.status === 'partial' ? (
+                    <>
+                      Le bon est maintenant en statut <strong>retour partiel</strong>. 
+                      Vous pouvez continuer à traiter d'autres retours pour ce bon.
+                    </>
+                  ) : (
+                    <>
+                      Tous les équipements ont été traités. Le bon est maintenant complet.
+                    </>
+                  )}
+                </p>
+              </div>
+            )}
+
             {/* Scanner QR pour ce bon */}
             {showScanner && (
               <div className="border rounded-lg p-4">
@@ -767,95 +876,150 @@ const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose }) => {
 
             {/* Équipements du bon sélectionné */}
             <div className="border rounded-lg p-4">
-              <h3 className="font-medium mb-3">
-                Équipements du bon ({selectedNote.checkouts.filter(c => c.status === 'active').length} actifs)
-              </h3>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-medium">
+                  Équipements du bon ({selectedNote.checkouts.filter(c => c.status === 'active').length} actifs)
+                </h3>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    icon={<Package size={16} />}
+                    onClick={() => setShowScanner(!showScanner)}
+                  >
+                    {showScanner ? 'Masquer Scanner' : 'Scanner QR'}
+                  </Button>
+                </div>
+              </div>
+              
               <div className="space-y-3">
-                {selectedNote.checkouts.filter(c => c.status === 'active').map((checkout) => {
-                  const returnItem = returnItems.find(item => item.checkout.id === checkout.id);
-                  const isOverdue = new Date(checkout.due_date) < new Date();
-                  
-                  return (
-                    <div key={checkout.id} className="border rounded-lg p-3">
-                      <div className="flex justify-between items-start mb-2">
-                        <div>
-                          <h4 className="font-medium">{checkout.equipment.name}</h4>
-                          <p className="text-sm text-gray-500">{checkout.equipment.serialNumber}</p>
-                          <p className={`text-sm ${isOverdue ? 'text-red-600' : 'text-gray-500'}`}>
-                            {isOverdue && <AlertTriangle size={14} className="inline mr-1" />}
-                            Retour prévu: {new Date(checkout.due_date).toLocaleDateString('fr-FR')}
-                          </p>
-                        </div>
-                        
-                        <div className="flex items-center gap-2">
-                          {returnItem ? (
-                            <>
-                              <select
-                                value={returnItem.action}
-                                onChange={(e) => updateReturnAction(checkout.id, e.target.value as any)}
-                                className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-2 py-1 text-sm"
-                              >
-                                <option value="return">Retour complet</option>
-                                <option value="extend">Prolonger l'emprunt</option>
-                                <option value="lost">Matériel perdu</option>
-                              </select>
-                              
-                              <Button
-                                variant="danger"
-                                size="sm"
-                                onClick={() => removeReturnItem(checkout.id)}
-                              >
-                                ✕
-                              </Button>
-                            </>
-                          ) : (
-                            <Button
-                              variant="primary"
-                              size="sm"
-                              onClick={() => setReturnItems(prev => [...prev, { checkout, action: 'return' }])}
-                            >
-                              Sélectionner
-                            </Button>
+                {/* Équipements actifs */}
+                {selectedNote.checkouts.filter(c => c.status === 'active').length > 0 ? (
+                  <div className="space-y-3">
+                    <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Équipements à retourner
+                    </h4>
+                    {selectedNote.checkouts.filter(c => c.status === 'active').map((checkout) => {
+                      const returnItem = returnItems.find(item => item.checkout.id === checkout.id);
+                      const isOverdue = new Date(checkout.due_date) < new Date();
+                      
+                      return (
+                        <div key={checkout.id} className="border rounded-lg p-3">
+                          <div className="flex justify-between items-start mb-2">
+                            <div>
+                              <h4 className="font-medium">{checkout.equipment.name}</h4>
+                              <p className="text-sm text-gray-500">{checkout.equipment.serialNumber}</p>
+                              <p className={`text-sm ${isOverdue ? 'text-red-600 dark:text-red-400 font-bold' : 'text-gray-500 dark:text-gray-400'}`}>
+                                {isOverdue && <AlertTriangle size={14} className="inline mr-1" />}
+                                Retour prévu: {new Date(checkout.due_date).toLocaleDateString('fr-FR')}
+                                {isOverdue && ' (EN RETARD)'}
+                              </p>
+                            </div>
+                            
+                            <div className="flex items-center gap-2">
+                              {returnItem ? (
+                                <>
+                                  <select
+                                    value={returnItem.action}
+                                    onChange={(e) => updateReturnAction(checkout.id, e.target.value as any)}
+                                    className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-2 py-1 text-sm"
+                                  >
+                                    <option value="return">Retour complet</option>
+                                    <option value="extend">Prolonger l'emprunt</option>
+                                    <option value="lost">Matériel perdu</option>
+                                  </select>
+                                  
+                                  <Button
+                                    variant="danger"
+                                    size="sm"
+                                    onClick={() => removeReturnItem(checkout.id)}
+                                  >
+                                    ✕
+                                  </Button>
+                                </>
+                              ) : (
+                                <Button
+                                  variant="primary"
+                                  size="sm"
+                                  onClick={() => setReturnItems(prev => [...prev, { checkout, action: 'return' }])}
+                                >
+                                  Sélectionner
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+
+                          {returnItem?.action === 'extend' && (
+                            <div className="mt-2">
+                              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                Nouvelle date de retour
+                              </label>
+                              <input
+                                type="date"
+                                value={returnItem.newDueDate || ''}
+                                onChange={(e) => updateReturnAction(checkout.id, 'extend', e.target.value, returnItem.notes)}
+                                className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-2 py-1 text-sm"
+                                min={new Date().toISOString().split('T')[0]}
+                              />
+                            </div>
+                          )}
+
+                          {returnItem && (
+                            <div className="mt-2">
+                              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                Notes
+                              </label>
+                              <textarea
+                                value={returnItem.notes || ''}
+                                onChange={(e) => updateReturnAction(checkout.id, returnItem.action, returnItem.newDueDate, e.target.value)}
+                                placeholder={
+                                  returnItem.action === 'return' ? 'Notes sur le retour...' :
+                                  returnItem.action === 'extend' ? 'Raison de la prolongation...' :
+                                  'Circonstances de la perte...'
+                                }
+                                className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-2 py-1 text-sm"
+                                rows={2}
+                              />
+                            </div>
                           )}
                         </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="text-center py-4">
+                    <CheckCircle size={32} className="mx-auto text-green-500 mb-2" />
+                    <p className="text-green-600 dark:text-green-400 font-medium">
+                      Tous les équipements actifs ont été retournés
+                    </p>
+                  </div>
+                )}
+
+                {/* Équipements déjà retournés */}
+                {selectedNote.checkouts.filter(c => c.status === 'returned').length > 0 && (
+                  <div className="mt-6 space-y-3">
+                    <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Équipements déjà retournés
+                    </h4>
+                    <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3">
+                      <div className="space-y-2">
+                        {selectedNote.checkouts.filter(c => c.status === 'returned').map((checkout) => (
+                          <div key={checkout.id} className="flex justify-between items-center p-2 border-b last:border-b-0 border-gray-200 dark:border-gray-700">
+                            <div>
+                              <p className="font-medium text-gray-700 dark:text-gray-300">{checkout.equipment.name}</p>
+                              <p className="text-xs text-gray-500">{checkout.equipment.serialNumber}</p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-200 px-2 py-1 rounded">
+                                Retourné le {checkout.return_date ? new Date(checkout.return_date).toLocaleDateString('fr-FR') : 'N/A'}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
                       </div>
-
-                      {returnItem?.action === 'extend' && (
-                        <div className="mt-2">
-                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                            Nouvelle date de retour
-                          </label>
-                          <input
-                            type="date"
-                            value={returnItem.newDueDate || ''}
-                            onChange={(e) => updateReturnAction(checkout.id, 'extend', e.target.value, returnItem.notes)}
-                            className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-2 py-1 text-sm"
-                            min={new Date().toISOString().split('T')[0]}
-                          />
-                        </div>
-                      )}
-
-                      {returnItem && (
-                        <div className="mt-2">
-                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                            Notes
-                          </label>
-                          <textarea
-                            value={returnItem.notes || ''}
-                            onChange={(e) => updateReturnAction(checkout.id, returnItem.action, returnItem.newDueDate, e.target.value)}
-                            placeholder={
-                              returnItem.action === 'return' ? 'Notes sur le retour...' :
-                              returnItem.action === 'extend' ? 'Raison de la prolongation...' :
-                              'Circonstances de la perte...'
-                            }
-                            className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-2 py-1 text-sm"
-                            rows={2}
-                          />
-                        </div>
-                      )}
                     </div>
-                  );
-                })}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -863,6 +1027,7 @@ const ReturnModal: React.FC<ReturnModalProps> = ({ isOpen, onClose }) => {
             <div className="flex justify-between">
               <Button
                 variant="outline"
+                icon={<ArrowLeft size={16} />}
                 onClick={() => setSelectedNote(null)}
               >
                 Retour à la liste

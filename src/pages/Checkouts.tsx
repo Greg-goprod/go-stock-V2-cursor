@@ -99,6 +99,7 @@ const Checkouts: React.FC = () => {
   const [selectedNote, setSelectedNote] = useState<DeliveryNoteGroup | null>(null);
   const [showDirectReturnModal, setShowDirectReturnModal] = useState(false);
   const [selectedCheckout, setSelectedCheckout] = useState<CheckoutWithDetails | null>(null);
+  const [selectedNoteId, setSelectedNoteId] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     fetchCheckouts();
@@ -219,11 +220,17 @@ const Checkouts: React.FC = () => {
   };
 
   const handleRefresh = () => {
-    fetchCheckouts();
+    fetchCheckouts(true);
   };
 
   const handleReturnNote = (note: DeliveryNoteGroup) => {
     setSelectedNote(note);
+    setSelectedNoteId(note.noteId);
+    setShowReturnModal(true);
+  };
+
+  const handleCompletePartialReturn = (note: DeliveryNoteGroup) => {
+    setSelectedNoteId(note.noteId);
     setShowReturnModal(true);
   };
 
@@ -572,6 +579,14 @@ const Checkouts: React.FC = () => {
     }
   };
 
+  const handleReturnModalClose = () => {
+    setShowReturnModal(false);
+    setSelectedNote(null);
+    setSelectedNoteId(undefined);
+    // Refresh data after closing modal
+    setTimeout(() => fetchCheckouts(), 500);
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -723,11 +738,12 @@ const Checkouts: React.FC = () => {
             filteredDeliveryNotes.map((note) => {
               const isOverdue = note.status === 'overdue' || (note.status === 'active' && new Date(note.dueDate) < new Date());
               const progress = note.totalItems > 0 ? (note.returnedItems / note.totalItems) * 100 : 0;
+              const isPartial = note.status === 'partial';
               
               return (
                 <Accordion
                   key={note.noteId}
-                  className={`transition-all hover:shadow-md ${isOverdue ? 'border-l-4 border-l-red-500' : ''}`}
+                  className={`transition-all hover:shadow-md ${isOverdue ? 'border-l-4 border-l-red-500' : isPartial ? 'border-l-4 border-l-yellow-500' : ''}`}
                   defaultOpen={false}
                   title={
                     <div className="flex justify-between items-start w-full">
@@ -861,14 +877,25 @@ const Checkouts: React.FC = () => {
                       >
                         Imprimer
                       </Button>
-                      <Button
-                        variant="primary"
-                        size="sm"
-                        icon={<ArrowLeft size={16} />}
-                        onClick={() => handleReturnNote(note)}
-                      >
-                        Retour matériel
-                      </Button>
+                      {note.status === 'partial' ? (
+                        <Button
+                          variant="warning"
+                          size="sm"
+                          icon={<ArrowLeft size={16} />}
+                          onClick={() => handleCompletePartialReturn(note)}
+                        >
+                          Compléter le retour
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          icon={<ArrowLeft size={16} />}
+                          onClick={() => handleReturnNote(note)}
+                        >
+                          Retour matériel
+                        </Button>
+                      )}
                     </div>
                   </div>
                 </Accordion>
@@ -1037,12 +1064,8 @@ const Checkouts: React.FC = () => {
       {/* Return Modal */}
       <ReturnModal
         isOpen={showReturnModal}
-        onClose={() => {
-          setShowReturnModal(false);
-          setSelectedNote(null);
-          // Refresh data after closing modal
-          setTimeout(() => fetchCheckouts(), 500);
-        }}
+        onClose={handleReturnModalClose}
+        initialNoteId={selectedNoteId}
       />
 
       {/* Direct Return Modal */}

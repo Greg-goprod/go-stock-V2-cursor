@@ -5,9 +5,10 @@ type BadgeVariant = 'success' | 'warning' | 'danger' | 'info' | 'neutral';
 interface BadgeProps {
   variant?: BadgeVariant;
   children: React.ReactNode;
+  className?: string;
 }
 
-const Badge: React.FC<BadgeProps> = ({ variant = 'neutral', children }) => {
+const Badge: React.FC<BadgeProps> = ({ variant = 'neutral', children, className = '' }) => {
   const variantClasses = {
     success: 'bg-success-100 dark:bg-success-900/50 text-success-800 dark:text-success-200',
     warning: 'bg-warning-100 dark:bg-warning-900/50 text-warning-800 dark:text-warning-200',
@@ -17,7 +18,7 @@ const Badge: React.FC<BadgeProps> = ({ variant = 'neutral', children }) => {
   };
 
   return (
-    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${variantClasses[variant]}`}>
+    <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium ${variantClasses[variant]} ${className}`}>
       {children}
     </span>
   );

@@ -1,3 +1,61 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Réduction globale des tailles de police */
+html {
+  font-size: 14px;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  line-height: 1.2;
+}
+
+/* Styles pour les cartes et sections */
+.card-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.section-title {
+  font-size: 1.1rem;
+  font-weight: 800;
+}
+
+/* Réduction des espacements */
+.compact-layout .p-4 {
+  padding: 0.75rem;
+}
+
+.compact-layout .gap-4 {
+  gap: 0.75rem;
+}
+
+/* Styles pour les badges */
+.badge-sm {
+  font-size: 0.65rem;
+  padding: 0.15rem 0.5rem;
+}
+
+/* Styles pour les boutons */
+.btn-sm {
+  font-size: 0.7rem;
+  padding: 0.25rem 0.5rem;
+}
+
+/* Styles pour les tableaux */
+.table-compact th,
+.table-compact td {
+  padding: 0.5rem 0.75rem;
+  font-size: 0.8rem;
+}
+
+/* Styles pour les modales */
+.modal-title {
+  font-size: 1rem;
+}
+
+/* Styles pour les accordéons */
+.accordion-title {
+  font-size: 0.85rem;
+}

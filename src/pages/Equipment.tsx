@@ -74,16 +74,18 @@ const EquipmentPage: React.FC = () => {
         .from('categories')
         .select('*')
         .order('name');
-
+      
       if (categoriesError) throw categoriesError;
+      setCategories(categoriesData || []);
 
       // Fetch suppliers
       const { data: suppliersData, error: suppliersError } = await supabase
         .from('suppliers')
         .select('*')
         .order('name');
-
+      
       if (suppliersError) throw suppliersError;
+      setSuppliers(suppliersData || []);
 
       // Fetch equipment instances
       const { data: instancesData, error: instancesError } = await supabase
@@ -125,8 +127,6 @@ const EquipmentPage: React.FC = () => {
       })) || [];
 
       setEquipment(transformedEquipment);
-      setCategories(categoriesData || []);
-      setSuppliers(suppliersData || []);
       setInstances(transformedInstances);
     } catch (error: any) {
       console.error('Error fetching data:', error);
@@ -326,7 +326,7 @@ const EquipmentPage: React.FC = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-gray-500 dark:text-gray-400 font-medium">Chargement du matériel...</div>
+        <div className="text-gray-500 dark:text-gray-400 text-sm">Chargement du matériel...</div>
       </div>
     );
   }
@@ -334,61 +334,61 @@ const EquipmentPage: React.FC = () => {
   const renderListView = () => (
     <Card>
       <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+        <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700 table-compact">
           <thead className="bg-gray-50 dark:bg-gray-800">
             <tr>
               <th 
-                className="px-6 py-3 text-left cursor-pointer group"
+                className="px-4 py-2 text-left cursor-pointer group"
                 onClick={() => handleSortEquipment('name')}
               >
-                <div className="flex items-center text-xs font-black text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                <div className="flex items-center text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   NOM
-                  <ArrowUpDown size={14} className="ml-1 opacity-0 group-hover:opacity-100" />
+                  <ArrowUpDown size={12} className="ml-1 opacity-0 group-hover:opacity-100" />
                 </div>
               </th>
-              <th className="px-6 py-3 text-left text-xs font-black text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+              <th className="px-4 py-2 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                 N° ARTICLE
               </th>
               <th 
-                className="px-6 py-3 text-left cursor-pointer group"
+                className="px-4 py-2 text-left cursor-pointer group"
                 onClick={() => handleSortEquipment('serial_number')}
               >
-                <div className="flex items-center text-xs font-black text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                <div className="flex items-center text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   N° SÉRIE
-                  <ArrowUpDown size={14} className="ml-1 opacity-0 group-hover:opacity-100" />
+                  <ArrowUpDown size={12} className="ml-1 opacity-0 group-hover:opacity-100" />
                 </div>
               </th>
               <th 
-                className="px-6 py-3 text-left cursor-pointer group"
+                className="px-4 py-2 text-left cursor-pointer group"
                 onClick={() => handleSortEquipment('category')}
               >
-                <div className="flex items-center text-xs font-black text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                <div className="flex items-center text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   CATÉGORIE
-                  <ArrowUpDown size={14} className="ml-1 opacity-0 group-hover:opacity-100" />
+                  <ArrowUpDown size={12} className="ml-1 opacity-0 group-hover:opacity-100" />
                 </div>
               </th>
               <th 
-                className="px-6 py-3 text-left cursor-pointer group"
+                className="px-4 py-2 text-left cursor-pointer group"
                 onClick={() => handleSortEquipment('group')}
               >
-                <div className="flex items-center text-xs font-black text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                <div className="flex items-center text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   GROUPE
-                  <ArrowUpDown size={14} className="ml-1 opacity-0 group-hover:opacity-100" />
+                  <ArrowUpDown size={12} className="ml-1 opacity-0 group-hover:opacity-100" />
                 </div>
               </th>
-              <th className="px-6 py-3 text-left text-xs font-black text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+              <th className="px-4 py-2 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                 STOCK
               </th>
               <th 
-                className="px-6 py-3 text-left cursor-pointer group"
+                className="px-4 py-2 text-left cursor-pointer group"
                 onClick={() => handleSortEquipment('status')}
               >
-                <div className="flex items-center text-xs font-black text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                <div className="flex items-center text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   STATUT
-                  <ArrowUpDown size={14} className="ml-1 opacity-0 group-hover:opacity-100" />
+                  <ArrowUpDown size={12} className="ml-1 opacity-0 group-hover:opacity-100" />
                 </div>
               </th>
-              <th className="px-6 py-3 text-right text-xs font-black text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+              <th className="px-4 py-2 text-right text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                 ACTIONS
               </th>
             </tr>
@@ -402,70 +402,64 @@ const EquipmentPage: React.FC = () => {
 
               return (
                 <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-4 py-2 whitespace-nowrap">
                     <div className="flex items-center">
                       {item.imageUrl && (
                         <img
                           src={item.imageUrl}
                           alt={item.name}
-                          className="h-10 w-10 rounded-lg object-cover mr-3 bg-white"
+                          className="h-8 w-8 rounded-lg object-cover mr-2 bg-white"
                         />
                       )}
-                      <div className="text-sm font-bold text-gray-900 dark:text-white">
+                      <div className="text-xs font-bold text-gray-900 dark:text-white">
                         {item.name}
                       </div>
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 font-mono font-medium">
+                  <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-500 dark:text-gray-400 font-mono font-medium">
                     {item.articleNumber}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 font-medium">
+                  <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-500 dark:text-gray-400 font-medium">
                     {item.serialNumber}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 font-medium">
+                  <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-500 dark:text-gray-400 font-medium">
                     {item.category}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                  <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-500 dark:text-gray-400">
                     {item.group && (
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200">
                         {item.group}
                       </span>
                     )}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center gap-2">
-                      <span className={`text-sm font-black ${
+                  <td className="px-4 py-2 whitespace-nowrap">
+                    <div className="flex items-center gap-1">
+                      <span className={`text-xs font-bold ${
                         availableCount === 0 ? 'text-red-600 dark:text-red-400' :
                         availableCount < totalCount ? 'text-yellow-600 dark:text-yellow-400' :
                         'text-green-600 dark:text-green-400'
                       }`}>
                         {availableCount}/{totalCount}
                       </span>
-                      {item.qrType === 'batch' && totalCount > 1 && (
-                        <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">(lot)</span>
-                      )}
-                      {item.qrType === 'individual' && totalCount > 1 && (
-                        <span className="text-xs text-blue-500 dark:text-blue-400 font-medium">(indiv.)</span>
-                      )}
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-4 py-2 whitespace-nowrap">
                     <StatusBadge status={item.status} />
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right space-x-2">
+                  <td className="px-4 py-2 whitespace-nowrap text-right space-x-1">
                     <Button
                       variant="outline"
                       size="sm"
-                      icon={<QrCode size={16} />}
+                      icon={<QrCode size={14} />}
                       onClick={() => handleShowQR(item.id)}
                     >
-                      QR Code
+                      QR
                     </Button>
                     {item.status === 'maintenance' && (
                       <Button
                         variant="outline"
                         size="sm"
-                        icon={<Wrench size={16} />}
+                        icon={<Wrench size={14} />}
                         onClick={() => handleMaintenanceClick(item)}
                         className="text-blue-600 border-blue-600 hover:bg-blue-50"
                       />
@@ -473,13 +467,13 @@ const EquipmentPage: React.FC = () => {
                     <Button
                       variant="outline"
                       size="sm"
-                      icon={<Pencil size={16} />}
+                      icon={<Pencil size={14} />}
                       onClick={() => handleEditClick(item)}
                     />
                     <Button
                       variant="danger"
                       size="sm"
-                      icon={<Trash2 size={16} />}
+                      icon={<Trash2 size={14} />}
                       onClick={() => handleDeleteClick(item)}
                     />
                   </td>
@@ -493,67 +487,67 @@ const EquipmentPage: React.FC = () => {
   );
 
   const renderGridView = () => (
-    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3">
       {filteredEquipment.map((item) => (
-        <div key={item.id} className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border-2 border-gray-200 dark:border-gray-700 hover:shadow-lg hover:border-gray-300 dark:hover:border-gray-600 transition-all duration-200 overflow-hidden flex flex-col h-full">
-          <div className="p-3 flex-1 flex flex-col">
+        <div key={item.id} className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-md hover:border-gray-300 dark:hover:border-gray-600 transition-all duration-200 overflow-hidden flex flex-col h-full">
+          <div className="p-2 flex-1 flex flex-col">
             {/* Image */}
-            <div className="relative mb-3">
+            <div className="relative mb-2">
               {item.imageUrl ? (
                 <img
                   src={item.imageUrl}
                   alt={item.name}
-                  className="w-full h-32 object-contain rounded-md bg-white"
+                  className="w-full h-24 object-contain rounded-md bg-white"
                 />
               ) : (
-                <div className="w-full h-32 bg-gray-100 dark:bg-gray-700 rounded-md flex items-center justify-center">
-                  <Package size={32} className="text-gray-400" />
+                <div className="w-full h-24 bg-gray-100 dark:bg-gray-700 rounded-md flex items-center justify-center">
+                  <Package size={24} className="text-gray-400" />
                 </div>
               )}
             </div>
             
             {/* Nom de l'appareil avec espace pour 2 lignes */}
-            <h3 className="text-sm font-black text-gray-800 dark:text-white line-clamp-2 leading-tight h-10">
+            <h3 className="text-xs font-bold text-gray-800 dark:text-white line-clamp-2 leading-tight h-8">
               {item.name}
             </h3>
 
             {/* Status badge */}
-            <div className="mt-2">
+            <div className="mt-1">
               <StatusBadge status={item.status} />
             </div>
             
             {/* Actions - toujours en bas sur une seule ligne */}
-            <div className="mt-auto pt-3">
+            <div className="mt-auto pt-2">
               <div className="flex gap-1">
                 <Button
                   variant="outline"
                   size="sm"
-                  icon={<QrCode size={14} />}
+                  icon={<QrCode size={12} />}
                   onClick={() => handleShowQR(item.id)}
-                  className="text-xs px-2 py-1 font-medium flex-1"
+                  className="text-xs px-1.5 py-0.5 font-medium flex-1"
                 >
                   QR
                 </Button>
                 <Button
                   variant="outline"
                   size="sm"
-                  icon={<Wrench size={14} />}
+                  icon={<Wrench size={12} />}
                   onClick={() => handleMaintenanceClick(item)}
-                  className={`px-2 py-1 flex-1 ${item.status === 'maintenance' ? 'text-blue-600 border-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20' : ''}`}
+                  className={`px-1.5 py-0.5 flex-1 ${item.status === 'maintenance' ? 'text-blue-600 border-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20' : ''}`}
                 />
                 <Button
                   variant="outline"
                   size="sm"
-                  icon={<Pencil size={14} />}
+                  icon={<Pencil size={12} />}
                   onClick={() => handleEditClick(item)}
-                  className="px-2 py-1 flex-1"
+                  className="px-1.5 py-0.5 flex-1"
                 />
                 <Button
                   variant="danger"
                   size="sm"
-                  icon={<Trash2 size={14} />}
+                  icon={<Trash2 size={12} />}
                   onClick={() => handleDeleteClick(item)}
-                  className="px-2 py-1 flex-1"
+                  className="px-1.5 py-0.5 flex-1"
                 />
               </div>
             </div>
@@ -605,16 +599,16 @@ const EquipmentPage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-black text-gray-800 dark:text-white tracking-tight uppercase">MATÉRIEL</h1>
+        <h1 className="text-xl font-bold text-gray-800 dark:text-white tracking-tight uppercase">MATÉRIEL</h1>
         
-        <div className="flex gap-3">
+        <div className="flex gap-2">
           <div className="flex rounded-lg border border-gray-200 dark:border-gray-700">
             <Button
               variant={viewMode === 'grid' ? 'primary' : 'outline'}
               size="sm"
-              icon={<LayoutGrid size={18} />}
+              icon={<LayoutGrid size={16} />}
               onClick={() => setViewMode('grid')}
               className="rounded-r-none font-bold"
             >
@@ -623,7 +617,7 @@ const EquipmentPage: React.FC = () => {
             <Button
               variant={viewMode === 'list' ? 'primary' : 'outline'}
               size="sm"
-              icon={<List size={18} />}
+              icon={<List size={16} />}
               onClick={() => setViewMode('list')}
               className="rounded-l-none font-bold"
             >
@@ -632,41 +626,41 @@ const EquipmentPage: React.FC = () => {
           </div>
           <Button 
             variant="outline" 
-            icon={<Filter size={18} />}
+            icon={<Filter size={16} />}
             onClick={() => setShowFilters(true)}
             className="font-bold"
           >
             FILTRES
             {Object.keys(activeFilters).length > 0 && (
-              <span className="ml-1 px-1.5 py-0.5 text-xs bg-primary-100 dark:bg-primary-900 text-primary-600 dark:text-primary-300 rounded-full font-black">
+              <span className="ml-1 px-1 py-0.5 text-xs bg-primary-100 dark:bg-primary-900 text-primary-600 dark:text-primary-300 rounded-full font-bold">
                 {Object.keys(activeFilters).length}
               </span>
             )}
           </Button>
           <Button 
             variant="primary" 
-            icon={<Plus size={18} />}
+            icon={<Plus size={16} />}
             onClick={() => setShowAddModal(true)}
             className="font-bold"
           >
-            AJOUTER MATÉRIEL
+            AJOUTER
           </Button>
         </div>
       </div>
 
       {equipment.length === 0 ? (
         <Card>
-          <div className="text-center py-12">
-            <Package size={48} className="mx-auto text-gray-400 mb-4" />
-            <h3 className="text-lg font-black text-gray-900 dark:text-white mb-2 uppercase">
+          <div className="text-center py-8">
+            <Package size={36} className="mx-auto text-gray-400 mb-3" />
+            <h3 className="text-sm font-bold text-gray-900 dark:text-white mb-2 uppercase">
               AUCUN MATÉRIEL
             </h3>
-            <p className="text-gray-500 dark:text-gray-400 mb-4 font-medium">
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
               Commencez par ajouter votre premier matériel.
             </p>
             <Button
               variant="primary"
-              icon={<Plus size={18} />}
+              icon={<Plus size={16} />}
               onClick={() => setShowAddModal(true)}
               className="font-bold"
             >
@@ -680,8 +674,8 @@ const EquipmentPage: React.FC = () => {
           
           {filteredEquipment.length === 0 && equipment.length > 0 && (
             <Card>
-              <div className="text-center py-8">
-                <p className="text-gray-500 dark:text-gray-400 font-medium">
+              <div className="text-center py-6">
+                <p className="text-sm text-gray-500 dark:text-gray-400">
                   Aucun matériel ne correspond aux filtres sélectionnés.
                 </p>
               </div>
@@ -703,7 +697,7 @@ const EquipmentPage: React.FC = () => {
               value={getQRCodeValue()}
               title={getQRCodeTitle()}
               subtitle={getQRCodeSubtitle()}
-              size={200}
+              size={180}
             />
           </div>
         )}

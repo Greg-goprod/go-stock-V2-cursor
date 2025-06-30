@@ -49,7 +49,7 @@ const Sidebar: React.FC = () => {
   };
 
   const navLinkClass = ({ isActive }: { isActive: boolean }) =>
-    `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors font-medium text-sm tracking-wide ${
+    `flex items-center gap-2 px-3 py-2 rounded-lg transition-colors text-xs tracking-wide ${
       isActive 
         ? 'bg-primary-100 dark:bg-primary-900/50 text-primary-800 dark:text-primary-200 font-bold' 
         : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 font-medium'
@@ -58,10 +58,10 @@ const Sidebar: React.FC = () => {
   return (
     <>
       <button
-        className="lg:hidden fixed top-4 left-4 z-50 p-2 rounded-md bg-white dark:bg-gray-800 shadow-md"
+        className="lg:hidden fixed top-3 left-3 z-50 p-1.5 rounded-md bg-white dark:bg-gray-800 shadow-md"
         onClick={toggleSidebar}
       >
-        {isOpen ? <X size={20} className="dark:text-white" /> : <Menu size={20} className="dark:text-white" />}
+        {isOpen ? <X size={18} className="dark:text-white" /> : <Menu size={18} className="dark:text-white" />}
       </button>
       
       {isOpen && (
@@ -76,51 +76,51 @@ const Sidebar: React.FC = () => {
           isOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-          <div className="flex flex-col items-center gap-3">
+        <div className="p-3 border-b border-gray-200 dark:border-gray-700">
+          <div className="flex flex-col items-center gap-2">
             {companyLogo && (
               <img
                 src={companyLogo}
                 alt="Logo de l'entreprise"
-                className="max-h-12 max-w-48 object-contain"
+                className="max-h-10 max-w-40 object-contain"
               />
             )}
-            <div className="flex items-center gap-2 font-black text-primary-700 dark:text-primary-300 text-2xl tracking-tight">
-              <QrCode size={28} />
+            <div className="flex items-center gap-1.5 font-black text-primary-700 dark:text-primary-300 text-xl tracking-tight">
+              <QrCode size={22} />
               <span>GO-Mat</span>
             </div>
-            <p className="text-xs text-gray-500 dark:text-gray-400 text-center font-light tracking-wide uppercase">
+            <p className="text-[10px] text-gray-500 dark:text-gray-400 text-center font-light tracking-wide uppercase">
               Gestion de Matériel
             </p>
           </div>
         </div>
         
-        <nav className="py-4 px-2 flex flex-col gap-1">
+        <nav className="py-3 px-2 flex flex-col gap-1">
           <NavLink to="/" className={navLinkClass} onClick={() => setIsOpen(false)}>
-            <LayoutDashboard size={20} />
+            <LayoutDashboard size={16} />
             <span className="uppercase tracking-wider font-bold">TABLEAU DE BORD</span>
           </NavLink>
           
           <NavLink to="/equipment" className={navLinkClass} onClick={() => setIsOpen(false)}>
-            <Package size={20} />
+            <Package size={16} />
             <span className="uppercase tracking-wider font-bold">MATÉRIEL</span>
           </NavLink>
           
           <NavLink to="/users" className={navLinkClass} onClick={() => setIsOpen(false)}>
-            <Users size={20} />
+            <Users size={16} />
             <span className="uppercase tracking-wider font-bold">UTILISATEURS</span>
           </NavLink>
           
           <NavLink to="/checkouts" className={navLinkClass} onClick={() => setIsOpen(false)}>
-            <CalendarClock size={20} />
+            <CalendarClock size={16} />
             <span className="uppercase tracking-wider font-bold">SORTIE MATÉRIEL</span>
           </NavLink>
           
           <NavLink to="/notifications" className={navLinkClass} onClick={() => setIsOpen(false)}>
             <div className="relative">
-              <Bell size={20} />
+              <Bell size={16} />
               {unreadNotifications > 0 && (
-                <span className="absolute -top-1 -right-1 bg-danger-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center font-bold">
+                <span className="absolute -top-1 -right-1 bg-danger-500 text-white text-[8px] rounded-full w-3 h-3 flex items-center justify-center font-bold">
                   {unreadNotifications}
                 </span>
               )}
@@ -129,7 +129,7 @@ const Sidebar: React.FC = () => {
           </NavLink>
           
           <NavLink to="/settings" className={navLinkClass} onClick={() => setIsOpen(false)}>
-            <Settings size={20} />
+            <Settings size={16} />
             <span className="uppercase tracking-wider font-bold">PARAMÈTRES</span>
           </NavLink>
         </nav>

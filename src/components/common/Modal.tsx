@@ -77,26 +77,26 @@ const Modal: React.FC<ModalProps> = ({
       <div className="fixed inset-0 bg-black/30 backdrop-blur-sm transition-opacity duration-300" />
       
       {/* Container flottant - position plus haute et moins de hauteur */}
-      <div className="flex min-h-full items-start justify-center p-4 pt-16">
+      <div className="flex min-h-full items-start justify-center p-3 pt-12">
         <div
           ref={modalRef}
           className={`${sizeClasses[size]} w-full transform transition-all duration-300 scale-100`}
         >
           {/* Modal flottant avec ombre douce et bordure subtile */}
-          <div className="relative bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-100 dark:border-gray-700 overflow-hidden max-h-[75vh]">
+          <div className="relative bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-100 dark:border-gray-700 overflow-hidden max-h-[80vh]">
             {/* Header compact avec effet glassmorphism */}
-            <div className="flex items-center justify-between px-4 py-3 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border-b border-gray-100 dark:border-gray-700">
-              <h2 className="text-lg font-bold text-gray-800 dark:text-white uppercase tracking-wide">{title}</h2>
+            <div className="flex items-center justify-between px-3 py-2 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border-b border-gray-100 dark:border-gray-700">
+              <h2 className="text-sm font-bold text-gray-800 dark:text-white uppercase tracking-wide">{title}</h2>
               <button
                 onClick={onClose}
-                className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200 group"
+                className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200 group"
               >
-                <X size={18} className="text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-200" />
+                <X size={16} className="text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-200" />
               </button>
             </div>
             
             {/* Content avec padding réduit et scroll optimisé */}
-            <div className="p-4 overflow-y-auto max-h-[calc(75vh-60px)] text-gray-900 dark:text-white">
+            <div className="p-3 overflow-y-auto max-h-[calc(80vh-48px)] text-gray-900 dark:text-white">
               {children}
             </div>
           </div>

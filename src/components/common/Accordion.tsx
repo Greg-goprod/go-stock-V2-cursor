@@ -28,28 +28,28 @@ const Accordion: React.FC<AccordionProps> = ({
     <div className={`border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden ${className}`}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className={`w-full flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200 ${titleClassName}`}
+        className={`w-full flex items-center justify-between p-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200 ${titleClassName}`}
       >
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           {icon && (
             <div className="flex-shrink-0">
               {icon}
             </div>
           )}
-          <div className="flex-1 text-left">
+          <div className="flex-1 text-left text-sm font-bold">
             {title}
           </div>
           {badge && (
-            <div className="ml-3">
+            <div className="ml-2">
               {badge}
             </div>
           )}
         </div>
-        <div className="flex-shrink-0 ml-4">
+        <div className="flex-shrink-0 ml-3">
           {isOpen ? (
-            <ChevronUp size={20} className="text-gray-500 dark:text-gray-400" />
+            <ChevronUp size={18} className="text-gray-500 dark:text-gray-400" />
           ) : (
-            <ChevronDown size={20} className="text-gray-500 dark:text-gray-400" />
+            <ChevronDown size={18} className="text-gray-500 dark:text-gray-400" />
           )}
         </div>
       </button>
@@ -57,7 +57,7 @@ const Accordion: React.FC<AccordionProps> = ({
       <div className={`transition-all duration-300 ease-in-out ${
         isOpen ? 'max-h-screen opacity-100' : 'max-h-0 opacity-0'
       } overflow-hidden ${contentClassName}`}>
-        <div className="p-4 border-t border-gray-200 dark:border-gray-700">
+        <div className="p-3 border-t border-gray-200 dark:border-gray-700">
           {children}
         </div>
       </div>

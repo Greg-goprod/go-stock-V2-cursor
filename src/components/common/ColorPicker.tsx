@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Check } from 'lucide-react';
+import { Check, Info } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
 interface ColorPickerProps {
@@ -97,6 +97,7 @@ const ColorPicker: React.FC<ColorPickerProps> = ({ color, onChange }) => {
   const [colorUsage, setColorUsage] = useState<ColorUsage[]>([]);
   const [hoveredColor, setHoveredColor] = useState<string | null>(null);
   const pickerRef = useRef<HTMLDivElement>(null);
+  const paletteRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -225,10 +226,11 @@ const ColorPicker: React.FC<ColorPickerProps> = ({ color, onChange }) => {
 
       {isOpen && (
         <div 
-          className="fixed z-[9999] p-3 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 flex flex-wrap gap-2 max-w-[400px]" 
+          ref={paletteRef}
+          className="absolute z-[9999] p-3 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 flex flex-wrap gap-2 max-w-[400px]" 
           style={{ 
-            top: pickerRef.current?.getBoundingClientRect().top, 
-            left: pickerRef.current?.getBoundingClientRect().left - 400, // Position à gauche
+            top: '0',
+            left: '-420px', // Position à gauche
             width: '400px'
           }}
         >
@@ -252,13 +254,14 @@ const ColorPicker: React.FC<ColorPickerProps> = ({ color, onChange }) => {
                   }}
                   aria-label={`Couleur ${c}`}
                 >
-                  {color === c && <Check className="text-white" size={16} />}
+                  {color === c && <Check className="text-white drop-shadow-md" size={16} />}
                 </button>
                 
                 {/* Tooltip pour les couleurs utilisées */}
                 {hoveredColor === c && usage.length > 0 && (
                   <div className="absolute z-[10000] left-1/2 transform -translate-x-1/2 bottom-full mb-2 w-48 bg-white dark:bg-gray-900 shadow-lg rounded-lg p-2 text-xs">
-                    <div className="font-bold text-gray-800 dark:text-white mb-1">
+                    <div className="font-bold text-gray-800 dark:text-white mb-1 flex items-center gap-1">
+                      <Info size={12} />
                       Utilisée par:
                     </div>
                     <ul className="space-y-1">

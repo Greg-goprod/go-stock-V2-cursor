@@ -20,11 +20,12 @@ interface DeliveryNoteWithDetails extends DeliveryNote {
   })[];
   equipmentCount: number;
   returnedCount: number;
+  lostCount: number;
 }
 
 interface ReturnItem {
   checkout: CheckoutRecord & { equipment: Equipment };
-  action: 'return' | 'extend' | 'lost';
+  action: 'return' | 'extend' | 'lost' | 'recover';
   newDueDate?: string;
   notes?: string;
 }
@@ -126,6 +127,7 @@ const ReturnModal: React.FC<ReturnModalProps> = ({
 
         const equipmentCount = checkouts.length;
         const returnedCount = checkouts.filter(c => c.status === 'returned').length;
+        const lostCount = checkouts.filter(c => c.status === 'lost').length;
 
         return {
           id: note.id,
@@ -149,7 +151,8 @@ const ReturnModal: React.FC<ReturnModalProps> = ({
           },
           checkouts,
           equipmentCount,
-          returnedCount
+          returnedCount,
+          lostCount
         };
       }) || [];
       
@@ -173,10 +176,10 @@ const ReturnModal: React.FC<ReturnModalProps> = ({
   const handleSelectNote = (note: DeliveryNoteWithDetails) => {
     setSelectedNote(note);
     // Initialize return items with active checkouts
-    const activeCheckouts = note.checkouts.filter(c => c.status === 'active');
+    const activeCheckouts = note.checkouts.filter(c => c.status === 'active' || c.status === 'lost');
     setReturnItems(activeCheckouts.map(checkout => ({
       checkout,
-      action: 'return'
+      action: checkout.status === 'lost' ? 'recover' : 'return'
     })));
   };
 
@@ -194,12 +197,15 @@ const ReturnModal: React.FC<ReturnModalProps> = ({
     );
     
     if (checkout) {
-      if (checkout.status === 'active') {
+      if (checkout.status === 'active' || checkout.status === 'lost') {
         const existingReturn = returnItems.find(item => item.checkout.id === checkout.id);
         if (existingReturn) {
           toast.info('Cet équipement est déjà sélectionné');
         } else {
-          setReturnItems(prev => [...prev, { checkout, action: 'return' }]);
+          setReturnItems(prev => [...prev, { 
+            checkout, 
+            action: checkout.status === 'lost' ? 'recover' : 'return' 
+          }]);
           toast.success(`${checkout.equipment.name} ajouté aux retours`);
         }
       } else if (checkout.status === 'returned') {
@@ -210,7 +216,7 @@ const ReturnModal: React.FC<ReturnModalProps> = ({
     }
   };
 
-  const updateReturnAction = (checkoutId: string, action: 'return' | 'extend' | 'lost', newDueDate?: string, notes?: string) => {
+  const updateReturnAction = (checkoutId: string, action: 'return' | 'extend' | 'lost' | 'recover', newDueDate?: string, notes?: string) => {
     setReturnItems(prev => 
       prev.map(item => 
         item.checkout.id === checkoutId 
@@ -276,7 +282,7 @@ const ReturnModal: React.FC<ReturnModalProps> = ({
           case 'lost':
             // Matériel perdu - marquer comme perdu
             updateData.status = 'lost';
-            updateData.return_date = new Date().toISOString();
+            updateData.notes = `${item.checkout.notes || ''}\nMatériel déclaré perdu le ${new Date().toLocaleDateString('fr-FR')}${item.notes ? ` - ${item.notes}` : ''}`.trim();
             
             // Mettre à jour le statut de l'équipement
             await supabase
@@ -284,6 +290,17 @@ const ReturnModal: React.FC<ReturnModalProps> = ({
               .update({ status: 'retired' })
               .eq('id', item.checkout.equipment.id);
             break;
+
+          case 'recover':
+            // Matériel retrouvé - utiliser la fonction RPC
+            const { error: recoverError } = await supabase.rpc('recover_lost_equipment', {
+              checkout_id: item.checkout.id
+            });
+            
+            if (recoverError) throw recoverError;
+            
+            // Skip the checkout update since it's handled by the function
+            continue;
         }
 
         // Mettre à jour l'enregistrement d'emprunt
@@ -339,7 +356,7 @@ const ReturnModal: React.FC<ReturnModalProps> = ({
 
       const logoUrl = logoSetting?.value || '';
 
-      const returnedItems = returnItems.filter(item => item.action === 'return');
+      const returnedItems = returnItems.filter(item => item.action === 'return' || item.action === 'recover');
       const extendedItems = returnItems.filter(item => item.action === 'extend');
       const lostItems = returnItems.filter(item => item.action === 'lost');
 
@@ -415,6 +432,7 @@ const ReturnModal: React.FC<ReturnModalProps> = ({
               .returned { background-color: #d4edda; }
               .extended { background-color: #fff3cd; }
               .lost { background-color: #f8d7da; }
+              .recovered { background-color: #d1ecf1; }
               .signature { 
                 margin-top: 30px; 
                 display: flex;
@@ -492,8 +510,8 @@ const ReturnModal: React.FC<ReturnModalProps> = ({
                   </thead>
                   <tbody>
                     ${returnedItems.map(item => `
-                      <tr class="returned">
-                        <td>${item.checkout.equipment.name}</td>
+                      <tr class="${item.action === 'recover' ? 'recovered' : 'returned'}">
+                        <td>${item.checkout.equipment.name} ${item.action === 'recover' ? '(Retrouvé)' : ''}</td>
                         <td style="font-family: monospace;">${item.checkout.equipment.serialNumber}</td>
                         <td>${new Date(item.checkout.checkout_date).toLocaleDateString('fr-FR')}</td>
                         <td>${item.notes || '-'}</td>
@@ -735,13 +753,15 @@ const ReturnModal: React.FC<ReturnModalProps> = ({
                   filteredNotes.map(note => {
                     const isOverdue = note.status === 'overdue';
                     const isPartial = note.status === 'partial';
+                    const hasLostItems = note.lostCount > 0;
                     
                     return (
                       <div
                         key={note.id}
                         className={`p-4 border-b last:border-b-0 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors ${
                           isOverdue ? 'bg-red-50 dark:bg-red-900/20' : 
-                          isPartial ? 'bg-yellow-50 dark:bg-yellow-900/20' : ''
+                          isPartial ? 'bg-yellow-50 dark:bg-yellow-900/20' : 
+                          hasLostItems ? 'bg-orange-50 dark:bg-orange-900/20' : ''
                         }`}
                         onClick={() => handleSelectNote(note)}
                       >
@@ -760,6 +780,11 @@ const ReturnModal: React.FC<ReturnModalProps> = ({
                                   Retour partiel
                                 </span>
                               )}
+                              {hasLostItems && (
+                                <span className="text-xs bg-orange-100 dark:bg-orange-900/50 text-orange-800 dark:text-orange-200 px-2 py-1 rounded">
+                                  Matériel perdu
+                                </span>
+                              )}
                             </div>
                             
                             <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-400 mb-2">
@@ -775,6 +800,13 @@ const ReturnModal: React.FC<ReturnModalProps> = ({
                                 <div className="flex items-center gap-1">
                                   <span className="text-green-600 dark:text-green-400">
                                     {note.returnedCount} retourné(s)
+                                  </span>
+                                </div>
+                              )}
+                              {note.lostCount > 0 && (
+                                <div className="flex items-center gap-1">
+                                  <span className="text-orange-600 dark:text-orange-400">
+                                    {note.lostCount} perdu(s)
                                   </span>
                                 </div>
                               )}
@@ -830,6 +862,11 @@ const ReturnModal: React.FC<ReturnModalProps> = ({
                         • Retour partiel
                       </span>
                     )}
+                    {selectedNote.lostCount > 0 && (
+                      <span className="ml-2 text-orange-600 dark:text-orange-400 font-medium">
+                        • {selectedNote.lostCount} perdu(s)
+                      </span>
+                    )}
                   </p>
                 </div>
                 <Button
@@ -878,7 +915,7 @@ const ReturnModal: React.FC<ReturnModalProps> = ({
             <div className="border rounded-lg p-4">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="font-medium">
-                  Équipements du bon ({selectedNote.checkouts.filter(c => c.status === 'active').length} actifs)
+                  Équipements du bon ({selectedNote.checkouts.filter(c => c.status === 'active' || c.status === 'lost').length} actifs)
                 </h3>
                 <div className="flex gap-2">
                   <Button
@@ -894,25 +931,38 @@ const ReturnModal: React.FC<ReturnModalProps> = ({
               
               <div className="space-y-3">
                 {/* Équipements actifs */}
-                {selectedNote.checkouts.filter(c => c.status === 'active').length > 0 ? (
+                {selectedNote.checkouts.filter(c => c.status === 'active' || c.status === 'lost').length > 0 ? (
                   <div className="space-y-3">
                     <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                      Équipements à retourner
+                      Équipements à traiter
                     </h4>
-                    {selectedNote.checkouts.filter(c => c.status === 'active').map((checkout) => {
+                    {selectedNote.checkouts.filter(c => c.status === 'active' || c.status === 'lost').map((checkout) => {
                       const returnItem = returnItems.find(item => item.checkout.id === checkout.id);
                       const isOverdue = new Date(checkout.due_date) < new Date();
+                      const isLost = checkout.status === 'lost';
                       
                       return (
-                        <div key={checkout.id} className="border rounded-lg p-3">
+                        <div 
+                          key={checkout.id} 
+                          className={`border rounded-lg p-3 ${
+                            isLost ? 'border-orange-300 bg-orange-50 dark:bg-orange-900/20' : ''
+                          }`}
+                        >
                           <div className="flex justify-between items-start mb-2">
                             <div>
-                              <h4 className="font-medium">{checkout.equipment.name}</h4>
+                              <div className="flex items-center gap-2">
+                                <h4 className="font-medium">{checkout.equipment.name}</h4>
+                                {isLost && (
+                                  <span className="text-xs bg-orange-100 dark:bg-orange-900/50 text-orange-800 dark:text-orange-200 px-2 py-0.5 rounded-full">
+                                    PERDU
+                                  </span>
+                                )}
+                              </div>
                               <p className="text-sm text-gray-500">{checkout.equipment.serialNumber}</p>
-                              <p className={`text-sm ${isOverdue ? 'text-red-600 dark:text-red-400 font-bold' : 'text-gray-500 dark:text-gray-400'}`}>
-                                {isOverdue && <AlertTriangle size={14} className="inline mr-1" />}
+                              <p className={`text-sm ${isOverdue && !isLost ? 'text-red-600 dark:text-red-400 font-bold' : 'text-gray-500 dark:text-gray-400'}`}>
+                                {isOverdue && !isLost && <AlertTriangle size={14} className="inline mr-1" />}
                                 Retour prévu: {new Date(checkout.due_date).toLocaleDateString('fr-FR')}
-                                {isOverdue && ' (EN RETARD)'}
+                                {isOverdue && !isLost && ' (EN RETARD)'}
                               </p>
                             </div>
                             
@@ -924,9 +974,18 @@ const ReturnModal: React.FC<ReturnModalProps> = ({
                                     onChange={(e) => updateReturnAction(checkout.id, e.target.value as any)}
                                     className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-2 py-1 text-sm"
                                   >
-                                    <option value="return">Retour complet</option>
-                                    <option value="extend">Prolonger l'emprunt</option>
-                                    <option value="lost">Matériel perdu</option>
+                                    {isLost ? (
+                                      <>
+                                        <option value="recover">Matériel retrouvé</option>
+                                        <option value="lost">Garder comme perdu</option>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <option value="return">Retour complet</option>
+                                        <option value="extend">Prolonger l'emprunt</option>
+                                        <option value="lost">Matériel perdu</option>
+                                      </>
+                                    )}
                                   </select>
                                   
                                   <Button
@@ -939,11 +998,14 @@ const ReturnModal: React.FC<ReturnModalProps> = ({
                                 </>
                               ) : (
                                 <Button
-                                  variant="primary"
+                                  variant={isLost ? "warning" : "primary"}
                                   size="sm"
-                                  onClick={() => setReturnItems(prev => [...prev, { checkout, action: 'return' }])}
+                                  onClick={() => setReturnItems(prev => [...prev, { 
+                                    checkout, 
+                                    action: isLost ? 'recover' : 'return' 
+                                  }])}
                                 >
-                                  Sélectionner
+                                  {isLost ? 'Récupérer' : 'Sélectionner'}
                                 </Button>
                               )}
                             </div>
@@ -975,6 +1037,7 @@ const ReturnModal: React.FC<ReturnModalProps> = ({
                                 placeholder={
                                   returnItem.action === 'return' ? 'Notes sur le retour...' :
                                   returnItem.action === 'extend' ? 'Raison de la prolongation...' :
+                                  returnItem.action === 'recover' ? 'Circonstances de la récupération...' :
                                   'Circonstances de la perte...'
                                 }
                                 className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-2 py-1 text-sm"

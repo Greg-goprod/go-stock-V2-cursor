@@ -61,7 +61,7 @@ export interface CheckoutRecord {
   checkoutDate: string;
   dueDate: string;
   returnDate?: string;
-  status: 'active' | 'returned' | 'overdue';
+  status: 'active' | 'returned' | 'overdue' | 'lost';
   notes?: string;
   instanceId?: string; // Pour les équipements individuels
 }
@@ -88,6 +88,7 @@ export interface Category {
   id: string;
   name: string;
   description?: string;
+  color?: string;
 }
 
 export interface EquipmentGroup {

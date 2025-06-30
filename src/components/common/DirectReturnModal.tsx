@@ -3,7 +3,7 @@ import Modal from './Modal';
 import Button from './Button';
 import { supabase } from '../../lib/supabase';
 import toast from 'react-hot-toast';
-import { CheckCircle, AlertTriangle } from 'lucide-react';
+import { CheckCircle, AlertTriangle, ArrowLeft } from 'lucide-react';
 
 interface DirectReturnModalProps {
   isOpen: boolean;
@@ -21,6 +21,8 @@ interface DirectReturnModalProps {
     };
     checkout_date: string;
     due_date: string;
+    status: string;
+    delivery_note_id?: string;
   };
 }
 
@@ -30,73 +32,87 @@ const DirectReturnModal: React.FC<DirectReturnModalProps> = ({ isOpen, onClose, 
   const [success, setSuccess] = useState(false);
   
   const isOverdue = new Date(checkout.due_date) < new Date();
+  const isLost = checkout.status === 'lost';
 
   const handleReturnEquipment = async () => {
     try {
       setIsLoading(true);
 
-      // 1. Mettre à jour le statut du checkout
-      const { error: checkoutError } = await supabase
-        .from('checkouts')
-        .update({
-          status: 'returned',
-          return_date: new Date().toISOString(),
-          notes: notes || null
-        })
-        .eq('id', checkout.id);
+      if (isLost) {
+        // Use the recover_lost_equipment function for lost equipment
+        const { data, error } = await supabase.rpc('recover_lost_equipment', {
+          checkout_id: checkout.id
+        });
 
-      if (checkoutError) throw checkoutError;
-
-      // 2. Mettre à jour la quantité disponible de l'équipement
-      const { data: equipmentData, error: equipmentFetchError } = await supabase
-        .from('equipment')
-        .select('available_quantity, total_quantity')
-        .eq('id', checkout.equipment.id)
-        .single();
-
-      if (equipmentFetchError) throw equipmentFetchError;
-
-      const newAvailableQuantity = (equipmentData.available_quantity || 0) + 1;
-      const newStatus = newAvailableQuantity >= (equipmentData.total_quantity || 1) ? 'available' : 'checked-out';
-
-      const { error: equipmentUpdateError } = await supabase
-        .from('equipment')
-        .update({
-          status: newStatus,
-          available_quantity: newAvailableQuantity
-        })
-        .eq('id', checkout.equipment.id);
-
-      if (equipmentUpdateError) throw equipmentUpdateError;
-
-      // 3. Vérifier si tous les équipements du bon de sortie sont retournés
-      if (checkout.delivery_note_id) {
-        const { data: relatedCheckouts, error: relatedError } = await supabase
+        if (error) throw error;
+        
+        toast.success('Matériel perdu retrouvé et remis en stock avec succès');
+      } else {
+        // Standard return process for normal checkouts
+        // 1. Mettre à jour le statut du checkout
+        const { error: checkoutError } = await supabase
           .from('checkouts')
-          .select('id, status')
-          .eq('delivery_note_id', checkout.delivery_note_id);
+          .update({
+            status: 'returned',
+            return_date: new Date().toISOString(),
+            notes: notes || null
+          })
+          .eq('id', checkout.id);
 
-        if (relatedError) throw relatedError;
+        if (checkoutError) throw checkoutError;
 
-        const allReturned = relatedCheckouts?.every(c => c.status === 'returned');
-        const anyActive = relatedCheckouts?.some(c => c.status === 'active');
+        // 2. Mettre à jour la quantité disponible de l'équipement
+        const { data: equipmentData, error: equipmentFetchError } = await supabase
+          .from('equipment')
+          .select('available_quantity, total_quantity')
+          .eq('id', checkout.equipment.id)
+          .single();
 
-        // Mettre à jour le statut du bon de sortie
-        if (allReturned) {
-          await supabase
-            .from('delivery_notes')
-            .update({ status: 'returned' })
-            .eq('id', checkout.delivery_note_id);
-        } else if (anyActive) {
-          await supabase
-            .from('delivery_notes')
-            .update({ status: 'partial' })
-            .eq('id', checkout.delivery_note_id);
+        if (equipmentFetchError) throw equipmentFetchError;
+
+        const newAvailableQuantity = (equipmentData.available_quantity || 0) + 1;
+        const newStatus = newAvailableQuantity >= (equipmentData.total_quantity || 1) ? 'available' : 'checked-out';
+
+        const { error: equipmentUpdateError } = await supabase
+          .from('equipment')
+          .update({
+            status: newStatus,
+            available_quantity: newAvailableQuantity
+          })
+          .eq('id', checkout.equipment.id);
+
+        if (equipmentUpdateError) throw equipmentUpdateError;
+
+        // 3. Vérifier si tous les équipements du bon de sortie sont retournés
+        if (checkout.delivery_note_id) {
+          const { data: relatedCheckouts, error: relatedError } = await supabase
+            .from('checkouts')
+            .select('id, status')
+            .eq('delivery_note_id', checkout.delivery_note_id);
+
+          if (relatedError) throw relatedError;
+
+          const allReturned = relatedCheckouts?.every(c => c.status === 'returned');
+          const anyActive = relatedCheckouts?.some(c => c.status === 'active');
+
+          // Mettre à jour le statut du bon de sortie
+          if (allReturned) {
+            await supabase
+              .from('delivery_notes')
+              .update({ status: 'returned' })
+              .eq('id', checkout.delivery_note_id);
+          } else if (anyActive) {
+            await supabase
+              .from('delivery_notes')
+              .update({ status: 'partial' })
+              .eq('id', checkout.delivery_note_id);
+          }
         }
+
+        toast.success('Matériel retourné avec succès');
       }
 
       setSuccess(true);
-      toast.success('Matériel retourné avec succès');
       
       // Fermer la modal après 2 secondes
       setTimeout(() => {
@@ -115,27 +131,31 @@ const DirectReturnModal: React.FC<DirectReturnModalProps> = ({ isOpen, onClose, 
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="RETOUR DIRECT DE MATÉRIEL"
+      title={isLost ? "RÉCUPÉRATION DE MATÉRIEL PERDU" : "RETOUR DIRECT DE MATÉRIEL"}
       size="md"
     >
       {success ? (
         <div className="text-center py-8">
           <CheckCircle size={64} className="mx-auto text-green-500 mb-4" />
           <h3 className="text-xl font-black text-gray-900 dark:text-white mb-2">
-            RETOUR EFFECTUÉ AVEC SUCCÈS
+            {isLost ? 'MATÉRIEL RETROUVÉ' : 'RETOUR EFFECTUÉ AVEC SUCCÈS'}
           </h3>
           <p className="text-gray-600 dark:text-gray-400 font-medium">
-            Le matériel a été remis en stock et est maintenant disponible.
+            {isLost 
+              ? 'Le matériel a été remis en stock et est maintenant disponible.' 
+              : 'Le matériel a été remis en stock et est maintenant disponible.'}
           </p>
         </div>
       ) : (
         <div className="space-y-6">
-          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-            <h3 className="font-bold text-blue-800 dark:text-blue-200 mb-2 uppercase">
-              CONFIRMATION DE RETOUR
+          <div className={`border-l-4 rounded-lg p-4 ${isLost ? 'border-l-red-500 bg-red-50 dark:bg-red-900/20' : 'bg-blue-50 dark:bg-blue-900/20 border-l-blue-500'}`}>
+            <h3 className="font-bold text-gray-800 dark:text-gray-200 mb-2 uppercase">
+              {isLost ? 'RÉCUPÉRATION DE MATÉRIEL PERDU' : 'CONFIRMATION DE RETOUR'}
             </h3>
-            <p className="text-blue-700 dark:text-blue-300 text-sm">
-              Vous êtes sur le point de retourner directement ce matériel sans passer par un processus de retour complet.
+            <p className="text-gray-700 dark:text-gray-300 text-sm">
+              {isLost 
+                ? 'Vous êtes sur le point de remettre en stock un matériel qui était marqué comme perdu.' 
+                : 'Vous êtes sur le point de retourner directement ce matériel sans passer par un processus de retour complet.'}
             </p>
           </div>
 
@@ -162,21 +182,29 @@ const DirectReturnModal: React.FC<DirectReturnModalProps> = ({ isOpen, onClose, 
                   Date de retour prévue: {new Date(checkout.due_date).toLocaleDateString('fr-FR')}
                   {isOverdue && ' (EN RETARD)'}
                 </p>
+                {isLost && (
+                  <p className="text-sm text-red-600 dark:text-red-400 font-bold">
+                    <AlertTriangle size={14} className="inline mr-1" />
+                    Statut actuel: PERDU
+                  </p>
+                )}
               </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Notes de retour (optionnel)
-              </label>
-              <textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                rows={3}
-                className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
-                placeholder="Ajoutez des notes concernant l'état du matériel retourné..."
-              />
-            </div>
+            {!isLost && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Notes de retour (optionnel)
+                </label>
+                <textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  rows={3}
+                  className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
+                  placeholder="Ajoutez des notes concernant l'état du matériel retourné..."
+                />
+              </div>
+            )}
           </div>
 
           <div className="flex justify-end gap-3">
@@ -190,8 +218,9 @@ const DirectReturnModal: React.FC<DirectReturnModalProps> = ({ isOpen, onClose, 
               variant="primary"
               onClick={handleReturnEquipment}
               disabled={isLoading}
+              icon={isLost ? <ArrowLeft size={16} /> : undefined}
             >
-              {isLoading ? 'TRAITEMENT...' : 'CONFIRMER LE RETOUR'}
+              {isLoading ? 'TRAITEMENT...' : isLost ? 'REMETTRE EN STOCK' : 'CONFIRMER LE RETOUR'}
             </Button>
           </div>
         </div>

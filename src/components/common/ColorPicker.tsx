@@ -96,11 +96,14 @@ const ColorPicker: React.FC<ColorPickerProps> = ({ color, onChange }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [colorUsage, setColorUsage] = useState<ColorUsage[]>([]);
   const [hoveredColor, setHoveredColor] = useState<string | null>(null);
+  const [pickerPosition, setPickerPosition] = useState({ top: 0, left: 0 });
   const pickerRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (pickerRef.current && !pickerRef.current.contains(event.target as Node)) {
+      if (pickerRef.current && !pickerRef.current.contains(event.target as Node) &&
+          buttonRef.current && !buttonRef.current.contains(event.target as Node)) {
         setIsOpen(false);
       }
     };
@@ -112,8 +115,22 @@ const ColorPicker: React.FC<ColorPickerProps> = ({ color, onChange }) => {
   useEffect(() => {
     if (isOpen) {
       fetchColorUsage();
+      calculatePosition();
     }
   }, [isOpen]);
+
+  const calculatePosition = () => {
+    if (buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+      const scrollLeft = window.pageXOffset || document.documentElement.scrollLeft;
+      
+      setPickerPosition({
+        top: rect.bottom + scrollTop + 8,
+        left: rect.left + scrollLeft
+      });
+    }
+  };
 
   const fetchColorUsage = async () => {
     try {
@@ -213,24 +230,30 @@ const ColorPicker: React.FC<ColorPickerProps> = ({ color, onChange }) => {
     }
   };
 
+  const handleButtonClick = () => {
+    setIsOpen(!isOpen);
+  };
+
   return (
-    <div className="relative" ref={pickerRef}>
+    <>
       <button
+        ref={buttonRef}
         type="button"
         className="w-8 h-8 rounded-full border border-gray-300 dark:border-gray-600 shadow-sm"
         style={{ backgroundColor: color }}
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={handleButtonClick}
         aria-label="Choisir une couleur"
       />
 
       {isOpen && (
         <div 
-          className="absolute z-[99999] p-3 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 flex flex-wrap gap-2 max-w-[400px]" 
+          ref={pickerRef}
+          className="fixed p-3 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 flex flex-wrap gap-2 max-w-[400px]" 
           style={{ 
-            top: '100%',
-            left: '0',
-            marginTop: '8px',
-            width: '400px'
+            top: `${pickerPosition.top}px`,
+            left: `${pickerPosition.left}px`,
+            width: '400px',
+            zIndex: 999999
           }}
         >
           {colors.map((c) => {
@@ -258,7 +281,10 @@ const ColorPicker: React.FC<ColorPickerProps> = ({ color, onChange }) => {
                 
                 {/* Tooltip pour les couleurs utilisées */}
                 {hoveredColor === c && usage.length > 0 && (
-                  <div className="absolute z-[100000] left-1/2 transform -translate-x-1/2 bottom-full mb-2 w-48 bg-white dark:bg-gray-900 shadow-lg rounded-lg p-2 text-xs">
+                  <div 
+                    className="absolute left-1/2 transform -translate-x-1/2 bottom-full mb-2 w-48 bg-white dark:bg-gray-900 shadow-lg rounded-lg p-2 text-xs"
+                    style={{ zIndex: 1000000 }}
+                  >
                     <div className="font-bold text-gray-800 dark:text-white mb-1 flex items-center gap-1">
                       <Info size={12} />
                       Utilisée par:
@@ -279,7 +305,7 @@ const ColorPicker: React.FC<ColorPickerProps> = ({ color, onChange }) => {
           })}
         </div>
       )}
-    </div>
+    </>
   );
 };
 

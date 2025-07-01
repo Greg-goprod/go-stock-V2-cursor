@@ -39,6 +39,10 @@ const Notifications: React.FC = () => {
   const [filter, setFilter] = useState<'all' | 'unread' | 'read' | 'overdue' | 'maintenance' | 'checkout'>('all');
 
   useEffect(() => {
+    // Nettoyer les notifications stockées dans localStorage
+    localStorage.removeItem('checkout_notifications');
+    localStorage.removeItem('return_notifications');
+    
     generateNotifications();
     
     // Écouter les nouvelles notifications de sortie
@@ -174,44 +178,7 @@ const Notifications: React.FC = () => {
       const checkoutNotifications = JSON.parse(localStorage.getItem('checkout_notifications') ||'[]');
       generatedNotifications.push(...checkoutNotifications);
 
-      // 5. Ajouter quelques notifications lues d'exemple pour démonstration
-      generatedNotifications.push(
-        {
-          id: 'read-example-1',
-          type: 'system',
-          title: 'Notification lue - Maintenance terminée',
-          message: 'La maintenance de l\'imprimante HP LaserJet a été terminée avec succès.',
-          date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(), // Il y a 2 jours
-          priority: 'medium',
-          read: true
-        },
-        {
-          id: 'read-example-2',
-          type: 'due_soon',
-          title: 'Notification lue - Retour effectué',
-          message: 'L\'ordinateur portable Dell a été retourné par Jean Dupont.',
-          date: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(), // Il y a 1 jour
-          priority: 'low',
-          read: true
-        },
-        {
-          id: 'read-example-3',
-          type: 'checkout',
-          title: 'Notification lue - Bon de sortie traité',
-          message: 'Bon N° GOMAT-BON-20250101-0001 créé pour Marie Martin (3 équipements)',
-          date: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(), // Il y a 3 jours
-          priority: 'medium',
-          read: true,
-          relatedData: {
-            note_number: 'GOMAT-BON-20250101-0001',
-            userName: 'Marie Martin',
-            user_department: 'Informatique',
-            equipment_count: 3
-          }
-        }
-      );
-
-      // 6. Ajouter notification système si aucune notification
+      // 5. Ajouter notification système si aucune notification
       if (generatedNotifications.length === 0) {
         generatedNotifications.push({
           id: 'system-welcome',

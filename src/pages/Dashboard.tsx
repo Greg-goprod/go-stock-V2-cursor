@@ -319,6 +319,13 @@ const Dashboard: React.FC = () => {
     }, 500);
   };
 
+  // Nettoyer les notifications stockées dans localStorage
+  useEffect(() => {
+    // Vider les notifications au chargement du dashboard
+    localStorage.removeItem('checkout_notifications');
+    localStorage.removeItem('return_notifications');
+  }, []);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">

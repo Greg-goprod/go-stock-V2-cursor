@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Check, Info } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
@@ -96,19 +97,39 @@ const ColorPicker: React.FC<ColorPickerProps> = ({ color, onChange }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [colorUsage, setColorUsage] = useState<ColorUsage[]>([]);
   const [hoveredColor, setHoveredColor] = useState<string | null>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const [pickerPosition, setPickerPosition] = useState({ top: 0, left: 0 });
+  const buttonRef = useRef<HTMLButtonElement>(null);
   const pickerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+      if (
+        buttonRef.current && 
+        !buttonRef.current.contains(event.target as Node) &&
+        pickerRef.current && 
+        !pickerRef.current.contains(event.target as Node)
+      ) {
         setIsOpen(false);
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      updatePickerPosition();
+    }
+
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+  }, [isOpen]);
+
+  const updatePickerPosition = () => {
+    if (buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      setPickerPosition({
+        top: rect.bottom + window.scrollY + 8,
+        left: rect.left + window.scrollX
+      });
+    }
+  };
 
   useEffect(() => {
     if (isOpen) {
@@ -214,9 +235,72 @@ const ColorPicker: React.FC<ColorPickerProps> = ({ color, onChange }) => {
     }
   };
 
+  const ColorPickerContent = () => (
+    <div 
+      ref={pickerRef}
+      className="fixed bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 p-3 flex flex-wrap gap-2"
+      style={{ 
+        top: pickerPosition.top,
+        left: pickerPosition.left,
+        width: '400px',
+        maxWidth: '90vw',
+        zIndex: 999999
+      }}
+    >
+      {colors.map((c) => {
+        const usage = getColorUsage(c);
+        const isUsed = usage.length > 0;
+        
+        return (
+          <div 
+            key={c} 
+            className="relative"
+            onMouseEnter={() => setHoveredColor(c)}
+            onMouseLeave={() => setHoveredColor(null)}
+          >
+            <button
+              className={`w-8 h-8 rounded-full flex items-center justify-center hover:scale-110 transition-transform relative ${isUsed ? 'ring-2 ring-offset-2 ring-gray-300 dark:ring-gray-600' : ''}`}
+              style={{ backgroundColor: c }}
+              onClick={() => {
+                onChange(c);
+                setIsOpen(false);
+              }}
+              aria-label={`Couleur ${c}`}
+            >
+              {color === c && <Check className="text-white drop-shadow-md" size={16} />}
+            </button>
+            
+            {/* Tooltip pour les couleurs utilisées */}
+            {hoveredColor === c && usage.length > 0 && (
+              <div 
+                className="absolute left-1/2 transform -translate-x-1/2 bottom-full mb-2 w-48 bg-white dark:bg-gray-900 shadow-lg rounded-lg p-2 text-xs"
+                style={{ zIndex: 1000000 }}
+              >
+                <div className="font-bold text-gray-800 dark:text-white mb-1 flex items-center gap-1">
+                  <Info size={12} />
+                  Utilisée par:
+                </div>
+                <ul className="space-y-1">
+                  {usage.map((item, index) => (
+                    <li key={index} className="text-gray-600 dark:text-gray-300 flex items-center gap-1">
+                      <span className="w-2 h-2 rounded-full" style={{ backgroundColor: c }}></span>
+                      <span className="font-medium">{getTypeLabel(item.type)}:</span> {item.name}
+                    </li>
+                  ))}
+                </ul>
+                <div className="absolute left-1/2 transform -translate-x-1/2 -bottom-1 w-2 h-2 rotate-45 bg-white dark:bg-gray-900"></div>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+
   return (
-    <div className="relative inline-block" ref={containerRef}>
+    <div className="relative inline-block">
       <button
+        ref={buttonRef}
         type="button"
         className="w-8 h-8 rounded-full border border-gray-300 dark:border-gray-600 shadow-sm"
         style={{ backgroundColor: color }}
@@ -224,65 +308,7 @@ const ColorPicker: React.FC<ColorPickerProps> = ({ color, onChange }) => {
         aria-label="Choisir une couleur"
       />
 
-      {isOpen && (
-        <div 
-          ref={pickerRef}
-          className="absolute z-[999999] mt-2 p-3 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 flex flex-wrap gap-2"
-          style={{ 
-            top: '100%',
-            left: '0',
-            width: '400px',
-            maxWidth: '90vw'
-          }}
-        >
-          {colors.map((c) => {
-            const usage = getColorUsage(c);
-            const isUsed = usage.length > 0;
-            
-            return (
-              <div 
-                key={c} 
-                className="relative"
-                onMouseEnter={() => setHoveredColor(c)}
-                onMouseLeave={() => setHoveredColor(null)}
-              >
-                <button
-                  className={`w-8 h-8 rounded-full flex items-center justify-center hover:scale-110 transition-transform relative ${isUsed ? 'ring-2 ring-offset-2 ring-gray-300 dark:ring-gray-600' : ''}`}
-                  style={{ backgroundColor: c }}
-                  onClick={() => {
-                    onChange(c);
-                    setIsOpen(false);
-                  }}
-                  aria-label={`Couleur ${c}`}
-                >
-                  {color === c && <Check className="text-white drop-shadow-md" size={16} />}
-                </button>
-                
-                {/* Tooltip pour les couleurs utilisées */}
-                {hoveredColor === c && usage.length > 0 && (
-                  <div 
-                    className="absolute left-1/2 transform -translate-x-1/2 bottom-full mb-2 w-48 bg-white dark:bg-gray-900 shadow-lg rounded-lg p-2 text-xs z-[1000000]"
-                  >
-                    <div className="font-bold text-gray-800 dark:text-white mb-1 flex items-center gap-1">
-                      <Info size={12} />
-                      Utilisée par:
-                    </div>
-                    <ul className="space-y-1">
-                      {usage.map((item, index) => (
-                        <li key={index} className="text-gray-600 dark:text-gray-300 flex items-center gap-1">
-                          <span className="w-2 h-2 rounded-full" style={{ backgroundColor: c }}></span>
-                          <span className="font-medium">{getTypeLabel(item.type)}:</span> {item.name}
-                        </li>
-                      ))}
-                    </ul>
-                    <div className="absolute left-1/2 transform -translate-x-1/2 -bottom-1 w-2 h-2 rotate-45 bg-white dark:bg-gray-900"></div>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
+      {isOpen && createPortal(<ColorPickerContent />, document.body)}
     </div>
   );
 };

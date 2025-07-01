@@ -125,10 +125,26 @@ const ColorPicker: React.FC<ColorPickerProps> = ({ color, onChange }) => {
       const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
       const scrollLeft = window.pageXOffset || document.documentElement.scrollLeft;
       
-      setPickerPosition({
-        top: rect.bottom + scrollTop + 8,
-        left: rect.left + scrollLeft
-      });
+      // Calculer la position optimale
+      const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
+      const pickerWidth = 400;
+      const pickerHeight = 300; // Estimation de la hauteur du picker
+      
+      let top = rect.bottom + scrollTop + 4; // Plus proche du bouton
+      let left = rect.left + scrollLeft;
+      
+      // Ajuster si le picker dépasse à droite
+      if (left + pickerWidth > viewportWidth) {
+        left = rect.right + scrollLeft - pickerWidth;
+      }
+      
+      // Ajuster si le picker dépasse en bas
+      if (rect.bottom + pickerHeight > viewportHeight) {
+        top = rect.top + scrollTop - pickerHeight - 4; // Au-dessus du bouton
+      }
+      
+      setPickerPosition({ top, left });
     }
   };
 

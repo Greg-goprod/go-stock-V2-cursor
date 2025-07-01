@@ -8,7 +8,24 @@ import { ThemeProvider } from './contexts/ThemeContext';
 import { LanguageProvider } from './contexts/LanguageContext';
 import { Toaster } from 'react-hot-toast';
 
-createRoot(document.getElementById('root')!).render(
+// Vérification des variables d'environnement en production
+if (import.meta.env.PROD) {
+  if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY) {
+    console.error('❌ Variables d\'environnement Supabase manquantes en production');
+    console.error('VITE_SUPABASE_URL:', import.meta.env.VITE_SUPABASE_URL ? '✅ Définie' : '❌ Manquante');
+    console.error('VITE_SUPABASE_ANON_KEY:', import.meta.env.VITE_SUPABASE_ANON_KEY ? '✅ Définie' : '❌ Manquante');
+  } else {
+    console.log('✅ Variables d\'environnement Supabase configurées');
+  }
+}
+
+const rootElement = document.getElementById('root');
+
+if (!rootElement) {
+  throw new Error('Root element not found');
+}
+
+createRoot(rootElement).render(
   <StrictMode>
     <BrowserRouter>
       <LanguageProvider>

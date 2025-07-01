@@ -93,6 +93,11 @@ const Dashboard: React.FC = () => {
 
       setConnectionStatus('testing');
 
+      // Vérifier si les variables d'environnement sont configurées
+      if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY) {
+        throw new Error('Variables d\'environnement Supabase non configurées. Vérifiez VITE_SUPABASE_URL et VITE_SUPABASE_ANON_KEY dans les paramètres de déploiement Netlify.');
+      }
+
       // Test connection first with timeout
       const connectionTest = await Promise.race([
         testSupabaseConnection(),
@@ -241,14 +246,16 @@ const Dashboard: React.FC = () => {
       
       let errorMessage = 'Une erreur est survenue lors du chargement des données';
       
-      if (error.message?.includes('Connection timeout')) {
+      if (error.message?.includes('Variables d\'environnement Supabase non configurées')) {
+        errorMessage = 'Variables d\'environnement Supabase non configurées. Vérifiez la configuration dans les paramètres de déploiement Netlify.';
+      } else if (error.message?.includes('Connection timeout')) {
         errorMessage = 'Délai de connexion dépassé. Vérifiez votre connexion internet.';
       } else if (error.message?.includes('Failed to fetch')) {
         errorMessage = 'Impossible de se connecter au serveur. Vérifiez votre connexion internet et les paramètres Supabase.';
       } else if (error.message?.includes('Invalid URL')) {
-        errorMessage = 'URL Supabase invalide. Vérifiez votre configuration dans le fichier .env';
+        errorMessage = 'URL Supabase invalide. Vérifiez votre configuration dans les variables d\'environnement.';
       } else if (error.message?.includes('Missing Supabase environment variables')) {
-        errorMessage = 'Variables d\'environnement Supabase manquantes. Vérifiez votre fichier .env';
+        errorMessage = 'Variables d\'environnement Supabase manquantes. Vérifiez la configuration Netlify.';
       } else if (error.message) {
         errorMessage = error.message;
       }
@@ -396,9 +403,9 @@ const Dashboard: React.FC = () => {
                 <h4 className="font-medium text-gray-900 dark:text-white mb-1">Vérifications à effectuer:</h4>
                 <ul className="space-y-1 text-gray-600 dark:text-gray-400">
                   <li>• Vérifiez votre connexion internet</li>
-                  <li>• Vérifiez que les variables VITE_SUPABASE_URL et VITE_SUPABASE_ANON_KEY sont correctement configurées dans le fichier .env</li>
+                  <li>• Vérifiez que les variables VITE_SUPABASE_URL et VITE_SUPABASE_ANON_KEY sont configurées dans Netlify</li>
                   <li>• Vérifiez que votre projet Supabase est actif</li>
-                  <li>• Redémarrez le serveur de développement si nécessaire</li>
+                  <li>• Consultez les logs de déploiement Netlify pour plus de détails</li>
                 </ul>
               </div>
             </div>

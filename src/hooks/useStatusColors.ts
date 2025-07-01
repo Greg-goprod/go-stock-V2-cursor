@@ -5,6 +5,7 @@ import { StatusConfig } from '../types';
 interface UseStatusColorsReturn {
   statusConfigs: StatusConfig[];
   loading: boolean;
+  error: string | null;
   getStatusColor: (status: string) => string;
   getStatusBadgeVariant: (status: string) => 'success' | 'warning' | 'danger' | 'info' | 'neutral';
   refreshStatusConfigs: () => Promise<void>;
@@ -13,39 +14,44 @@ interface UseStatusColorsReturn {
 export const useStatusColors = (): UseStatusColorsReturn => {
   const [statusConfigs, setStatusConfigs] = useState<StatusConfig[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const getDefaultStatuses = (): StatusConfig[] => [
+    { id: 'available', name: 'Disponible', color: '#10b981' },
+    { id: 'checked-out', name: 'Emprunté', color: '#f59e0b' },
+    { id: 'maintenance', name: 'En maintenance', color: '#3b82f6' },
+    { id: 'retired', name: 'Retiré', color: '#ef4444' },
+    { id: 'lost', name: 'Perdu', color: '#6b7280' }
+  ];
 
   const fetchStatusConfigs = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
+      setError(null);
+      
+      const { data, error: fetchError } = await supabase
         .from('status_configs')
         .select('*')
         .order('name');
 
-      if (error) throw error;
+      if (fetchError) {
+        console.error('Supabase error:', fetchError);
+        throw new Error(`Database error: ${fetchError.message}`);
+      }
 
       // Si aucun statut configuré, utiliser les valeurs par défaut
       if (!data || data.length === 0) {
-        const defaultStatuses: StatusConfig[] = [
-          { id: 'available', name: 'Disponible', color: '#10b981' },
-          { id: 'checked-out', name: 'Emprunté', color: '#f59e0b' },
-          { id: 'maintenance', name: 'En maintenance', color: '#3b82f6' },
-          { id: 'retired', name: 'Retiré', color: '#ef4444' }
-        ];
-        setStatusConfigs(defaultStatuses);
+        console.log('No status configs found, using defaults');
+        setStatusConfigs(getDefaultStatuses());
       } else {
         setStatusConfigs(data);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching status configs:', error);
-      // Fallback vers les couleurs par défaut
-      const defaultStatuses: StatusConfig[] = [
-        { id: 'available', name: 'Disponible', color: '#10b981' },
-        { id: 'checked-out', name: 'Emprunté', color: '#f59e0b' },
-        { id: 'maintenance', name: 'En maintenance', color: '#3b82f6' },
-        { id: 'retired', name: 'Retiré', color: '#ef4444' }
-      ];
-      setStatusConfigs(defaultStatuses);
+      setError(error.message || 'Failed to fetch status configurations');
+      
+      // Fallback vers les couleurs par défaut en cas d'erreur
+      setStatusConfigs(getDefaultStatuses());
     } finally {
       setLoading(false);
     }
@@ -69,6 +75,8 @@ export const useStatusColors = (): UseStatusColorsReturn => {
         return '#3b82f6';
       case 'retired':
         return '#ef4444';
+      case 'lost':
+        return '#6b7280';
       default:
         return '#64748b';
     }
@@ -93,6 +101,7 @@ export const useStatusColors = (): UseStatusColorsReturn => {
   return {
     statusConfigs,
     loading,
+    error,
     getStatusColor,
     getStatusBadgeVariant,
     refreshStatusConfigs

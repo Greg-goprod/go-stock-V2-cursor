@@ -97,7 +97,6 @@ const ColorPicker: React.FC<ColorPickerProps> = ({ color, onChange }) => {
   const [colorUsage, setColorUsage] = useState<ColorUsage[]>([]);
   const [hoveredColor, setHoveredColor] = useState<string | null>(null);
   const pickerRef = useRef<HTMLDivElement>(null);
-  const paletteRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -226,11 +225,11 @@ const ColorPicker: React.FC<ColorPickerProps> = ({ color, onChange }) => {
 
       {isOpen && (
         <div 
-          ref={paletteRef}
           className="absolute z-[9999] p-3 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 flex flex-wrap gap-2 max-w-[400px]" 
           style={{ 
-            top: '0',
-            left: '-420px', // Position à gauche
+            top: '100%',
+            left: '0',
+            marginTop: '8px',
             width: '400px'
           }}
         >

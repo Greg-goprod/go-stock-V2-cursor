@@ -3,6 +3,10 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
+// Declare variables at top level
+let supabase: ReturnType<typeof createClient>;
+let testSupabaseConnection: () => Promise<{ success: boolean; error?: string }>;
+
 // Vérifications détaillées pour le débogage
 console.log('🔧 Configuration Supabase:');
 console.log('URL:', supabaseUrl ? '✅ Définie' : '❌ Manquante');
@@ -22,7 +26,7 @@ Site settings > Environment variables`;
   if (import.meta.env.PROD) {
     console.warn('⚠️ Création d\'un client Supabase factice pour éviter le crash en production');
     // Créer un client avec des valeurs par défaut pour éviter le crash
-    export const supabase = createClient(
+    supabase = createClient(
       'https://placeholder.supabase.co', 
       'placeholder-key',
       {
@@ -32,7 +36,7 @@ Site settings > Environment variables`;
     );
     
     // Fonction de test qui retournera toujours une erreur
-    export const testSupabaseConnection = async () => ({
+    testSupabaseConnection = async () => ({
       success: false,
       error: 'Variables d\'environnement Supabase non configurées'
     });
@@ -47,7 +51,7 @@ Site settings > Environment variables`;
     throw new Error('Invalid Supabase URL format. Please check your VITE_SUPABASE_URL in environment variables.');
   }
 
-  export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  supabase = createClient(supabaseUrl, supabaseAnonKey, {
     auth: {
       persistSession: true,
       autoRefreshToken: true,
@@ -65,7 +69,7 @@ Site settings > Environment variables`;
   });
 
   // Test connection function
-  export const testSupabaseConnection = async (): Promise<{ success: boolean; error?: string }> => {
+  testSupabaseConnection = async (): Promise<{ success: boolean; error?: string }> => {
     try {
       const { data, error } = await supabase
         .from('equipment')
@@ -85,3 +89,6 @@ Site settings > Environment variables`;
     }
   };
 }
+
+// Export at top level
+export { supabase, testSupabaseConnection };

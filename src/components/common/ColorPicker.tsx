@@ -96,14 +96,12 @@ const ColorPicker: React.FC<ColorPickerProps> = ({ color, onChange }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [colorUsage, setColorUsage] = useState<ColorUsage[]>([]);
   const [hoveredColor, setHoveredColor] = useState<string | null>(null);
-  const [pickerPosition, setPickerPosition] = useState({ top: 0, left: 0 });
+  const containerRef = useRef<HTMLDivElement>(null);
   const pickerRef = useRef<HTMLDivElement>(null);
-  const buttonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (pickerRef.current && !pickerRef.current.contains(event.target as Node) &&
-          buttonRef.current && !buttonRef.current.contains(event.target as Node)) {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
         setIsOpen(false);
       }
     };
@@ -115,38 +113,8 @@ const ColorPicker: React.FC<ColorPickerProps> = ({ color, onChange }) => {
   useEffect(() => {
     if (isOpen) {
       fetchColorUsage();
-      calculatePosition();
     }
   }, [isOpen]);
-
-  const calculatePosition = () => {
-    if (buttonRef.current) {
-      const rect = buttonRef.current.getBoundingClientRect();
-      const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-      const scrollLeft = window.pageXOffset || document.documentElement.scrollLeft;
-      
-      // Calculer la position optimale
-      const viewportWidth = window.innerWidth;
-      const viewportHeight = window.innerHeight;
-      const pickerWidth = 400;
-      const pickerHeight = 300; // Estimation de la hauteur du picker
-      
-      let top = rect.bottom + scrollTop + 4; // Plus proche du bouton
-      let left = rect.left + scrollLeft;
-      
-      // Ajuster si le picker dépasse à droite
-      if (left + pickerWidth > viewportWidth) {
-        left = rect.right + scrollLeft - pickerWidth;
-      }
-      
-      // Ajuster si le picker dépasse en bas
-      if (rect.bottom + pickerHeight > viewportHeight) {
-        top = rect.top + scrollTop - pickerHeight - 4; // Au-dessus du bouton
-      }
-      
-      setPickerPosition({ top, left });
-    }
-  };
 
   const fetchColorUsage = async () => {
     try {
@@ -246,30 +214,25 @@ const ColorPicker: React.FC<ColorPickerProps> = ({ color, onChange }) => {
     }
   };
 
-  const handleButtonClick = () => {
-    setIsOpen(!isOpen);
-  };
-
   return (
-    <>
+    <div className="relative inline-block" ref={containerRef}>
       <button
-        ref={buttonRef}
         type="button"
         className="w-8 h-8 rounded-full border border-gray-300 dark:border-gray-600 shadow-sm"
         style={{ backgroundColor: color }}
-        onClick={handleButtonClick}
+        onClick={() => setIsOpen(!isOpen)}
         aria-label="Choisir une couleur"
       />
 
       {isOpen && (
         <div 
           ref={pickerRef}
-          className="fixed p-3 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 flex flex-wrap gap-2 max-w-[400px]" 
+          className="absolute z-[999999] mt-2 p-3 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 flex flex-wrap gap-2"
           style={{ 
-            top: `${pickerPosition.top}px`,
-            left: `${pickerPosition.left}px`,
+            top: '100%',
+            left: '0',
             width: '400px',
-            zIndex: 999999
+            maxWidth: '90vw'
           }}
         >
           {colors.map((c) => {
@@ -298,8 +261,7 @@ const ColorPicker: React.FC<ColorPickerProps> = ({ color, onChange }) => {
                 {/* Tooltip pour les couleurs utilisées */}
                 {hoveredColor === c && usage.length > 0 && (
                   <div 
-                    className="absolute left-1/2 transform -translate-x-1/2 bottom-full mb-2 w-48 bg-white dark:bg-gray-900 shadow-lg rounded-lg p-2 text-xs"
-                    style={{ zIndex: 1000000 }}
+                    className="absolute left-1/2 transform -translate-x-1/2 bottom-full mb-2 w-48 bg-white dark:bg-gray-900 shadow-lg rounded-lg p-2 text-xs z-[1000000]"
                   >
                     <div className="font-bold text-gray-800 dark:text-white mb-1 flex items-center gap-1">
                       <Info size={12} />
@@ -321,7 +283,7 @@ const ColorPicker: React.FC<ColorPickerProps> = ({ color, onChange }) => {
           })}
         </div>
       )}
-    </>
+    </div>
   );
 };
 

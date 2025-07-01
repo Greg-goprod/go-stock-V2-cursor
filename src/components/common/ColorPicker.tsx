@@ -225,7 +225,7 @@ const ColorPicker: React.FC<ColorPickerProps> = ({ color, onChange }) => {
 
       {isOpen && (
         <div 
-          className="absolute z-[9999] p-3 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 flex flex-wrap gap-2 max-w-[400px]" 
+          className="absolute z-[99999] p-3 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 flex flex-wrap gap-2 max-w-[400px]" 
           style={{ 
             top: '100%',
             left: '0',
@@ -258,7 +258,7 @@ const ColorPicker: React.FC<ColorPickerProps> = ({ color, onChange }) => {
                 
                 {/* Tooltip pour les couleurs utilisées */}
                 {hoveredColor === c && usage.length > 0 && (
-                  <div className="absolute z-[10000] left-1/2 transform -translate-x-1/2 bottom-full mb-2 w-48 bg-white dark:bg-gray-900 shadow-lg rounded-lg p-2 text-xs">
+                  <div className="absolute z-[100000] left-1/2 transform -translate-x-1/2 bottom-full mb-2 w-48 bg-white dark:bg-gray-900 shadow-lg rounded-lg p-2 text-xs">
                     <div className="font-bold text-gray-800 dark:text-white mb-1 flex items-center gap-1">
                       <Info size={12} />
                       Utilisée par:

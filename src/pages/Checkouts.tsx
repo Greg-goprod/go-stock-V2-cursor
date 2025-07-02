@@ -25,10 +25,13 @@ import {
   Edit,
   Printer,
   ArrowLeft,
-  ArrowRight
+  ArrowRight,
+  QrCode
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import ReturnModal from '../components/checkout/ReturnModal';
+import QRCodeGenerator from '../components/QRCode/QRCodeGenerator';
+import Modal from '../components/common/Modal';
 
 interface CheckoutWithDetails {
   id: string;
@@ -58,12 +61,14 @@ interface CheckoutWithDetails {
     issue_date: string;
     due_date: string;
     status: string;
+    qr_code?: string;
   };
 }
 
 interface DeliveryNoteGroup {
   noteNumber: string;
   noteId: string;
+  qrCode?: string;
   user: {
     id: string;
     name: string;
@@ -101,6 +106,8 @@ const Checkouts: React.FC = () => {
   const [showDirectReturnModal, setShowDirectReturnModal] = useState(false);
   const [selectedCheckout, setSelectedCheckout] = useState<CheckoutWithDetails | null>(null);
   const [selectedNoteId, setSelectedNoteId] = useState<string | undefined>(undefined);
+  const [showQRModal, setShowQRModal] = useState(false);
+  const [selectedNoteForQR, setSelectedNoteForQR] = useState<DeliveryNoteGroup | null>(null);
 
   useEffect(() => {
     fetchCheckouts();
@@ -120,7 +127,7 @@ const Checkouts: React.FC = () => {
           *,
           equipment(id, name, serial_number, article_number),
           users(id, first_name, last_name, email, phone, department),
-          delivery_notes(id, note_number, issue_date, due_date, status)
+          delivery_notes(id, note_number, issue_date, due_date, status, qr_code)
         `)
         .order('checkout_date', { ascending: false });
 
@@ -164,7 +171,8 @@ const Checkouts: React.FC = () => {
             note_number: checkout.delivery_notes.note_number,
             issue_date: checkout.delivery_notes.issue_date,
             due_date: checkout.delivery_notes.due_date,
-            status: checkout.delivery_notes.status
+            status: checkout.delivery_notes.status,
+            qr_code: checkout.delivery_notes.qr_code
           } : undefined
         };
       });
@@ -190,11 +198,13 @@ const Checkouts: React.FC = () => {
     checkouts.forEach(checkout => {
       const noteNumber = checkout.delivery_notes?.note_number || 'Sans bon';
       const noteId = checkout.delivery_notes?.id || 'no-note';
+      const qrCode = checkout.delivery_notes?.qr_code;
       
       if (!groups[noteNumber]) {
         groups[noteNumber] = {
           noteNumber,
           noteId,
+          qrCode,
           user: {
             id: checkout.users.id,
             name: `${checkout.users.first_name} ${checkout.users.last_name}`,
@@ -261,6 +271,11 @@ const Checkouts: React.FC = () => {
     setShowDirectReturnModal(true);
   };
 
+  const handleShowQRCode = (note: DeliveryNoteGroup) => {
+    setSelectedNoteForQR(note);
+    setShowQRModal(true);
+  };
+
   const handlePrintNote = async (note: DeliveryNoteGroup) => {
     try {
       // Récupérer le logo depuis les paramètres système
@@ -277,6 +292,9 @@ const Checkouts: React.FC = () => {
         month: '2-digit', 
         year: 'numeric' 
       });
+
+      // Générer le QR code pour le bon de sortie
+      const noteQrCode = note.qrCode || `DN-${note.noteNumber}`;
 
       const printContent = `
         <!DOCTYPE html>
@@ -463,7 +481,29 @@ const Checkouts: React.FC = () => {
                   display: none;
                 }
               }
+              .qr-code-container {
+                position: absolute;
+                top: 10px;
+                left: 10px;
+                width: 80px;
+                height: 80px;
+                background-color: white;
+                padding: 5px;
+                border: 1px solid #ddd;
+                border-radius: 5px;
+              }
+              .qr-code {
+                width: 100%;
+                height: 100%;
+              }
+              .qr-code-label {
+                text-align: center;
+                font-size: 7pt;
+                margin-top: 2px;
+                color: #333;
+              }
             </style>
+            <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
           </head>
           <body>
             <button class="print-button" onclick="window.print()">
@@ -474,6 +514,11 @@ const Checkouts: React.FC = () => {
               </svg>
               IMPRIMER
             </button>
+            
+            <div class="qr-code-container">
+              <div id="qrcode" class="qr-code"></div>
+              <div class="qr-code-label">Bon N° ${note.noteNumber}</div>
+            </div>
             
             <div class="header">
               <div class="logo-container">
@@ -579,6 +624,20 @@ const Checkouts: React.FC = () => {
               </div>
               <div class="page-number">Page 1/1</div>
             </div>
+
+            <script>
+              // Générer le QR code
+              window.onload = function() {
+                QRCode.toCanvas(document.getElementById('qrcode'), '${noteQrCode}', {
+                  width: 80,
+                  margin: 0,
+                  color: {
+                    dark: '#000000',
+                    light: '#FFFFFF'
+                  }
+                });
+              };
+            </script>
           </body>
         </html>
       `;
@@ -1008,6 +1067,14 @@ const Checkouts: React.FC = () => {
                       <Button
                         variant="outline"
                         size="sm"
+                        icon={<QrCode size={16} />}
+                        onClick={() => handleShowQRCode(note)}
+                      >
+                        QR Code
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
                         icon={<Printer size={16} />}
                         onClick={() => handlePrintNote(note)}
                       >
@@ -1217,6 +1284,26 @@ const Checkouts: React.FC = () => {
           checkout={selectedCheckout}
         />
       )}
+
+      {/* QR Code Modal */}
+      <Modal
+        isOpen={showQRModal}
+        onClose={() => setShowQRModal(false)}
+        title="QR CODE BON DE SORTIE"
+        size="sm"
+      >
+        {selectedNoteForQR && (
+          <div className="flex justify-center">
+            <QRCodeGenerator
+              value={selectedNoteForQR.qrCode || `DN-${selectedNoteForQR.noteNumber}`}
+              title={`Bon N° ${selectedNoteForQR.noteNumber}`}
+              subtitle={`${selectedNoteForQR.user.name} - ${format(new Date(selectedNoteForQR.issueDate), 'dd/MM/yyyy')}`}
+              size={200}
+              printable={true}
+            />
+          </div>
+        )}
+      </Modal>
     </div>
   );
 };

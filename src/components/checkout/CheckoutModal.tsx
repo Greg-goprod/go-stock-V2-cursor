@@ -401,6 +401,9 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
         year: 'numeric' 
       });
 
+      // Générer le QR code pour le bon de sortie
+      const noteQrCode = deliveryNote.qr_code || `DN-${deliveryNote.note_number}`;
+
       const printContent = `
         <!DOCTYPE html>
         <html>
@@ -586,7 +589,29 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
                   display: none;
                 }
               }
+              .qr-code-container {
+                position: absolute;
+                top: 10px;
+                left: 10px;
+                width: 80px;
+                height: 80px;
+                background-color: white;
+                padding: 5px;
+                border: 1px solid #ddd;
+                border-radius: 5px;
+              }
+              .qr-code {
+                width: 100%;
+                height: 100%;
+              }
+              .qr-code-label {
+                text-align: center;
+                font-size: 7pt;
+                margin-top: 2px;
+                color: #333;
+              }
             </style>
+            <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
           </head>
           <body>
             <button class="print-button" onclick="window.print()">
@@ -624,6 +649,11 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
                 <div>Tél: 01 23 45 67 89</div>
                 <div>Email: contact@go-mat.fr</div>
               </div>
+            </div>
+            
+            <div class="qr-code-container">
+              <div id="qrcode" class="qr-code"></div>
+              <div class="qr-code-label">Bon N° ${deliveryNote.note_number}</div>
             </div>
             
             <div class="date-info">
@@ -706,6 +736,20 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
               </div>
               <div class="page-number">Page 1/1</div>
             </div>
+
+            <script>
+              // Générer le QR code
+              window.onload = function() {
+                QRCode.toCanvas(document.getElementById('qrcode'), '${noteQrCode}', {
+                  width: 80,
+                  margin: 0,
+                  color: {
+                    dark: '#000000',
+                    light: '#FFFFFF'
+                  }
+                });
+              };
+            </script>
           </body>
         </html>
       `;

@@ -126,36 +126,48 @@ const Checkouts: React.FC = () => {
 
       if (error) throw error;
       
-      const transformedCheckouts: CheckoutWithDetails[] = (data || []).map(checkout => ({
-        id: checkout.id,
-        checkout_date: checkout.checkout_date,
-        due_date: checkout.due_date,
-        return_date: checkout.return_date,
-        status: checkout.status,
-        notes: checkout.notes,
-        delivery_note_id: checkout.delivery_note_id,
-        equipment: {
-          id: checkout.equipment?.id || '',
-          name: checkout.equipment?.name || 'Matériel inconnu',
-          serial_number: checkout.equipment?.serial_number || '',
-          article_number: checkout.equipment?.article_number || ''
-        },
-        users: {
-          id: checkout.users?.id || '',
-          first_name: checkout.users?.first_name || '',
-          last_name: checkout.users?.last_name || '',
-          email: checkout.users?.email || '',
-          phone: checkout.users?.phone || '',
-          department: checkout.users?.department || ''
-        },
-        delivery_notes: checkout.delivery_notes ? {
-          id: checkout.delivery_notes.id,
-          note_number: checkout.delivery_notes.note_number,
-          issue_date: checkout.delivery_notes.issue_date,
-          due_date: checkout.delivery_notes.due_date,
-          status: checkout.delivery_notes.status
-        } : undefined
-      }));
+      const transformedCheckouts: CheckoutWithDetails[] = (data || []).map(checkout => {
+        // Check if the checkout is overdue (due date is before today)
+        const dueDate = new Date(checkout.due_date);
+        dueDate.setHours(23, 59, 59, 999); // Set to end of the due date
+        
+        const today = new Date();
+        today.setHours(0, 0, 0, 0); // Set to start of today
+        
+        // Mark as overdue if the due date is before today and status is active
+        const isOverdue = dueDate < today && checkout.status === 'active';
+        
+        return {
+          id: checkout.id,
+          checkout_date: checkout.checkout_date,
+          due_date: checkout.due_date,
+          return_date: checkout.return_date,
+          status: isOverdue ? 'overdue' : checkout.status,
+          notes: checkout.notes,
+          delivery_note_id: checkout.delivery_note_id,
+          equipment: {
+            id: checkout.equipment?.id || '',
+            name: checkout.equipment?.name || 'Matériel inconnu',
+            serial_number: checkout.equipment?.serial_number || '',
+            article_number: checkout.equipment?.article_number || ''
+          },
+          users: {
+            id: checkout.users?.id || '',
+            first_name: checkout.users?.first_name || '',
+            last_name: checkout.users?.last_name || '',
+            email: checkout.users?.email || '',
+            phone: checkout.users?.phone || '',
+            department: checkout.users?.department || ''
+          },
+          delivery_notes: checkout.delivery_notes ? {
+            id: checkout.delivery_notes.id,
+            note_number: checkout.delivery_notes.note_number,
+            issue_date: checkout.delivery_notes.issue_date,
+            due_date: checkout.delivery_notes.due_date,
+            status: checkout.delivery_notes.status
+          } : undefined
+        };
+      });
 
       setCheckouts(transformedCheckouts);
       
@@ -207,6 +219,11 @@ const Checkouts: React.FC = () => {
       }
       if (checkout.status === 'lost') {
         groups[noteNumber].lostCount++;
+      }
+      
+      // Update delivery note status if any checkout is overdue
+      if (checkout.status === 'overdue' && groups[noteNumber].status !== 'returned') {
+        groups[noteNumber].status = 'overdue';
       }
     });
 
@@ -783,7 +800,7 @@ const Checkouts: React.FC = () => {
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-red-600 dark:text-red-400">
-                {checkouts.filter(c => c.status === 'active' && new Date(c.due_date) < new Date()).length}
+                {checkouts.filter(c => c.status === 'overdue').length}
               </div>
               <div className="text-sm text-gray-500 dark:text-gray-400">
                 En retard
@@ -903,7 +920,14 @@ const Checkouts: React.FC = () => {
                       </h4>
                       <div className="grid gap-2">
                         {note.checkouts.map((checkout) => {
-                          const itemOverdue = checkout.status === 'active' && new Date(checkout.due_date) < new Date();
+                          // Check if the checkout is overdue
+                          const dueDate = new Date(checkout.due_date);
+                          dueDate.setHours(23, 59, 59, 999); // Set to end of the due date
+                          
+                          const today = new Date();
+                          today.setHours(0, 0, 0, 0); // Set to start of today
+                          
+                          const isOverdue = dueDate < today && checkout.status === 'active';
                           
                           return (
                             <div 
@@ -911,7 +935,7 @@ const Checkouts: React.FC = () => {
                               className={`flex justify-between items-center p-3 rounded-lg border ${
                                 checkout.status === 'returned' 
                                   ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800' 
-                                  : itemOverdue
+                                  : isOverdue
                                   ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
                                   : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700'
                               }`}
@@ -930,10 +954,10 @@ const Checkouts: React.FC = () => {
                               </div>
                               
                               <div className="flex items-center gap-2">
-                                <Badge variant={getStatusBadgeVariant(checkout.status, itemOverdue)}>
-                                  {getStatusLabel(checkout.status, itemOverdue)}
+                                <Badge variant={getStatusBadgeVariant(checkout.status, isOverdue)}>
+                                  {isOverdue ? 'En retard' : getStatusLabel(checkout.status)}
                                 </Badge>
-                                {checkout.status === 'active' && (
+                                {(checkout.status === 'active' || isOverdue) && (
                                   <Button
                                     variant="outline"
                                     size="sm"
@@ -1076,7 +1100,7 @@ const Checkouts: React.FC = () => {
                   </tr>
                 ) : (
                   filteredCheckouts.map((checkout) => {
-                    const isOverdue = checkout.status === 'active' && new Date(checkout.due_date) < new Date();
+                    const isOverdue = checkout.status === 'overdue';
                     
                     return (
                       <tr key={checkout.id} className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
@@ -1126,7 +1150,7 @@ const Checkouts: React.FC = () => {
                           </Badge>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right">
-                          {checkout.status === 'active' && (
+                          {(checkout.status === 'active' || checkout.status === 'overdue') && (
                             <Button
                               variant="outline"
                               size="sm"

@@ -70,6 +70,7 @@ const QRCodeScanner: React.FC<QRCodeScannerProps> = ({ onScan, onError }) => {
     setLastScanStatus(null);
 
     try {
+      console.log("Envoi de la valeur scannée:", cleanValue);
       await onScan(cleanValue);
       setLastScanStatus('success');
       setScannedValue('');
@@ -77,7 +78,7 @@ const QRCodeScanner: React.FC<QRCodeScannerProps> = ({ onScan, onError }) => {
       console.error('Erreur scan:', error);
       setLastScanStatus('error');
       if (onError) {
-        onError('Erreur lors du traitement du scan');
+        onError(error.message || 'Erreur lors du traitement du scan');
       }
     } finally {
       setIsProcessing(false);

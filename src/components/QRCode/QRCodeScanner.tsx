@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { QrCode, Zap } from 'lucide-react';
-import { Html5QrcodeScanner } from 'html5-qrcode';
+import { Html5Qrcode } from 'html5-qrcode';
 
 interface QRCodeScannerProps {
   onScan: (decodedText: string) => void;
@@ -13,57 +13,78 @@ const QRCodeScanner: React.FC<QRCodeScannerProps> = ({ onScan, onError }) => {
   const [lastScanStatus, setLastScanStatus] = useState<'success' | 'error' | 'duplicate' | null>(null);
   const [isScanning, setIsScanning] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
-  const scannerRef = useRef<Html5QrcodeScanner | null>(null);
+  const scannerRef = useRef<Html5Qrcode | null>(null);
   const scannerDivRef = useRef<HTMLDivElement>(null);
   const lastScanTimeRef = useRef<number>(0);
   const lastScannedValueRef = useRef<string>('');
 
   // Initialiser le scanner de QR code
   useEffect(() => {
-    if (!isScanning && scannerDivRef.current) {
-      // Configuration du scanner
-      const config = {
-        fps: 10,
-        qrbox: { width: 250, height: 250 },
-        rememberLastUsedCamera: true,
-        aspectRatio: 1.0
-      };
-
-      // Créer une nouvelle instance du scanner
-      scannerRef.current = new Html5QrcodeScanner(
-        "qr-reader",
-        config,
-        false // Ne pas démarrer le scan automatiquement
-      );
-
-      // Démarrer le scanner
-      scannerRef.current.render(
-        // Succès
-        (decodedText: string) => {
-          console.log("QR Code détecté:", decodedText);
-          handleScan(decodedText);
-        },
-        // Erreur
-        (errorMessage: string) => {
-          console.error("Erreur de scan:", errorMessage);
-          if (onError) {
-            onError(errorMessage);
-          }
+    if (!scannerRef.current && scannerDivRef.current) {
+      try {
+        // Créer une nouvelle instance du scanner
+        scannerRef.current = new Html5Qrcode("qr-reader");
+        
+        // Démarrer le scanner avec la caméra
+        startScanner();
+      } catch (error) {
+        console.error("Erreur d'initialisation du scanner:", error);
+        if (onError) {
+          onError("Impossible d'initialiser le scanner de QR code");
         }
-      );
-
-      setIsScanning(true);
+      }
     }
 
     // Nettoyage lors du démontage du composant
     return () => {
-      if (scannerRef.current) {
-        scannerRef.current.clear().catch(error => {
-          console.error("Erreur lors du nettoyage du scanner:", error);
+      if (scannerRef.current && scannerRef.current.isScanning) {
+        scannerRef.current.stop().catch(error => {
+          console.error("Erreur lors de l'arrêt du scanner:", error);
         });
       }
     };
-  }, [isScanning]);
+  }, []);
+
+  const startScanner = async () => {
+    if (!scannerRef.current) return;
+    
+    try {
+      const cameras = await Html5Qrcode.getCameras();
+      if (cameras && cameras.length > 0) {
+        const cameraId = cameras[0].id;
+        
+        await scannerRef.current.start(
+          cameraId,
+          {
+            fps: 10,
+            qrbox: { width: 250, height: 250 },
+          },
+          (decodedText) => {
+            console.log("QR Code détecté:", decodedText);
+            processScan(decodedText);
+          },
+          (errorMessage) => {
+            // Ignorer les erreurs de scan en cours - ce sont des erreurs normales quand aucun QR n'est détecté
+            if (!errorMessage.includes("No QR code found")) {
+              console.error("Erreur de scan:", errorMessage);
+            }
+          }
+        );
+        
+        setIsScanning(true);
+      } else {
+        console.warn("Aucune caméra détectée");
+        if (onError) {
+          onError("Aucune caméra n'a été détectée sur votre appareil");
+        }
+      }
+    } catch (error) {
+      console.error("Erreur lors du démarrage du scanner:", error);
+      if (onError) {
+        onError("Impossible de démarrer le scanner de QR code");
+      }
+    }
+  };
 
   // Auto-focus permanent sur le champ
   useEffect(() => {
@@ -106,7 +127,7 @@ const QRCodeScanner: React.FC<QRCodeScannerProps> = ({ onScan, onError }) => {
   };
 
   // Traitement du scan
-  const handleScan = async (value: string) => {
+  const processScan = async (value: string) => {
     if (!value.trim() || isProcessing) return;
 
     const cleanValue = value.trim().replace(/[\r\n\t]/g, '');
@@ -119,6 +140,7 @@ const QRCodeScanner: React.FC<QRCodeScannerProps> = ({ onScan, onError }) => {
 
     setIsProcessing(true);
     setLastScanStatus(null);
+    setScannedValue(cleanValue);
 
     try {
       console.log("Traitement du QR code:", cleanValue);
@@ -151,7 +173,7 @@ const QRCodeScanner: React.FC<QRCodeScannerProps> = ({ onScan, onError }) => {
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      handleScan(scannedValue);
+      processScan(scannedValue);
     }
   };
 
@@ -194,8 +216,8 @@ const QRCodeScanner: React.FC<QRCodeScannerProps> = ({ onScan, onError }) => {
       </div>
 
       {/* Scanner HTML5 */}
-      <div className="mb-4">
-        <div id="qr-reader" ref={scannerDivRef} className="w-full"></div>
+      <div className="mb-4 border rounded-lg overflow-hidden">
+        <div id="qr-reader" ref={scannerDivRef} className="w-full h-64"></div>
       </div>
 
       {/* Champ de saisie manuelle */}

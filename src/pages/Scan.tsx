@@ -44,6 +44,8 @@ const Scan: React.FC = () => {
       .eq('id', id)
       .maybeSingle();
     
+    console.log("Recherche par ID:", equipment, equipmentError);
+    
     // Si pas trouvé par ID, essayer par numéro de série
     if (!equipment && !equipmentError) {
       const { data: equipmentBySerial, error: serialError } = await supabase
@@ -51,6 +53,8 @@ const Scan: React.FC = () => {
         .select('*')
         .eq('serial_number', id)
         .maybeSingle();
+      
+      console.log("Recherche par numéro de série:", equipmentBySerial, serialError);
       
       if (equipmentBySerial) {
         equipment = equipmentBySerial;
@@ -65,6 +69,8 @@ const Scan: React.FC = () => {
         .eq('article_number', id)
         .maybeSingle();
       
+      console.log("Recherche par numéro d'article:", equipmentByArticle, articleError);
+      
       if (equipmentByArticle) {
         equipment = equipmentByArticle;
       }
@@ -75,18 +81,31 @@ const Scan: React.FC = () => {
       console.log("Équipement trouvé:", equipment);
       setItemType('equipment');
       
+      // Récupérer les données de catégorie et fournisseur
+      const { data: categoryData } = await supabase
+        .from('categories')
+        .select('name')
+        .eq('id', equipment.category_id)
+        .maybeSingle();
+        
+      const { data: supplierData } = await supabase
+        .from('suppliers')
+        .select('name')
+        .eq('id', equipment.supplier_id)
+        .maybeSingle();
+      
       // Transformer les données pour correspondre à notre interface
       const transformedEquipment: Equipment = {
         id: equipment.id,
         name: equipment.name,
         description: equipment.description || '',
-        category: '',  // À remplir si nécessaire
+        category: categoryData?.name || '',
         serialNumber: equipment.serial_number,
         status: equipment.status as Equipment['status'],
         addedDate: equipment.added_date || equipment.created_at,
         lastMaintenance: equipment.last_maintenance,
         imageUrl: equipment.image_url,
-        supplier: '',  // À remplir si nécessaire
+        supplier: supplierData?.name || '',
         location: equipment.location || '',
         articleNumber: equipment.article_number,
         qrType: equipment.qr_type || 'individual',
@@ -106,6 +125,8 @@ const Scan: React.FC = () => {
       .select('*')
       .eq('id', id)
       .maybeSingle();
+
+    console.log("Recherche utilisateur:", user, userError);
 
     if (user) {
       console.log("Utilisateur trouvé:", user);
@@ -139,6 +160,8 @@ const Scan: React.FC = () => {
       .eq('id', id)
       .maybeSingle();
 
+    console.log("Recherche checkout:", checkout, checkoutError);
+
     if (checkout) {
       console.log("Checkout trouvé:", checkout);
       setItemType('checkout');
@@ -171,6 +194,8 @@ const Scan: React.FC = () => {
       `)
       .eq('qr_code', id)
       .maybeSingle();
+
+    console.log("Recherche instance:", instance, instanceError);
 
     if (instance) {
       console.log("Instance d'équipement trouvée:", instance);

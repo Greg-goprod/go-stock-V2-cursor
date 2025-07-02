@@ -422,6 +422,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
         <html>
           <head>
             <title>Bon de Sortie ${deliveryNote.note_number} - GO-Mat</title>
+            <meta charset="UTF-8">
             <style>
               body { 
                 font-family: 'Roboto', Arial, sans-serif; 

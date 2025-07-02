@@ -251,9 +251,11 @@ const Checkouts: React.FC = () => {
       const logoUrl = logoSetting?.value || '';
 
       const printContent = `
+        <!DOCTYPE html>
         <html>
           <head>
             <title>Bon de Sortie ${note.noteNumber} - GO-Mat</title>
+            <meta charset="UTF-8">
             <style>
               body { 
                 font-family: 'Roboto', Arial, sans-serif; 
@@ -458,6 +460,7 @@ const Checkouts: React.FC = () => {
         return;
       }
       
+      printWindow.document.open();
       printWindow.document.write(printContent);
       printWindow.document.close();
       

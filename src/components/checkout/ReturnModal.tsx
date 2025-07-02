@@ -361,9 +361,11 @@ const ReturnModal: React.FC<ReturnModalProps> = ({
       const lostItems = returnItems.filter(item => item.action === 'lost');
 
       const printContent = `
+        <!DOCTYPE html>
         <html>
           <head>
             <title>Quittance de Retour ${selectedNote.noteNumber} - GO-Mat</title>
+            <meta charset="UTF-8">
             <style>
               body { 
                 font-family: Arial, sans-serif; 
@@ -606,6 +608,7 @@ const ReturnModal: React.FC<ReturnModalProps> = ({
         return;
       }
       
+      printWindow.document.open();
       printWindow.document.write(printContent);
       printWindow.document.close();
       

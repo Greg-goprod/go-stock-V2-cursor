@@ -591,18 +591,16 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
                 }
               }
               .qr-code-container {
-                text-align: center;
-                margin: 0 auto 30px auto;
-                padding: 10px;
-                border: 1px solid #ddd;
-                border-radius: 5px;
-                width: 120px;
-                background-color: white;
-              }
-              .qr-code {
+                position: absolute;
+                top: 10mm;
+                right: 10mm;
                 width: 100px;
                 height: 100px;
-                margin: 0 auto;
+                text-align: center;
+              }
+              .qr-code {
+                width: 100%;
+                height: 100%;
               }
               .qr-code-label {
                 text-align: center;
@@ -743,11 +741,15 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
               window.onload = function() {
                 QRCode.toCanvas(document.getElementById('qrcode'), '${noteQrCode}', {
                   width: 100,
+                  height: 100,
                   margin: 0,
                   color: {
                     dark: '#000000',
                     light: '#FFFFFF'
                   }
+                }, function(error) {
+                  if (error) console.error(error);
+                  console.log('QR code généré avec succès');
                 });
               };
             </script>

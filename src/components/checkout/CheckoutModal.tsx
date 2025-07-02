@@ -169,7 +169,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
         foundEquipment = equipment.find(eq => eq.articleNumber === articleCode);
       }
       
-      // Si toujours pas trouvé, recherche par correspondance partielle
+      // Si non trouvé, recherche par correspondance partielle
       if (!foundEquipment) {
         foundEquipment = equipment.find(eq => 
           eq.articleNumber?.includes(normalizedId) || 

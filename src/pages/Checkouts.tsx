@@ -502,7 +502,7 @@ const Checkouts: React.FC = () => {
                     <td>${checkout.equipment.serial_number}</td>
                     <td>${checkout.status === 'returned' 
                       ? '<span style="color: #10b981; font-weight: bold;">Retourné</span>' 
-                      : checkout.status === 'active' && new Date(checkout.due_date) < new Date()
+                      : checkout.status === 'overdue'
                       ? '<span style="color: #ef4444; font-weight: bold;">En retard</span>'
                       : '<span style="color: #3b82f6; font-weight: bold;">Actif</span>'}</td>
                     <td>${new Date(checkout.due_date).toLocaleDateString('fr-FR')}</td>
@@ -832,7 +832,7 @@ const Checkouts: React.FC = () => {
             </Card>
           ) : (
             filteredDeliveryNotes.map((note) => {
-              const isOverdue = note.status === 'overdue' || (note.status === 'active' && new Date(note.dueDate) < new Date());
+              const isOverdue = note.status === 'overdue';
               const progress = note.totalItems > 0 ? (note.returnedItems / note.totalItems) * 100 : 0;
               const isPartial = note.status === 'partial';
               

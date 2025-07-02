@@ -161,7 +161,6 @@ const ReturnModal: React.FC<ReturnModalProps> = ({
           notes: note.notes,
           createdAt: note.created_at,
           updatedAt: note.updated_at,
-          qrCode: note.qr_code,
           user: {
             id: note.users.id,
             first_name: note.users.first_name,
@@ -206,54 +205,8 @@ const ReturnModal: React.FC<ReturnModalProps> = ({
     })));
   };
 
-  const handleEquipmentScan = async (scannedId: string) => {
-    console.log("Code scanné:", scannedId);
-    
-    // Vérifier si c'est un QR code de bon de sortie (format: DN-DNyymm-xxxx)
-    if (scannedId.startsWith('DN-')) {
-      try {
-        // Rechercher le bon de sortie par QR code
-        const { data: noteData, error: noteError } = await supabase
-          .from('delivery_notes')
-          .select('id')
-          .eq('qr_code', scannedId)
-          .maybeSingle();
-        
-        if (noteError) throw noteError;
-        
-        if (noteData) {
-          console.log("Bon de sortie trouvé par QR code:", noteData);
-          
-          // Trouver le bon dans la liste des bons chargés
-          const foundNote = deliveryNotes.find(note => note.id === noteData.id);
-          
-          if (foundNote) {
-            handleSelectNote(foundNote);
-            toast.success(`Bon de sortie N° ${foundNote.noteNumber} trouvé`);
-            return;
-          } else {
-            // Si le bon n'est pas dans la liste (peut-être déjà retourné), recharger les bons
-            await fetchDeliveryNotes();
-            const refreshedNote = deliveryNotes.find(note => note.id === noteData.id);
-            
-            if (refreshedNote) {
-              handleSelectNote(refreshedNote);
-              toast.success(`Bon de sortie N° ${refreshedNote.noteNumber} trouvé`);
-              return;
-            } else {
-              toast.info("Ce bon de sortie est peut-être déjà complètement retourné");
-            }
-          }
-        }
-      } catch (error) {
-        console.error("Erreur lors de la recherche du bon par QR code:", error);
-      }
-    }
-    
-    // Si ce n'est pas un QR code de bon ou si le bon n'a pas été trouvé,
-    // continuer avec la recherche d'équipement
-    
-    // Vérifier si un bon est sélectionné
+  const handleEquipmentScan = (scannedId: string) => {
+    // Find checkout by equipment ID in selected note
     if (!selectedNote) {
       toast.error('Veuillez d\'abord sélectionner un bon de sortie');
       return;
@@ -586,25 +539,26 @@ const ReturnModal: React.FC<ReturnModalProps> = ({
                 position: fixed;
                 top: 20px;
                 right: 20px;
-                padding: 10px 20px;
+                padding: 15px 25px;
                 background-color: #4CAF50;
                 color: white;
                 border: none;
                 border-radius: 5px;
                 cursor: pointer;
-                font-size: 14px;
+                font-size: 16px;
                 font-weight: bold;
                 box-shadow: 0 2px 5px rgba(0,0,0,0.2);
                 display: flex;
                 align-items: center;
-                gap: 8px;
+                gap: 10px;
+                z-index: 1000;
               }
               .print-button:hover {
                 background-color: #45a049;
               }
               .print-icon {
-                width: 16px;
-                height: 16px;
+                width: 20px;
+                height: 20px;
               }
               @media print {
                 .print-button {
@@ -612,11 +566,13 @@ const ReturnModal: React.FC<ReturnModalProps> = ({
                 }
               }
               .qr-code-container {
-                position: absolute;
-                top: 10px;
-                left: 10px;
-                width: 80px;
-                height: 80px;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                margin: 0 auto 20px auto;
+                width: 120px;
+                height: 140px;
                 background-color: white;
                 padding: 5px;
                 border: 1px solid #ddd;
@@ -628,9 +584,10 @@ const ReturnModal: React.FC<ReturnModalProps> = ({
               }
               .qr-code-label {
                 text-align: center;
-                font-size: 7pt;
-                margin-top: 2px;
+                font-size: 8pt;
+                margin-top: 5px;
                 color: #333;
+                font-weight: bold;
               }
             </style>
             <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
@@ -788,7 +745,7 @@ const ReturnModal: React.FC<ReturnModalProps> = ({
               // Générer le QR code
               window.onload = function() {
                 QRCode.toCanvas(document.getElementById('qrcode'), '${noteQrCode}', {
-                  width: 80,
+                  width: 100,
                   margin: 0,
                   color: {
                     dark: '#000000',
@@ -818,8 +775,8 @@ const ReturnModal: React.FC<ReturnModalProps> = ({
       toast.success('Quittance de retour ouverte dans un nouvel onglet');
       
     } catch (error) {
-      console.error('Error generating return PDF:', error);
-      toast.error('Erreur lors de la génération du PDF');
+      console.error('Error printing return:', error);
+      toast.error('Erreur lors de l\'impression');
     }
   };
 
@@ -902,9 +859,9 @@ const ReturnModal: React.FC<ReturnModalProps> = ({
             {/* Scanner QR (optionnel) */}
             {showScanner && (
               <div className="border rounded-lg p-4">
-                <h4 className="font-medium mb-3">Scanner le QR code du bon ou de l'équipement</h4>
+                <h4 className="font-medium mb-3">Scanner le QR code de l'équipement</h4>
                 <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
-                  Scannez le QR code du bon de sortie pour l'ouvrir directement, ou scannez un équipement pour trouver son bon.
+                  Scannez d'abord un équipement, puis sélectionnez le bon de sortie correspondant.
                 </p>
                 <QRCodeScanner onScan={handleEquipmentScan} />
               </div>
@@ -1145,75 +1102,112 @@ const ReturnModal: React.FC<ReturnModalProps> = ({
                       return (
                         <div 
                           key={checkout.id} 
-                          className={`flex justify-between items-start p-3 rounded-lg border ${
+                          className={`border rounded-lg p-3 ${
                             isLost ? 'border-orange-300 bg-orange-50 dark:bg-orange-900/20' : 
                             isOverdue ? 'border-red-300 bg-red-50 dark:bg-red-900/20' : ''
                           }`}
                         >
-                          <div className="flex-1">
+                          <div className="flex justify-between items-start mb-2">
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <h4 className="font-medium">{checkout.equipment.name}</h4>
+                                {isLost && (
+                                  <span className="text-xs bg-orange-100 dark:bg-orange-900/50 text-orange-800 dark:text-orange-200 px-2 py-0.5 rounded-full">
+                                    PERDU
+                                  </span>
+                                )}
+                                {isOverdue && !isLost && (
+                                  <span className="text-xs bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-200 px-2 py-0.5 rounded-full">
+                                    EN RETARD
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-sm text-gray-500">{checkout.equipment.serialNumber}</p>
+                              <p className={`text-sm ${isOverdue && !isLost ? 'text-red-600 dark:text-red-400 font-bold' : 'text-gray-500 dark:text-gray-400'}`}>
+                                {isOverdue && !isLost && <AlertTriangle size={14} className="inline mr-1" />}
+                                Retour prévu: {new Date(checkout.dueDate).toLocaleDateString('fr-FR')}
+                              </p>
+                            </div>
+                            
                             <div className="flex items-center gap-2">
-                              <h4 className="font-medium">{checkout.equipment.name}</h4>
-                              {isLost && (
-                                <span className="text-xs bg-orange-100 dark:bg-orange-900/50 text-orange-800 dark:text-orange-200 px-2 py-0.5 rounded-full">
-                                  PERDU
-                                </span>
-                              )}
-                              {isOverdue && !isLost && (
-                                <span className="text-xs bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-200 px-2 py-0.5 rounded-full">
-                                  EN RETARD
-                                </span>
+                              {returnItem ? (
+                                <>
+                                  <select
+                                    value={returnItem.action}
+                                    onChange={(e) => updateReturnAction(checkout.id, e.target.value as any)}
+                                    className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-2 py-1 text-sm"
+                                  >
+                                    {isLost ? (
+                                      <>
+                                        <option value="recover">Matériel retrouvé</option>
+                                        <option value="lost">Garder comme perdu</option>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <option value="return">Retour complet</option>
+                                        <option value="extend">Prolonger l'emprunt</option>
+                                        <option value="lost">Matériel perdu</option>
+                                      </>
+                                    )}
+                                  </select>
+                                  
+                                  <Button
+                                    variant="danger"
+                                    size="sm"
+                                    onClick={() => removeReturnItem(checkout.id)}
+                                  >
+                                    ✕
+                                  </Button>
+                                </>
+                              ) : (
+                                <Button
+                                  variant={isLost ? "warning" : "primary"}
+                                  size="sm"
+                                  onClick={() => setReturnItems(prev => [...prev, { 
+                                    checkout, 
+                                    action: isLost ? 'recover' : 'return' 
+                                  }])}
+                                >
+                                  {isLost ? 'Récupérer' : 'Sélectionner'}
+                                </Button>
                               )}
                             </div>
-                            <p className="text-sm text-gray-500">{checkout.equipment.serialNumber}</p>
-                            <p className={`text-sm ${isOverdue && !isLost ? 'text-red-600 dark:text-red-400 font-bold' : 'text-gray-500 dark:text-gray-400'}`}>
-                              {isOverdue && !isLost && <AlertTriangle size={14} className="inline mr-1" />}
-                              Retour prévu: {new Date(checkout.dueDate).toLocaleDateString('fr-FR')}
-                            </p>
                           </div>
-                          
-                          <div className="flex items-center gap-2">
-                            {returnItem ? (
-                              <>
-                                <select
-                                  value={returnItem.action}
-                                  onChange={(e) => updateReturnAction(checkout.id, e.target.value as any)}
-                                  className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-2 py-1 text-sm"
-                                >
-                                  {isLost ? (
-                                    <>
-                                      <option value="recover">Matériel retrouvé</option>
-                                      <option value="lost">Garder comme perdu</option>
-                                    </>
-                                  ) : (
-                                    <>
-                                      <option value="return">Retour complet</option>
-                                      <option value="extend">Prolonger l'emprunt</option>
-                                      <option value="lost">Matériel perdu</option>
-                                    </>
-                                  )}
-                                </select>
-                                
-                                <Button
-                                  variant="danger"
-                                  size="sm"
-                                  onClick={() => removeReturnItem(checkout.id)}
-                                >
-                                  ✕
-                                </Button>
-                              </>
-                            ) : (
-                              <Button
-                                variant={isLost ? "warning" : "primary"}
-                                size="sm"
-                                onClick={() => setReturnItems(prev => [...prev, { 
-                                  checkout, 
-                                  action: isLost ? 'recover' : 'return' 
-                                }])}
-                              >
-                                {isLost ? 'Récupérer' : 'Sélectionner'}
-                              </Button>
-                            )}
-                          </div>
+
+                          {returnItem?.action === 'extend' && (
+                            <div className="mt-2">
+                              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                Nouvelle date de retour
+                              </label>
+                              <input
+                                type="date"
+                                value={returnItem.newDueDate || ''}
+                                onChange={(e) => updateReturnAction(checkout.id, 'extend', e.target.value, returnItem.notes)}
+                                className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-2 py-1 text-sm"
+                                min={new Date().toISOString().split('T')[0]}
+                              />
+                            </div>
+                          )}
+
+                          {returnItem && (
+                            <div className="mt-2">
+                              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                Notes
+                              </label>
+                              <textarea
+                                value={returnItem.notes || ''}
+                                onChange={(e) => updateReturnAction(checkout.id, returnItem.action, returnItem.newDueDate, e.target.value)}
+                                placeholder={
+                                  returnItem.action === 'return' ? 'Notes sur le retour...' :
+                                  returnItem.action === 'extend' ? 'Raison de la prolongation...' :
+                                  returnItem.action === 'recover' ? 'Circonstances de la récupération...' :
+                                  'Circonstances de la perte...'
+                                }
+                                className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-2 py-1 text-sm"
+                                rows={2}
+                              />
+                            </div>
+                          )}
                         </div>
                       );
                     })}
@@ -1272,7 +1266,7 @@ const ReturnModal: React.FC<ReturnModalProps> = ({
                   onClick={handleReturn}
                   disabled={isLoading}
                 >
-                  {isLoading ? 'Traitement en cours...' : 'Valider et Ouvrir PDF'}
+                  {isLoading ? 'Traitement en cours...' : 'Valider et Imprimer Quittance'}
                 </Button>
               )}
             </div>

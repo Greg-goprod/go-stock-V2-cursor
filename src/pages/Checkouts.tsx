@@ -404,18 +404,6 @@ const Checkouts: React.FC = () => {
                 margin-top: 50px;
                 margin-bottom: 5px;
               }
-              .notes {
-                margin-top: 20px;
-                border: 1px solid #ddd;
-                padding: 10px;
-                background-color: #f9f9f9;
-              }
-              .page-number {
-                text-align: center;
-                font-size: 8pt;
-                color: #777;
-                margin-top: 20px;
-              }
               .important-notice {
                 margin-top: 20px;
                 padding: 10px;
@@ -456,25 +444,26 @@ const Checkouts: React.FC = () => {
                 position: fixed;
                 top: 20px;
                 right: 20px;
-                padding: 10px 20px;
+                padding: 15px 25px;
                 background-color: #4CAF50;
                 color: white;
                 border: none;
                 border-radius: 5px;
                 cursor: pointer;
-                font-size: 14px;
+                font-size: 16px;
                 font-weight: bold;
                 box-shadow: 0 2px 5px rgba(0,0,0,0.2);
                 display: flex;
                 align-items: center;
-                gap: 8px;
+                gap: 10px;
+                z-index: 1000;
               }
               .print-button:hover {
                 background-color: #45a049;
               }
               .print-icon {
-                width: 16px;
-                height: 16px;
+                width: 20px;
+                height: 20px;
               }
               @media print {
                 .print-button {
@@ -482,11 +471,13 @@ const Checkouts: React.FC = () => {
                 }
               }
               .qr-code-container {
-                position: absolute;
-                top: 10px;
-                left: 10px;
-                width: 80px;
-                height: 80px;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                margin: 0 auto 20px auto;
+                width: 120px;
+                height: 140px;
                 background-color: white;
                 padding: 5px;
                 border: 1px solid #ddd;
@@ -498,9 +489,10 @@ const Checkouts: React.FC = () => {
               }
               .qr-code-label {
                 text-align: center;
-                font-size: 7pt;
-                margin-top: 2px;
+                font-size: 8pt;
+                margin-top: 5px;
                 color: #333;
+                font-weight: bold;
               }
             </style>
             <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
@@ -629,7 +621,7 @@ const Checkouts: React.FC = () => {
               // Générer le QR code
               window.onload = function() {
                 QRCode.toCanvas(document.getElementById('qrcode'), '${noteQrCode}', {
-                  width: 80,
+                  width: 100,
                   margin: 0,
                   color: {
                     dark: '#000000',
@@ -659,8 +651,8 @@ const Checkouts: React.FC = () => {
       toast.success('Bon de sortie ouvert dans un nouvel onglet');
       
     } catch (error) {
-      console.error('Error generating delivery note PDF:', error);
-      toast.error('Erreur lors de la génération du PDF');
+      console.error('Error printing checkout:', error);
+      toast.error('Erreur lors de l\'impression');
     }
   };
 
@@ -1030,11 +1022,8 @@ const Checkouts: React.FC = () => {
                               <div className="flex items-center gap-3">
                                 <Package size={16} className="text-gray-500" />
                                 <div>
-                                  <p className="font-medium text-gray-900 dark:text-white">{checkout.equipment.name}</p>
-                                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                                    {checkout.equipment.serial_number}
-                                    {checkout.equipment.article_number && ` • ${checkout.equipment.article_number}`}
-                                  </p>
+                                  <p className="font-medium text-gray-700 dark:text-gray-300">{checkout.equipment.name}</p>
+                                  <p className="text-xs text-gray-500">{checkout.equipment.serial_number}</p>
                                 </div>
                               </div>
                               
@@ -1078,7 +1067,7 @@ const Checkouts: React.FC = () => {
                         icon={<Printer size={16} />}
                         onClick={() => handlePrintNote(note)}
                       >
-                        Ouvrir PDF
+                        Imprimer
                       </Button>
                       {note.status === 'partial' ? (
                         <Button

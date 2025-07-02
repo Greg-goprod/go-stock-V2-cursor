@@ -564,25 +564,26 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
                 position: fixed;
                 top: 20px;
                 right: 20px;
-                padding: 10px 20px;
+                padding: 15px 25px;
                 background-color: #4CAF50;
                 color: white;
                 border: none;
                 border-radius: 5px;
                 cursor: pointer;
-                font-size: 14px;
+                font-size: 16px;
                 font-weight: bold;
                 box-shadow: 0 2px 5px rgba(0,0,0,0.2);
                 display: flex;
                 align-items: center;
-                gap: 8px;
+                gap: 10px;
+                z-index: 1000;
               }
               .print-button:hover {
                 background-color: #45a049;
               }
               .print-icon {
-                width: 16px;
-                height: 16px;
+                width: 20px;
+                height: 20px;
               }
               @media print {
                 .print-button {
@@ -590,11 +591,13 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
                 }
               }
               .qr-code-container {
-                position: absolute;
-                top: 10px;
-                left: 10px;
-                width: 80px;
-                height: 80px;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                margin: 0 auto 20px auto;
+                width: 120px;
+                height: 140px;
                 background-color: white;
                 padding: 5px;
                 border: 1px solid #ddd;
@@ -606,9 +609,10 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
               }
               .qr-code-label {
                 text-align: center;
-                font-size: 7pt;
-                margin-top: 2px;
+                font-size: 8pt;
+                margin-top: 5px;
                 color: #333;
+                font-weight: bold;
               }
             </style>
             <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
@@ -622,6 +626,11 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
               </svg>
               IMPRIMER
             </button>
+            
+            <div class="qr-code-container">
+              <div id="qrcode" class="qr-code"></div>
+              <div class="qr-code-label">Bon N° ${deliveryNote.note_number}</div>
+            </div>
             
             <div class="header">
               <div class="logo-container">
@@ -649,11 +658,6 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
                 <div>Tél: 01 23 45 67 89</div>
                 <div>Email: contact@go-mat.fr</div>
               </div>
-            </div>
-            
-            <div class="qr-code-container">
-              <div id="qrcode" class="qr-code"></div>
-              <div class="qr-code-label">Bon N° ${deliveryNote.note_number}</div>
             </div>
             
             <div class="date-info">
@@ -741,7 +745,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
               // Générer le QR code
               window.onload = function() {
                 QRCode.toCanvas(document.getElementById('qrcode'), '${noteQrCode}', {
-                  width: 80,
+                  width: 100,
                   margin: 0,
                   color: {
                     dark: '#000000',

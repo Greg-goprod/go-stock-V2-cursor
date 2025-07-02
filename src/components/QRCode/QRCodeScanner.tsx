@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { QrCode, Zap } from 'lucide-react';
+import { QrCode, Zap, Camera, AlertCircle } from 'lucide-react';
 import { Html5Qrcode } from 'html5-qrcode';
 
 interface QRCodeScannerProps {
@@ -12,6 +12,8 @@ const QRCodeScanner: React.FC<QRCodeScannerProps> = ({ onScan, onError }) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [lastScanStatus, setLastScanStatus] = useState<'success' | 'error' | 'duplicate' | null>(null);
   const [isScanning, setIsScanning] = useState(false);
+  const [cameraError, setCameraError] = useState<string | null>(null);
+  const [permissionDenied, setPermissionDenied] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const scannerDivRef = useRef<HTMLDivElement>(null);
@@ -29,6 +31,7 @@ const QRCodeScanner: React.FC<QRCodeScannerProps> = ({ onScan, onError }) => {
         startScanner();
       } catch (error) {
         console.error("Erreur d'initialisation du scanner:", error);
+        setCameraError("Impossible d'initialiser le scanner de QR code");
         if (onError) {
           onError("Impossible d'initialiser le scanner de QR code");
         }
@@ -49,6 +52,10 @@ const QRCodeScanner: React.FC<QRCodeScannerProps> = ({ onScan, onError }) => {
     if (!scannerRef.current) return;
     
     try {
+      // Vérifier d'abord les permissions de la caméra
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      stream.getTracks().forEach(track => track.stop()); // Arrêter le stream de test
+      
       const cameras = await Html5Qrcode.getCameras();
       if (cameras && cameras.length > 0) {
         const cameraId = cameras[0].id;
@@ -72,17 +79,42 @@ const QRCodeScanner: React.FC<QRCodeScannerProps> = ({ onScan, onError }) => {
         );
         
         setIsScanning(true);
+        setCameraError(null);
+        setPermissionDenied(false);
       } else {
         console.warn("Aucune caméra détectée");
+        setCameraError("Aucune caméra n'a été détectée sur votre appareil");
         if (onError) {
           onError("Aucune caméra n'a été détectée sur votre appareil");
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Erreur lors du démarrage du scanner:", error);
-      if (onError) {
-        onError("Impossible de démarrer le scanner de QR code");
+      
+      if (error.name === 'NotAllowedError' || error.message.includes('Permission denied')) {
+        setPermissionDenied(true);
+        setCameraError("Accès à la caméra refusé. Veuillez autoriser l'accès à la caméra dans les paramètres de votre navigateur.");
+      } else if (error.name === 'NotFoundError') {
+        setCameraError("Aucune caméra trouvée sur votre appareil.");
+      } else if (error.name === 'NotReadableError') {
+        setCameraError("La caméra est déjà utilisée par une autre application.");
+      } else {
+        setCameraError("Impossible de démarrer le scanner de QR code. Veuillez vérifier les permissions de votre navigateur.");
       }
+      
+      if (onError) {
+        onError(cameraError || "Erreur de caméra");
+      }
+    }
+  };
+
+  const requestCameraPermission = async () => {
+    try {
+      setCameraError(null);
+      setPermissionDenied(false);
+      await startScanner();
+    } catch (error) {
+      console.error("Erreur lors de la demande de permission:", error);
     }
   };
 
@@ -215,10 +247,60 @@ const QRCodeScanner: React.FC<QRCodeScannerProps> = ({ onScan, onError }) => {
         </p>
       </div>
 
+      {/* Affichage d'erreur de caméra */}
+      {cameraError && (
+        <div className="mb-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+          <div className="flex items-start gap-3">
+            <AlertCircle size={20} className="text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <h4 className="font-semibold text-red-800 dark:text-red-200 mb-1">
+                Problème de caméra
+              </h4>
+              <p className="text-sm text-red-700 dark:text-red-300 mb-3">
+                {cameraError}
+              </p>
+              {permissionDenied && (
+                <div className="space-y-2">
+                  <p className="text-xs text-red-600 dark:text-red-400 font-medium">
+                    Pour autoriser l'accès à la caméra :
+                  </p>
+                  <ul className="text-xs text-red-600 dark:text-red-400 space-y-1 ml-4">
+                    <li>• Cliquez sur l'icône de caméra dans la barre d'adresse</li>
+                    <li>• Ou allez dans les paramètres du site de votre navigateur</li>
+                    <li>• Autorisez l'accès à la caméra pour ce site</li>
+                  </ul>
+                  <button
+                    onClick={requestCameraPermission}
+                    className="mt-2 px-3 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-700 transition-colors"
+                  >
+                    Réessayer
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Scanner HTML5 */}
-      <div className="mb-4 border rounded-lg overflow-hidden">
-        <div id="qr-reader" ref={scannerDivRef} className="w-full h-64"></div>
-      </div>
+      {!cameraError && (
+        <div className="mb-4 border rounded-lg overflow-hidden">
+          <div id="qr-reader" ref={scannerDivRef} className="w-full h-64"></div>
+        </div>
+      )}
+
+      {/* Fallback si pas de caméra */}
+      {cameraError && (
+        <div className="mb-4 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center">
+          <Camera size={48} className="mx-auto text-gray-400 mb-3" />
+          <p className="text-gray-600 dark:text-gray-400 font-medium">
+            Scanner de caméra indisponible
+          </p>
+          <p className="text-sm text-gray-500 dark:text-gray-500 mt-1">
+            Utilisez la saisie manuelle ci-dessous
+          </p>
+        </div>
+      )}
 
       {/* Champ de saisie manuelle */}
       <div className="relative">

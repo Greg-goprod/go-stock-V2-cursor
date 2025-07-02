@@ -394,6 +394,12 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
         .maybeSingle();
 
       const logoUrl = logoSetting?.value || '';
+      const today = new Date();
+      const formattedDate = today.toLocaleDateString('fr-FR', { 
+        day: '2-digit', 
+        month: '2-digit', 
+        year: 'numeric' 
+      });
 
       const printContent = `
         <!DOCTYPE html>
@@ -402,194 +408,265 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
             <title>Bon de Sortie ${deliveryNote.note_number} - GO-Mat</title>
             <meta charset="UTF-8">
             <style>
-              body { 
-                font-family: 'Roboto', Arial, sans-serif; 
-                margin: 20px; 
+              @page {
+                size: A4;
+                margin: 10mm;
+              }
+              body {
+                font-family: Arial, sans-serif;
+                margin: 0;
+                padding: 0;
                 color: #333;
+                font-size: 10pt;
               }
-              .header { 
-                text-align: center; 
-                margin-bottom: 30px; 
-                border-bottom: 2px solid #333; 
-                padding-bottom: 20px; 
-              }
-              .logo {
-                max-height: 80px;
-                max-width: 200px;
-                margin-bottom: 10px;
-              }
-              .company-name {
-                font-size: 28px;
-                font-weight: bold;
-                color: #2563eb;
-                margin-bottom: 5px;
-              }
-              .subtitle {
-                font-size: 16px;
-                color: #666;
-                margin-bottom: 10px;
-              }
-              .note-number { 
-                font-size: 24px; 
-                font-weight: bold; 
-                color: #2563eb; 
-                margin-bottom: 10px; 
-              }
-              .info { 
-                margin-bottom: 20px; 
-                background: #f8f9fa;
-                padding: 15px;
-                border-radius: 8px;
-              }
-              .info-row {
-                display: flex;
-                margin-bottom: 8px;
-              }
-              .info-label {
-                font-weight: bold;
-                width: 150px;
-                color: #555;
-              }
-              .items { 
-                width: 100%; 
-                border-collapse: collapse; 
-                margin-bottom: 30px; 
-                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-              }
-              .items th, .items td { 
-                border: 1px solid #ddd; 
-                padding: 12px; 
-                text-align: left; 
-              }
-              .items th { 
-                background-color: #2563eb; 
-                color: white;
-                font-weight: bold;
-              }
-              .items tr:nth-child(even) {
-                background-color: #f8f9fa;
-              }
-              .signature { 
-                margin-top: 50px; 
+              .header {
                 display: flex;
                 justify-content: space-between;
+                margin-bottom: 20px;
+                border-bottom: 1px solid #ddd;
+                padding-bottom: 10px;
+              }
+              .logo-container {
+                width: 40%;
+              }
+              .logo {
+                max-height: 60px;
+                max-width: 200px;
+              }
+              .company-info {
+                text-align: right;
+                width: 40%;
+              }
+              .company-name {
+                font-size: 18pt;
+                font-weight: bold;
+                color: #4CAF50;
+                margin-bottom: 5px;
+              }
+              .document-title {
+                font-size: 14pt;
+                font-weight: bold;
+                margin: 20px 0;
+                color: #333;
+                text-align: center;
+                text-transform: uppercase;
+              }
+              .document-number {
+                font-weight: bold;
+                color: #4CAF50;
+              }
+              .customer-info {
+                margin-bottom: 20px;
+              }
+              .customer-box {
+                border: 1px solid #ddd;
+                padding: 10px;
+                width: 50%;
+                margin-left: auto;
+              }
+              .date-info {
+                text-align: right;
+                margin-bottom: 10px;
+              }
+              table {
+                width: 100%;
+                border-collapse: collapse;
+                margin: 20px 0;
+              }
+              th {
+                background-color: #4CAF50;
+                color: white;
+                font-weight: bold;
+                text-align: left;
+                padding: 8px;
+              }
+              td {
+                border: 1px solid #ddd;
+                padding: 8px;
+              }
+              tr:nth-child(even) {
+                background-color: #f2f2f2;
+              }
+              .total-row {
+                font-weight: bold;
+              }
+              .footer {
+                margin-top: 30px;
+                border-top: 1px solid #ddd;
+                padding-top: 10px;
+                font-size: 9pt;
+              }
+              .signatures {
+                display: flex;
+                justify-content: space-between;
+                margin-top: 40px;
               }
               .signature-box {
                 width: 45%;
+              }
+              .signature-line {
+                border-bottom: 1px solid #333;
+                margin-top: 50px;
+                margin-bottom: 5px;
+              }
+              .notes {
+                margin-top: 20px;
+                border: 1px solid #ddd;
+                padding: 10px;
+                background-color: #f9f9f9;
+              }
+              .page-number {
                 text-align: center;
+                font-size: 8pt;
+                color: #777;
+                margin-top: 20px;
               }
-              .signature-line { 
-                border-bottom: 2px solid #333; 
-                width: 100%; 
-                margin-top: 40px; 
-                margin-bottom: 10px;
+              .important-notice {
+                margin-top: 20px;
+                padding: 10px;
+                background-color: #fff3cd;
+                border: 1px solid #ffeeba;
+                color: #856404;
               }
-              .footer { 
-                margin-top: 40px; 
-                text-align: center; 
-                font-size: 12px; 
-                color: #666; 
-                border-top: 1px solid #ddd;
-                padding-top: 20px;
+              .contact-info {
+                display: flex;
+                justify-content: space-between;
+                font-size: 8pt;
+                color: #777;
               }
-              .important-note {
-                background: #fff3cd;
-                border: 1px solid #ffeaa7;
-                padding: 15px;
-                border-radius: 8px;
-                margin: 20px 0;
+              .qr-icons {
+                display: flex;
+                justify-content: space-between;
+                margin-top: 10px;
+                max-width: 200px;
               }
-              @media print {
-                body { margin: 0; }
-                .no-print { display: none; }
+              .qr-icon {
+                width: 30px;
+                height: 30px;
+                background-color: #333;
+                color: white;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                border-radius: 50%;
+                font-size: 8pt;
+                font-weight: bold;
+              }
+              .qr-label {
+                font-size: 6pt;
+                text-align: center;
+                margin-top: 2px;
               }
             </style>
           </head>
           <body>
             <div class="header">
-              ${logoUrl ? `<img src="${logoUrl}" alt="Logo" class="logo" />` : ''}
-              <div class="company-name">GO-Mat</div>
-              <div class="subtitle">Gestion de Matériel</div>
-              <div class="note-number">Bon de Sortie N° ${deliveryNote.note_number}</div>
-              <p>Date d'émission: ${new Date().toLocaleDateString('fr-FR', { 
-                weekday: 'long', 
-                year: 'numeric', 
-                month: 'long', 
-                day: 'numeric' 
-              })}</p>
+              <div class="logo-container">
+                ${logoUrl ? `<img src="${logoUrl}" alt="Logo" class="logo" />` : `<div class="company-name">GO-Mat</div>`}
+                <div class="qr-icons">
+                  <div>
+                    <div class="qr-icon">QR</div>
+                    <div class="qr-label">SCAN MATÉRIEL</div>
+                  </div>
+                  <div>
+                    <div class="qr-icon">PDF</div>
+                    <div class="qr-label">TÉLÉCHARGER</div>
+                  </div>
+                  <div>
+                    <div class="qr-icon">WWW</div>
+                    <div class="qr-label">SITE WEB</div>
+                  </div>
+                </div>
+              </div>
+              <div class="company-info">
+                <div class="company-name">GO-Mat</div>
+                <div>Gestion de Matériel</div>
+                <div>123 Rue de l'Équipement</div>
+                <div>75000 Paris</div>
+                <div>Tél: 01 23 45 67 89</div>
+                <div>Email: contact@go-mat.fr</div>
+              </div>
             </div>
             
-            <div class="info">
-              <h3 style="margin-top: 0; color: #2563eb;">Informations de l'emprunteur</h3>
-              <div class="info-row">
-                <span class="info-label">Nom complet:</span>
-                <span>${user.first_name} ${user.last_name}</span>
-              </div>
-              <div class="info-row">
-                <span class="info-label">Email:</span>
-                <span>${user.email}</span>
-              </div>
-              <div class="info-row">
-                <span class="info-label">Téléphone:</span>
-                <span>${user.phone || '-'}</span>
-              </div>
-              <div class="info-row">
-                <span class="info-label">Département:</span>
-                <span>${user.department}</span>
-              </div>
-              <div class="info-row">
-                <span class="info-label">Date de retour prévue:</span>
-                <span style="font-weight: bold; color: #dc2626;">${new Date(dueDate).toLocaleDateString('fr-FR')}</span>
+            <div class="date-info">
+              <div>Date d'émission: ${formattedDate}</div>
+              <div>Référence: ${deliveryNote.note_number}</div>
+            </div>
+            
+            <div class="customer-info">
+              <div class="customer-box">
+                <div><strong>Emprunteur:</strong></div>
+                <div>${user.first_name} ${user.last_name}</div>
+                <div>Département: ${user.department}</div>
+                <div>Email: ${user.email}</div>
+                ${user.phone ? `<div>Téléphone: ${user.phone}</div>` : ''}
               </div>
             </div>
-
-            <h3 style="color: #2563eb; margin-bottom: 15px;">Matériel emprunté</h3>
-            <table class="items">
+            
+            <div class="document-title">
+              Bon de Sortie <span class="document-number">N° ${deliveryNote.note_number}</span>
+            </div>
+            
+            <table>
               <thead>
                 <tr>
-                  <th style="width: 40%;">Matériel</th>
-                  <th style="width: 25%;">Numéro de série</th>
-                  <th style="width: 20%;">Article</th>
-                  <th style="width: 15%;">Quantité</th>
+                  <th style="width: 5%;">N°</th>
+                  <th style="width: 45%;">Désignation</th>
+                  <th style="width: 20%;">Référence</th>
+                  <th style="width: 10%;">Quantité</th>
+                  <th style="width: 20%;">Retour prévu</th>
                 </tr>
               </thead>
               <tbody>
-                ${items.map(item => `
+                ${items.map((item, index) => `
                   <tr>
-                    <td style="font-weight: 500;">${item.equipment.name}</td>
-                    <td style="font-family: monospace; color: #666;">${item.equipment.serialNumber}</td>
-                    <td style="font-family: monospace; color: #666;">${item.equipment.articleNumber || '-'}</td>
-                    <td style="text-align: center; font-weight: bold; color: #2563eb;">${item.quantity}</td>
+                    <td>${index + 1}</td>
+                    <td>${item.equipment.name}</td>
+                    <td>${item.equipment.serialNumber}</td>
+                    <td>${item.quantity}</td>
+                    <td>${new Date(dueDate).toLocaleDateString('fr-FR')}</td>
                   </tr>
                 `).join('')}
+                <tr class="total-row">
+                  <td colspan="3" style="text-align: right;">Total articles:</td>
+                  <td>${items.reduce((sum, item) => sum + item.quantity, 0)}</td>
+                  <td></td>
+                </tr>
               </tbody>
             </table>
-
-            <div class="important-note">
-              <strong>⚠️ Important:</strong> Ce bon de sortie doit être conservé jusqu'au retour complet du matériel. 
-              En cas de perte, veuillez contacter immédiatement le service de gestion du matériel.
-            </div>
-
-            <div class="signature">
-              <div class="signature-box">
-                <p><strong>Signature de l'emprunteur</strong></p>
-                <p style="font-size: 12px; color: #666;">Je reconnais avoir reçu le matériel ci-dessus en bon état et m'engage à le restituer dans les mêmes conditions.</p>
-                <div class="signature-line"></div>
-                <p style="margin-top: 5px; font-size: 12px;">Date: _______________</p>
+            
+            ${notes ? `
+              <div class="notes">
+                <strong>Notes:</strong>
+                <p>${notes}</p>
               </div>
-              
+            ` : ''}
+            
+            <div class="important-notice">
+              <strong>Important:</strong> Ce bon de sortie doit être conservé et présenté lors du retour du matériel.
+              En cas de perte ou de dommage du matériel, veuillez contacter immédiatement le service de gestion.
+            </div>
+            
+            <div class="signatures">
               <div class="signature-box">
-                <p><strong>Signature du responsable</strong></p>
-                <p style="font-size: 12px; color: #666;">Matériel vérifié et remis en bon état de fonctionnement.</p>
+                <div><strong>Signature de l'emprunteur:</strong></div>
                 <div class="signature-line"></div>
-                <p style="margin-top: 5px; font-size: 12px;">Date: _______________</p>
+                <div>Date: ___________________</div>
+              </div>
+              <div class="signature-box">
+                <div><strong>Signature du responsable:</strong></div>
+                <div class="signature-line"></div>
+                <div>Date: ___________________</div>
               </div>
             </div>
-
+            
             <div class="footer">
-              <p><strong>GO-Mat - Système de Gestion de Matériel</strong></p>
-              <p>Pour tout retour, présentez ce bon ou indiquez le numéro: <strong>${deliveryNote.note_number}</strong></p>
-              <p>En cas de problème, contactez le service de gestion du matériel.</p>
+              <div class="contact-info">
+                <div>GO-Mat - Système de Gestion de Matériel</div>
+                <div>Tél: 01 23 45 67 89</div>
+                <div>Email: contact@go-mat.fr</div>
+              </div>
+              <div class="page-number">Page 1/1</div>
             </div>
           </body>
         </html>

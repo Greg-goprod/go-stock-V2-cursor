@@ -380,6 +380,12 @@ const ReturnModal: React.FC<ReturnModalProps> = ({
       const returnedItems = returnItems.filter(item => item.action === 'return' || item.action === 'recover');
       const extendedItems = returnItems.filter(item => item.action === 'extend');
       const lostItems = returnItems.filter(item => item.action === 'lost');
+      const today = new Date();
+      const formattedDate = today.toLocaleDateString('fr-FR', { 
+        day: '2-digit', 
+        month: '2-digit', 
+        year: 'numeric' 
+      });
 
       const printContent = `
         <!DOCTYPE html>
@@ -388,234 +394,297 @@ const ReturnModal: React.FC<ReturnModalProps> = ({
             <title>Quittance de Retour ${selectedNote.noteNumber} - GO-Mat</title>
             <meta charset="UTF-8">
             <style>
-              body { 
-                font-family: Arial, sans-serif; 
-                margin: 20px; 
-                color: #333;
+              @page {
+                size: A4;
+                margin: 10mm;
               }
-              .header { 
-                text-align: center; 
-                margin-bottom: 30px; 
-                border-bottom: 2px solid #333; 
-                padding-bottom: 20px; 
+              body {
+                font-family: Arial, sans-serif;
+                margin: 0;
+                padding: 0;
+                color: #333;
+                font-size: 10pt;
+              }
+              .header {
+                display: flex;
+                justify-content: space-between;
+                margin-bottom: 20px;
+                border-bottom: 1px solid #ddd;
+                padding-bottom: 10px;
+              }
+              .logo-container {
+                width: 40%;
               }
               .logo {
-                max-height: 80px;
+                max-height: 60px;
                 max-width: 200px;
-                margin-bottom: 10px;
+              }
+              .company-info {
+                text-align: right;
+                width: 40%;
               }
               .company-name {
-                font-size: 28px;
+                font-size: 18pt;
                 font-weight: bold;
-                color: #2563eb;
+                color: #4CAF50;
                 margin-bottom: 5px;
               }
-              .subtitle {
-                font-size: 16px;
-                color: #666;
+              .document-title {
+                font-size: 14pt;
+                font-weight: bold;
+                margin: 20px 0;
+                color: #333;
+                text-align: center;
+                text-transform: uppercase;
+              }
+              .document-number {
+                font-weight: bold;
+                color: #4CAF50;
+              }
+              .customer-info {
+                margin-bottom: 20px;
+              }
+              .customer-box {
+                border: 1px solid #ddd;
+                padding: 10px;
+                width: 50%;
+                margin-left: auto;
+              }
+              .date-info {
+                text-align: right;
                 margin-bottom: 10px;
               }
-              .note-number { 
-                font-size: 20px; 
-                font-weight: bold; 
-                color: #2563eb; 
-                margin-bottom: 10px; 
+              table {
+                width: 100%;
+                border-collapse: collapse;
+                margin: 20px 0;
               }
-              .section { 
-                margin-bottom: 20px; 
-                background: #f8f9fa;
-                padding: 15px;
-                border-radius: 8px;
-              }
-              .info-row {
-                display: flex;
-                margin-bottom: 8px;
-              }
-              .info-label {
-                font-weight: bold;
-                width: 200px;
-                color: #555;
-              }
-              .items { 
-                width: 100%; 
-                border-collapse: collapse; 
-                margin-bottom: 20px; 
-                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-              }
-              .items th, .items td { 
-                border: 1px solid #ddd; 
-                padding: 12px; 
-                text-align: left; 
-              }
-              .items th { 
-                background-color: #2563eb; 
+              th {
+                background-color: #4CAF50;
                 color: white;
                 font-weight: bold;
+                text-align: left;
+                padding: 8px;
+              }
+              td {
+                border: 1px solid #ddd;
+                padding: 8px;
+              }
+              tr:nth-child(even) {
+                background-color: #f2f2f2;
               }
               .returned { background-color: #d4edda; }
               .extended { background-color: #fff3cd; }
               .lost { background-color: #f8d7da; }
               .recovered { background-color: #d1ecf1; }
-              .signature { 
-                margin-top: 30px; 
+              .footer {
+                margin-top: 30px;
+                border-top: 1px solid #ddd;
+                padding-top: 10px;
+                font-size: 9pt;
+              }
+              .signatures {
                 display: flex;
                 justify-content: space-between;
+                margin-top: 40px;
               }
               .signature-box {
                 width: 45%;
+              }
+              .signature-line {
+                border-bottom: 1px solid #333;
+                margin-top: 50px;
+                margin-bottom: 5px;
+              }
+              .page-number {
                 text-align: center;
+                font-size: 8pt;
+                color: #777;
+                margin-top: 20px;
               }
-              .signature-line { 
-                border-bottom: 2px solid #333; 
-                width: 100%; 
-                margin-top: 30px; 
-                margin-bottom: 10px;
+              .contact-info {
+                display: flex;
+                justify-content: space-between;
+                font-size: 8pt;
+                color: #777;
               }
-              .footer { 
-                margin-top: 30px; 
-                text-align: center; 
-                font-size: 12px; 
-                color: #666; 
-                border-top: 1px solid #ddd;
-                padding-top: 20px;
+              .qr-icons {
+                display: flex;
+                justify-content: space-between;
+                margin-top: 10px;
+                max-width: 200px;
               }
-              @media print {
-                body { margin: 0; }
-                .no-print { display: none; }
+              .qr-icon {
+                width: 30px;
+                height: 30px;
+                background-color: #333;
+                color: white;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                border-radius: 50%;
+                font-size: 8pt;
+                font-weight: bold;
+              }
+              .qr-label {
+                font-size: 6pt;
+                text-align: center;
+                margin-top: 2px;
+              }
+              .section-title {
+                font-weight: bold;
+                margin-top: 15px;
+                margin-bottom: 5px;
+                color: #4CAF50;
               }
             </style>
           </head>
           <body>
             <div class="header">
-              ${logoUrl ? `<img src="${logoUrl}" alt="Logo" class="logo" />` : ''}
-              <div class="company-name">GO-Mat</div>
-              <div class="subtitle">Gestion de Matériel</div>
-              <div class="note-number">Quittance de Retour - Bon N° ${selectedNote.noteNumber}</div>
-              <p>Date de retour: ${new Date().toLocaleDateString('fr-FR', { 
-                weekday: 'long', 
-                year: 'numeric', 
-                month: 'long', 
-                day: 'numeric' 
-              })}</p>
+              <div class="logo-container">
+                ${logoUrl ? `<img src="${logoUrl}" alt="Logo" class="logo" />` : `<div class="company-name">GO-Mat</div>`}
+                <div class="qr-icons">
+                  <div>
+                    <div class="qr-icon">QR</div>
+                    <div class="qr-label">SCAN MATÉRIEL</div>
+                  </div>
+                  <div>
+                    <div class="qr-icon">PDF</div>
+                    <div class="qr-label">TÉLÉCHARGER</div>
+                  </div>
+                  <div>
+                    <div class="qr-icon">WWW</div>
+                    <div class="qr-label">SITE WEB</div>
+                  </div>
+                </div>
+              </div>
+              <div class="company-info">
+                <div class="company-name">GO-Mat</div>
+                <div>Gestion de Matériel</div>
+                <div>123 Rue de l'Équipement</div>
+                <div>75000 Paris</div>
+                <div>Tél: 01 23 45 67 89</div>
+                <div>Email: contact@go-mat.fr</div>
+              </div>
             </div>
-
-            <div class="section">
-              <h3 style="margin-top: 0; color: #2563eb;">Informations de l'emprunteur</h3>
-              <div class="info-row">
-                <span class="info-label">Nom complet:</span>
-                <span>${selectedNote.user.first_name} ${selectedNote.user.last_name}</span>
+            
+            <div class="date-info">
+              <div>Date de retour: ${formattedDate}</div>
+              <div>Référence: ${selectedNote.noteNumber}</div>
+            </div>
+            
+            <div class="customer-info">
+              <div class="customer-box">
+                <div><strong>Emprunteur:</strong></div>
+                <div>${selectedNote.user.first_name} ${selectedNote.user.last_name}</div>
+                <div>Département: ${selectedNote.user.department}</div>
+                <div>Email: ${selectedNote.user.email}</div>
+                ${selectedNote.user.phone ? `<div>Téléphone: ${selectedNote.user.phone}</div>` : ''}
               </div>
-              <div class="info-row">
-                <span class="info-label">Département:</span>
-                <span>${selectedNote.user.department}</span>
-              </div>
-              <div class="info-row">
-                <span class="info-label">Date d'émission du bon:</span>
-                <span>${new Date(selectedNote.issueDate).toLocaleDateString('fr-FR')}</span>
-              </div>
-              <div class="info-row">
-                <span class="info-label">Date de retour prévue:</span>
-                <span>${new Date(selectedNote.dueDate).toLocaleDateString('fr-FR')}</span>
-              </div>
+            </div>
+            
+            <div class="document-title">
+              Quittance de Retour <span class="document-number">N° ${selectedNote.noteNumber}</span>
             </div>
 
             ${returnedItems.length > 0 ? `
-              <div class="section">
-                <h3 style="color: #155724; margin-top: 0;">✓ Matériel Retourné</h3>
-                <table class="items">
-                  <thead>
-                    <tr>
-                      <th>Équipement</th>
-                      <th>Numéro de série</th>
-                      <th>Date d'emprunt</th>
-                      <th>Notes</th>
+              <div class="section-title">✓ Matériel Retourné</div>
+              <table>
+                <thead>
+                  <tr>
+                    <th style="width: 5%;">N°</th>
+                    <th style="width: 45%;">Désignation</th>
+                    <th style="width: 20%;">Référence</th>
+                    <th style="width: 15%;">Date d'emprunt</th>
+                    <th style="width: 15%;">Notes</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${returnedItems.map((item, index) => `
+                    <tr class="${item.action === 'recover' ? 'recovered' : 'returned'}">
+                      <td>${index + 1}</td>
+                      <td>${item.checkout.equipment.name} ${item.action === 'recover' ? '(Retrouvé)' : ''}</td>
+                      <td>${item.checkout.equipment.serialNumber}</td>
+                      <td>${new Date(item.checkout.checkoutDate).toLocaleDateString('fr-FR')}</td>
+                      <td>${item.notes || '-'}</td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    ${returnedItems.map(item => `
-                      <tr class="${item.action === 'recover' ? 'recovered' : 'returned'}">
-                        <td>${item.checkout.equipment.name} ${item.action === 'recover' ? '(Retrouvé)' : ''}</td>
-                        <td style="font-family: monospace;">${item.checkout.equipment.serialNumber}</td>
-                        <td>${new Date(item.checkout.checkoutDate).toLocaleDateString('fr-FR')}</td>
-                        <td>${item.notes || '-'}</td>
-                      </tr>
-                    `).join('')}
-                  </tbody>
-                </table>
-              </div>
+                  `).join('')}
+                </tbody>
+              </table>
             ` : ''}
 
             ${extendedItems.length > 0 ? `
-              <div class="section">
-                <h3 style="color: #856404; margin-top: 0;">📅 Prolongations Accordées</h3>
-                <table class="items">
-                  <thead>
-                    <tr>
-                      <th>Équipement</th>
-                      <th>Numéro de série</th>
-                      <th>Nouvelle date de retour</th>
-                      <th>Notes</th>
+              <div class="section-title">📅 Prolongations Accordées</div>
+              <table>
+                <thead>
+                  <tr>
+                    <th style="width: 5%;">N°</th>
+                    <th style="width: 45%;">Désignation</th>
+                    <th style="width: 20%;">Référence</th>
+                    <th style="width: 15%;">Nouvelle date</th>
+                    <th style="width: 15%;">Notes</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${extendedItems.map((item, index) => `
+                    <tr class="extended">
+                      <td>${index + 1}</td>
+                      <td>${item.checkout.equipment.name}</td>
+                      <td>${item.checkout.equipment.serialNumber}</td>
+                      <td>${item.newDueDate ? new Date(item.newDueDate).toLocaleDateString('fr-FR') : '-'}</td>
+                      <td>${item.notes || '-'}</td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    ${extendedItems.map(item => `
-                      <tr class="extended">
-                        <td>${item.checkout.equipment.name}</td>
-                        <td style="font-family: monospace;">${item.checkout.equipment.serialNumber}</td>
-                        <td>${item.newDueDate ? new Date(item.newDueDate).toLocaleDateString('fr-FR') : '-'}</td>
-                        <td>${item.notes || '-'}</td>
-                      </tr>
-                    `).join('')}
-                  </tbody>
-                </table>
-              </div>
+                  `).join('')}
+                </tbody>
+              </table>
             ` : ''}
 
             ${lostItems.length > 0 ? `
-              <div class="section">
-                <h3 style="color: #721c24; margin-top: 0;">✗ Matériel Déclaré Perdu</h3>
-                <table class="items">
-                  <thead>
-                    <tr>
-                      <th>Équipement</th>
-                      <th>Numéro de série</th>
-                      <th>Date d'emprunt</th>
-                      <th>Notes</th>
+              <div class="section-title">✗ Matériel Déclaré Perdu</div>
+              <table>
+                <thead>
+                  <tr>
+                    <th style="width: 5%;">N°</th>
+                    <th style="width: 45%;">Désignation</th>
+                    <th style="width: 20%;">Référence</th>
+                    <th style="width: 15%;">Date d'emprunt</th>
+                    <th style="width: 15%;">Notes</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${lostItems.map((item, index) => `
+                    <tr class="lost">
+                      <td>${index + 1}</td>
+                      <td>${item.checkout.equipment.name}</td>
+                      <td>${item.checkout.equipment.serialNumber}</td>
+                      <td>${new Date(item.checkout.checkoutDate).toLocaleDateString('fr-FR')}</td>
+                      <td>${item.notes || '-'}</td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    ${lostItems.map(item => `
-                      <tr class="lost">
-                        <td>${item.checkout.equipment.name}</td>
-                        <td style="font-family: monospace;">${item.checkout.equipment.serialNumber}</td>
-                        <td>${new Date(item.checkout.checkoutDate).toLocaleDateString('fr-FR')}</td>
-                        <td>${item.notes || '-'}</td>
-                      </tr>
-                    `).join('')}
-                  </tbody>
-                </table>
-              </div>
+                  `).join('')}
+                </tbody>
+              </table>
             ` : ''}
-
-            <div class="signature">
+            
+            <div class="signatures">
               <div class="signature-box">
-                <p><strong>Signature de l'emprunteur</strong></p>
-                <p style="font-size: 12px; color: #666;">Je confirme les opérations ci-dessus concernant le bon de sortie N° ${selectedNote.noteNumber}.</p>
+                <div><strong>Signature de l'emprunteur:</strong></div>
                 <div class="signature-line"></div>
-                <p style="margin-top: 5px; font-size: 12px;">Date: _______________</p>
+                <div>Date: ___________________</div>
               </div>
-              
               <div class="signature-box">
-                <p><strong>Signature du responsable</strong></p>
-                <p style="font-size: 12px; color: #666;">Matériel vérifié et opérations validées.</p>
+                <div><strong>Signature du responsable:</strong></div>
                 <div class="signature-line"></div>
-                <p style="margin-top: 5px; font-size: 12px;">Date: _______________</p>
+                <div>Date: ___________________</div>
               </div>
             </div>
-
+            
             <div class="footer">
-              <p><strong>GO-Mat - Système de Gestion de Matériel</strong></p>
-              <p>Cette quittance confirme les opérations de retour pour le bon N° ${selectedNote.noteNumber}</p>
+              <div class="contact-info">
+                <div>GO-Mat - Système de Gestion de Matériel</div>
+                <div>Tél: 01 23 45 67 89</div>
+                <div>Email: contact@go-mat.fr</div>
+              </div>
+              <div class="page-number">Page 1/1</div>
             </div>
           </body>
         </html>

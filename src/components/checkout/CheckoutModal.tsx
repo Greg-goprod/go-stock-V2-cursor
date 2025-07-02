@@ -259,7 +259,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
         );
         toast.success(`Quantité augmentée: ${eq.name}`);
       } else {
-        toast.warning(`Quantité maximale atteinte pour ${eq.name}`);
+        toast.error(`Quantité maximale atteinte pour ${eq.name}`);
       }
     } else {
       setCheckoutItems(prev => [...prev, { equipment: eq, quantity: 1 }]);
@@ -281,7 +281,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
     }
 
     if (newQuantity > item.equipment.availableQuantity) {
-      toast.warning(`Quantité maximale disponible: ${item.equipment.availableQuantity}`);
+      toast.error(`Quantité maximale disponible: ${item.equipment.availableQuantity}`);
       return;
     }
 

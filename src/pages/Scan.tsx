@@ -39,11 +39,17 @@ const Scan: React.FC = () => {
   const identifyQRCode = async (id: string) => {
     console.log("Tentative d'identification du QR code:", id);
     
+    // Normaliser le format du code scanné
+    // Remplacer les apostrophes par des tirets si présentes
+    const normalizedId = id.replace(/'/g, '-');
+    
+    console.log("Code normalisé:", normalizedId);
+    
     // Essayer d'abord de trouver l'équipement par ID
     let { data: equipment, error: equipmentError } = await supabase
       .from('equipment')
       .select('*')
-      .eq('id', id)
+      .eq('id', normalizedId)
       .maybeSingle();
     
     console.log("Recherche par ID:", equipment, equipmentError);
@@ -53,7 +59,7 @@ const Scan: React.FC = () => {
       const { data: equipmentBySerial, error: serialError } = await supabase
         .from('equipment')
         .select('*')
-        .eq('serial_number', id)
+        .eq('serial_number', normalizedId)
         .maybeSingle();
       
       console.log("Recherche par numéro de série:", equipmentBySerial, serialError);
@@ -68,7 +74,7 @@ const Scan: React.FC = () => {
       const { data: equipmentByArticle, error: articleError } = await supabase
         .from('equipment')
         .select('*')
-        .eq('article_number', id)
+        .eq('article_number', normalizedId)
         .maybeSingle();
       
       console.log("Recherche par numéro d'article:", equipmentByArticle, articleError);
@@ -83,7 +89,7 @@ const Scan: React.FC = () => {
       const { data: equipmentByPartialArticle, error: partialArticleError } = await supabase
         .from('equipment')
         .select('*')
-        .ilike('article_number', `%${id}%`)
+        .ilike('article_number', `%${normalizedId}%`)
         .limit(1);
       
       console.log("Recherche par correspondance partielle d'article:", equipmentByPartialArticle, partialArticleError);
@@ -98,7 +104,7 @@ const Scan: React.FC = () => {
       const { data: equipmentBySimilarity, error: similarityError } = await supabase
         .from('equipment')
         .select('*')
-        .or(`serial_number.ilike.%${id}%,article_number.ilike.%${id}%,name.ilike.%${id}%`)
+        .or(`serial_number.ilike.%${normalizedId}%,article_number.ilike.%${normalizedId}%,name.ilike.%${normalizedId}%`)
         .limit(1);
       
       console.log("Recherche par similarité textuelle:", equipmentBySimilarity, similarityError);
@@ -159,7 +165,7 @@ const Scan: React.FC = () => {
         *,
         equipment(*)
       `)
-      .eq('qr_code', id)
+      .eq('qr_code', normalizedId)
       .maybeSingle();
 
     console.log("Recherche instance:", instance, instanceError);
@@ -207,7 +213,7 @@ const Scan: React.FC = () => {
     const { data: user, error: userError } = await supabase
       .from('users')
       .select('*')
-      .eq('id', id)
+      .eq('id', normalizedId)
       .maybeSingle();
 
     console.log("Recherche utilisateur:", user, userError);
@@ -242,7 +248,7 @@ const Scan: React.FC = () => {
         equipment(id, name, serial_number, article_number),
         users(id, first_name, last_name, email, department)
       `)
-      .eq('id', id)
+      .eq('id', normalizedId)
       .maybeSingle();
 
     console.log("Recherche checkout:", checkout, checkoutError);
@@ -272,10 +278,10 @@ const Scan: React.FC = () => {
     }
 
     // Si on arrive ici, on n'a pas trouvé d'élément correspondant
-    console.log("Aucun élément trouvé pour l'ID:", id);
+    console.log("Aucun élément trouvé pour l'ID:", normalizedId);
     setItemType(null);
     setItem(null);
-    throw new Error(`Aucun élément trouvé pour le code scanné: ${id}`);
+    throw new Error(`Aucun élément trouvé pour le code scanné: ${normalizedId}`);
   };
 
   const handleNavigateToItem = () => {

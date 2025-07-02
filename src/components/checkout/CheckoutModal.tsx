@@ -156,20 +156,15 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
     console.log("Code article extrait:", articleCode);
     
     try {
-      // Recherche par ID exact
-      let foundEquipment = equipment.find(eq => eq.id === scannedId);
+      // Recherche par ID exact (utiliser normalizedId)
+      let foundEquipment = equipment.find(eq => eq.id === normalizedId);
       
-      // Si non trouvé, recherche par numéro de série exact
+      // Si non trouvé, recherche par numéro de série exact (utiliser normalizedId)
       if (!foundEquipment) {
-        foundEquipment = equipment.find(eq => eq.serialNumber === scannedId);
+        foundEquipment = equipment.find(eq => eq.serialNumber === normalizedId);
       }
       
-      // Si non trouvé, recherche par numéro d'article exact
-      if (!foundEquipment) {
-        foundEquipment = equipment.find(eq => eq.articleNumber === scannedId);
-      }
-      
-      // Si non trouvé, recherche par numéro d'article normalisé
+      // Si non trouvé, recherche par numéro d'article exact (utiliser normalizedId)
       if (!foundEquipment) {
         foundEquipment = equipment.find(eq => eq.articleNumber === normalizedId);
       }
@@ -179,10 +174,9 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
         foundEquipment = equipment.find(eq => eq.articleNumber === articleCode);
       }
       
-      // Si toujours pas trouvé, recherche par correspondance partielle
+      // Si non trouvé, recherche par correspondance partielle (utiliser normalizedId et articleCode)
       if (!foundEquipment) {
         foundEquipment = equipment.find(eq => 
-          eq.articleNumber?.includes(scannedId) || 
           eq.articleNumber?.includes(normalizedId) || 
           eq.articleNumber?.includes(articleCode)
         );
@@ -193,6 +187,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
         console.log("Équipement non trouvé en mémoire, recherche en base de données...");
         
         // Recherche directe dans la base de données avec ILIKE pour une correspondance partielle
+        // Utiliser uniquement normalizedId et articleCode (pas scannedId original)
         const { data: equipmentData, error: equipmentError } = await supabase
           .from('equipment')
           .select(`
@@ -201,7 +196,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
             suppliers(id, name),
             equipment_groups(id, name)
           `)
-          .or(`id.eq.${scannedId},serial_number.eq.${scannedId},article_number.eq.${scannedId},article_number.eq.${normalizedId},article_number.eq.${articleCode},article_number.ilike.%${articleCode}%`)
+          .or(`id.eq.${normalizedId},serial_number.eq.${normalizedId},article_number.eq.${normalizedId},article_number.eq.${articleCode},article_number.ilike.%${articleCode}%`)
           .eq('status', 'available')
           .gt('available_quantity', 0)
           .limit(1);
@@ -236,7 +231,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
         console.log("Équipement trouvé:", foundEquipment);
         addEquipmentToCheckout(foundEquipment);
       } else {
-        console.log("Aucun équipement trouvé pour:", scannedId);
+        console.log("Aucun équipement trouvé pour:", normalizedId);
         toast.error('Matériel non trouvé ou non disponible');
       }
     } catch (error) {

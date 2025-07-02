@@ -30,8 +30,6 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import ReturnModal from '../components/checkout/ReturnModal';
-import QRCodeGenerator from '../components/QRCode/QRCodeGenerator';
-import Modal from '../components/common/Modal';
 
 interface CheckoutWithDetails {
   id: string;
@@ -198,7 +196,7 @@ const Checkouts: React.FC = () => {
     checkouts.forEach(checkout => {
       const noteNumber = checkout.delivery_notes?.note_number || 'Sans bon';
       const noteId = checkout.delivery_notes?.id || 'no-note';
-      const qrCode = checkout.delivery_notes?.qr_code;
+      const qrCode = checkout.delivery_notes?.qr_code || `DN-${noteNumber}`;
       
       if (!groups[noteNumber]) {
         groups[noteNumber] = {
@@ -404,6 +402,18 @@ const Checkouts: React.FC = () => {
                 margin-top: 50px;
                 margin-bottom: 5px;
               }
+              .notes {
+                margin-top: 20px;
+                border: 1px solid #ddd;
+                padding: 10px;
+                background-color: #f9f9f9;
+              }
+              .page-number {
+                text-align: center;
+                font-size: 8pt;
+                color: #777;
+                margin-top: 20px;
+              }
               .important-notice {
                 margin-top: 20px;
                 padding: 10px;
@@ -471,21 +481,18 @@ const Checkouts: React.FC = () => {
                 }
               }
               .qr-code-container {
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                justify-content: center;
-                margin: 0 auto 20px auto;
-                width: 120px;
-                height: 140px;
-                background-color: white;
-                padding: 5px;
+                text-align: center;
+                margin: 0 auto 30px auto;
+                padding: 10px;
                 border: 1px solid #ddd;
                 border-radius: 5px;
+                width: 120px;
+                background-color: white;
               }
               .qr-code {
-                width: 100%;
-                height: 100%;
+                width: 100px;
+                height: 100px;
+                margin: 0 auto;
               }
               .qr-code-label {
                 text-align: center;
@@ -506,11 +513,6 @@ const Checkouts: React.FC = () => {
               </svg>
               IMPRIMER
             </button>
-            
-            <div class="qr-code-container">
-              <div id="qrcode" class="qr-code"></div>
-              <div class="qr-code-label">Bon N° ${note.noteNumber}</div>
-            </div>
             
             <div class="header">
               <div class="logo-container">
@@ -538,6 +540,11 @@ const Checkouts: React.FC = () => {
                 <div>Tél: 01 23 45 67 89</div>
                 <div>Email: contact@go-mat.fr</div>
               </div>
+            </div>
+            
+            <div class="qr-code-container">
+              <div id="qrcode" class="qr-code"></div>
+              <div class="qr-code-label">Bon N° ${note.noteNumber}</div>
             </div>
             
             <div class="date-info">
@@ -651,8 +658,8 @@ const Checkouts: React.FC = () => {
       toast.success('Bon de sortie ouvert dans un nouvel onglet');
       
     } catch (error) {
-      console.error('Error printing checkout:', error);
-      toast.error('Erreur lors de l\'impression');
+      console.error('Error generating delivery note PDF:', error);
+      toast.error('Erreur lors de la génération du PDF');
     }
   };
 
@@ -1022,8 +1029,13 @@ const Checkouts: React.FC = () => {
                               <div className="flex items-center gap-3">
                                 <Package size={16} className="text-gray-500" />
                                 <div>
-                                  <p className="font-medium text-gray-700 dark:text-gray-300">{checkout.equipment.name}</p>
-                                  <p className="text-xs text-gray-500">{checkout.equipment.serial_number}</p>
+                                  <p className="font-medium text-gray-900 dark:text-white">
+                                    {checkout.equipment.name}
+                                  </p>
+                                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                                    {checkout.equipment.serial_number}
+                                    {checkout.equipment.article_number && ` • ${checkout.equipment.article_number}`}
+                                  </p>
                                 </div>
                               </div>
                               
@@ -1253,6 +1265,47 @@ const Checkouts: React.FC = () => {
         </Card>
       )}
 
+      {/* QR Code Modal */}
+      <Modal
+        isOpen={showQRModal}
+        onClose={() => setShowQRModal(false)}
+        title="QR CODE BON DE SORTIE"
+        size="sm"
+      >
+        {selectedNoteForQR && (
+          <div className="flex flex-col items-center">
+            <div className="mb-4 text-center">
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+                Bon N° {selectedNoteForQR.noteNumber}
+              </h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Utilisez ce QR code pour scanner et effectuer les retours
+              </p>
+            </div>
+            
+            <div className="bg-white p-4 rounded-lg shadow-md">
+              <div id="qrCodeElement" className="w-48 h-48"></div>
+            </div>
+            
+            <div className="mt-4 text-center">
+              <p className="text-xs text-gray-500 dark:text-gray-400 font-mono">
+                {selectedNoteForQR.qrCode || `DN-${selectedNoteForQR.noteNumber}`}
+              </p>
+            </div>
+            
+            <Button
+              variant="primary"
+              size="lg"
+              icon={<Printer size={18} />}
+              onClick={() => handlePrintNote(selectedNoteForQR)}
+              className="mt-6 w-full"
+            >
+              IMPRIMER LE BON COMPLET
+            </Button>
+          </div>
+        )}
+      </Modal>
+
       {/* Return Modal */}
       <ReturnModal
         isOpen={showReturnModal}
@@ -1273,26 +1326,6 @@ const Checkouts: React.FC = () => {
           checkout={selectedCheckout}
         />
       )}
-
-      {/* QR Code Modal */}
-      <Modal
-        isOpen={showQRModal}
-        onClose={() => setShowQRModal(false)}
-        title="QR CODE BON DE SORTIE"
-        size="sm"
-      >
-        {selectedNoteForQR && (
-          <div className="flex justify-center">
-            <QRCodeGenerator
-              value={selectedNoteForQR.qrCode || `DN-${selectedNoteForQR.noteNumber}`}
-              title={`Bon N° ${selectedNoteForQR.noteNumber}`}
-              subtitle={`${selectedNoteForQR.user.name} - ${format(new Date(selectedNoteForQR.issueDate), 'dd/MM/yyyy')}`}
-              size={200}
-              printable={true}
-            />
-          </div>
-        )}
-      </Modal>
     </div>
   );
 };

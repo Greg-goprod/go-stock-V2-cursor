@@ -591,21 +591,18 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
                 }
               }
               .qr-code-container {
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                justify-content: center;
-                margin: 0 auto 20px auto;
-                width: 120px;
-                height: 140px;
-                background-color: white;
-                padding: 5px;
+                text-align: center;
+                margin: 0 auto 30px auto;
+                padding: 10px;
                 border: 1px solid #ddd;
                 border-radius: 5px;
+                width: 120px;
+                background-color: white;
               }
               .qr-code {
-                width: 100%;
-                height: 100%;
+                width: 100px;
+                height: 100px;
+                margin: 0 auto;
               }
               .qr-code-label {
                 text-align: center;
@@ -626,11 +623,6 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
               </svg>
               IMPRIMER
             </button>
-            
-            <div class="qr-code-container">
-              <div id="qrcode" class="qr-code"></div>
-              <div class="qr-code-label">Bon N° ${deliveryNote.note_number}</div>
-            </div>
             
             <div class="header">
               <div class="logo-container">
@@ -658,6 +650,11 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
                 <div>Tél: 01 23 45 67 89</div>
                 <div>Email: contact@go-mat.fr</div>
               </div>
+            </div>
+            
+            <div class="qr-code-container">
+              <div id="qrcode" class="qr-code"></div>
+              <div class="qr-code-label">Bon N° ${deliveryNote.note_number}</div>
             </div>
             
             <div class="date-info">

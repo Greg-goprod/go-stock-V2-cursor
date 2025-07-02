@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import QRCodeScanner from '../components/QRCode/QRCodeScanner';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
-import { ArrowLeft, Search, Package, User, FileText, RefreshCw, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Search, Package, User, FileText, RefreshCw, AlertCircle, CheckCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { supabase } from '../lib/supabase';
 import { Equipment, User as UserType, CheckoutRecord } from '../types';
@@ -15,12 +15,14 @@ const Scan: React.FC = () => {
   const [item, setItem] = useState<any | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
 
   const handleScan = async (decodedText: string) => {
     console.log("Scan détecté:", decodedText);
     setScannedId(decodedText);
     setLoading(true);
     setError(null);
+    setSuccess(false);
     
     try {
       await identifyQRCode(decodedText);
@@ -90,6 +92,21 @@ const Scan: React.FC = () => {
         equipment = equipmentByPartialArticle[0];
       }
     }
+    
+    // Essayer avec la recherche de similarité textuelle
+    if (!equipment && !equipmentError) {
+      const { data: equipmentBySimilarity, error: similarityError } = await supabase
+        .from('equipment')
+        .select('*')
+        .or(`serial_number.ilike.%${id}%,article_number.ilike.%${id}%,name.ilike.%${id}%`)
+        .limit(1);
+      
+      console.log("Recherche par similarité textuelle:", equipmentBySimilarity, similarityError);
+      
+      if (equipmentBySimilarity && equipmentBySimilarity.length > 0) {
+        equipment = equipmentBySimilarity[0];
+      }
+    }
 
     // Si on a trouvé un équipement
     if (equipment) {
@@ -130,6 +147,7 @@ const Scan: React.FC = () => {
       };
       
       setItem(transformedEquipment);
+      setSuccess(true);
       toast.success(`Équipement trouvé: ${equipment.name}`);
       return;
     }
@@ -180,6 +198,7 @@ const Scan: React.FC = () => {
         }
       });
       
+      setSuccess(true);
       toast.success(`Instance d'équipement trouvée: ${instance.equipment.name} #${instance.instance_number}`);
       return;
     }
@@ -210,6 +229,7 @@ const Scan: React.FC = () => {
       };
       
       setItem(transformedUser);
+      setSuccess(true);
       toast.success(`Utilisateur trouvé: ${user.first_name} ${user.last_name}`);
       return;
     }
@@ -246,6 +266,7 @@ const Scan: React.FC = () => {
       };
       
       setItem(transformedCheckout);
+      setSuccess(true);
       toast.success(`Emprunt trouvé pour: ${checkout.equipment?.name}`);
       return;
     }
@@ -360,6 +381,9 @@ const Scan: React.FC = () => {
                 {error}
               </p>
             </div>
+            <p className="text-xs text-red-600 dark:text-red-400 mt-2 pl-6">
+              Essayez de scanner à nouveau ou saisissez manuellement le code dans le champ ci-dessus.
+            </p>
           </div>
         )}
 
@@ -367,6 +391,19 @@ const Scan: React.FC = () => {
           <div className="mt-4 p-4 text-center">
             <RefreshCw size={24} className="mx-auto animate-spin text-primary-600 mb-2" />
             <p className="text-sm text-gray-600 dark:text-gray-400">Recherche en cours...</p>
+          </div>
+        )}
+
+        {success && item && (
+          <div className="mt-4 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-md">
+            <div className="flex items-center gap-2">
+              <CheckCircle size={18} className="text-green-600 dark:text-green-400" />
+              <p className="text-sm font-medium text-green-700 dark:text-green-300">
+                {itemType === 'equipment' && `Équipement trouvé: ${item.name}`}
+                {itemType === 'user' && `Utilisateur trouvé: ${item.first_name} ${item.last_name}`}
+                {itemType === 'checkout' && `Emprunt trouvé pour: ${item.equipment?.name}`}
+              </p>
+            </div>
           </div>
         )}
 
@@ -394,6 +431,12 @@ const Scan: React.FC = () => {
                 )}
                 {item.articleNumber && (
                   <p><span className="font-medium">N° Article:</span> {item.articleNumber}</p>
+                )}
+                {item.category && (
+                  <p><span className="font-medium">Catégorie:</span> {item.category}</p>
+                )}
+                {item.location && (
+                  <p><span className="font-medium">Emplacement:</span> {item.location}</p>
                 )}
               </div>
             )}

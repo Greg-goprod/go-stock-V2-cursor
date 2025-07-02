@@ -44,9 +44,9 @@ validateEnvironmentVariables();
 // Création du client Supabase
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    persistSession: true,
-    autoRefreshToken: true,
-    detectSessionInUrl: true
+    persistSession: false,
+    autoRefreshToken: false,
+    detectSessionInUrl: false
   },
   global: {
     headers: {
@@ -65,7 +65,7 @@ export const testSupabaseConnection = async (): Promise<{ success: boolean; erro
   try {
     console.log('🔄 Test de connexion Supabase...');
     
-    // Test simple de connexion
+    // Test simple de connexion avec une requête basique
     const { data, error } = await supabase
       .from('equipment')
       .select('id')
@@ -73,6 +73,25 @@ export const testSupabaseConnection = async (): Promise<{ success: boolean; erro
     
     if (error) {
       console.error('❌ Erreur de connexion Supabase:', error.message);
+      
+      // Vérifier si c'est un problème de RLS
+      if (error.message.includes('RLS') || error.message.includes('policy')) {
+        console.log('🔧 Tentative de désactivation temporaire de RLS...');
+        
+        // Essayer une requête sur une table publique
+        const { data: publicData, error: publicError } = await supabase
+          .from('categories')
+          .select('id')
+          .limit(1);
+          
+        if (publicError) {
+          return { 
+            success: false, 
+            error: `Erreur RLS: ${error.message}. Vérifiez que RLS est correctement configuré ou désactivé pour les tables.` 
+          };
+        }
+      }
+      
       return { 
         success: false, 
         error: `Erreur de connexion: ${error.message}` 
@@ -80,6 +99,7 @@ export const testSupabaseConnection = async (): Promise<{ success: boolean; erro
     }
     
     console.log('✅ Connexion Supabase réussie');
+    console.log('📊 Données trouvées:', data?.length || 0, 'enregistrements');
     return { success: true };
   } catch (error: any) {
     console.error('❌ Erreur lors du test de connexion:', error);

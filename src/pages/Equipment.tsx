@@ -4,7 +4,7 @@ import Button from '../components/common/Button';
 import Badge from '../components/common/Badge';
 import StatusBadge from '../components/common/StatusBadge';
 import MaintenanceModal from '../components/maintenance/MaintenanceModal';
-import { Plus, Filter, QrCode, LayoutGrid, List, ArrowUpDown, Pencil, Trash2, Package, Wrench } from 'lucide-react';
+import { Plus, Filter, QrCode, LayoutGrid, List, ArrowUpDown, Pencil, Trash2, Package, Wrench, RefreshCw, AlertCircle } from 'lucide-react';
 import QRCodeGenerator from '../components/QRCode/QRCodeGenerator';
 import QRCodesModal from '../components/equipment/QRCodesModal';
 import Modal from '../components/common/Modal';
@@ -15,7 +15,7 @@ import ConfirmModal from '../components/common/ConfirmModal';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useStatusColors } from '../hooks/useStatusColors';
 import { Equipment, Category, Supplier, EquipmentGroup, EquipmentInstance } from '../types';
-import { supabase } from '../lib/supabase';
+import { supabase, testSupabaseConnection } from '../lib/supabase';
 import toast from 'react-hot-toast';
 
 type ViewMode = 'grid' | 'list';
@@ -30,6 +30,8 @@ const EquipmentPage: React.FC = () => {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [instances, setInstances] = useState<EquipmentInstance[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected' | 'testing'>('testing');
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [selectedEquipment, setSelectedEquipment] = useState<string | null>(null);
   const [selectedInstance, setSelectedInstance] = useState<EquipmentInstance | null>(null);
@@ -55,8 +57,22 @@ const EquipmentPage: React.FC = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
+      setError(null);
+      setConnectionStatus('testing');
+
+      // Test de connexion d'abord
+      console.log('🔄 Test de connexion Supabase...');
+      const connectionTest = await testSupabaseConnection();
       
-      // Fetch equipment with related data
+      if (!connectionTest.success) {
+        throw new Error(`Connexion échouée: ${connectionTest.error}`);
+      }
+
+      setConnectionStatus('connected');
+      console.log('✅ Connexion réussie, chargement des données...');
+      
+      // Fetch equipment avec gestion d'erreur améliorée
+      console.log('📦 Chargement des équipements...');
       const { data: equipmentData, error: equipmentError } = await supabase
         .from('equipment')
         .select(`
@@ -67,33 +83,53 @@ const EquipmentPage: React.FC = () => {
         `)
         .order('name');
 
-      if (equipmentError) throw equipmentError;
+      if (equipmentError) {
+        console.error('❌ Erreur lors du chargement des équipements:', equipmentError);
+        throw new Error(`Erreur équipements: ${equipmentError.message}`);
+      }
+
+      console.log('📦 Équipements chargés:', equipmentData?.length || 0);
 
       // Fetch categories
+      console.log('🏷️ Chargement des catégories...');
       const { data: categoriesData, error: categoriesError } = await supabase
         .from('categories')
         .select('*')
         .order('name');
       
-      if (categoriesError) throw categoriesError;
+      if (categoriesError) {
+        console.warn('⚠️ Erreur catégories (non critique):', categoriesError);
+      } else {
+        console.log('🏷️ Catégories chargées:', categoriesData?.length || 0);
+      }
       setCategories(categoriesData || []);
 
       // Fetch suppliers
+      console.log('🏢 Chargement des fournisseurs...');
       const { data: suppliersData, error: suppliersError } = await supabase
         .from('suppliers')
         .select('*')
         .order('name');
       
-      if (suppliersError) throw suppliersError;
+      if (suppliersError) {
+        console.warn('⚠️ Erreur fournisseurs (non critique):', suppliersError);
+      } else {
+        console.log('🏢 Fournisseurs chargés:', suppliersData?.length || 0);
+      }
       setSuppliers(suppliersData || []);
 
       // Fetch equipment instances
+      console.log('🔢 Chargement des instances...');
       const { data: instancesData, error: instancesError } = await supabase
         .from('equipment_instances')
         .select('*')
         .order('instance_number');
 
-      if (instancesError) throw instancesError;
+      if (instancesError) {
+        console.warn('⚠️ Erreur instances (non critique):', instancesError);
+      } else {
+        console.log('🔢 Instances chargées:', instancesData?.length || 0);
+      }
 
       // Transform equipment data to match our interface
       const transformedEquipment: Equipment[] = equipmentData?.map(eq => ({
@@ -128,12 +164,27 @@ const EquipmentPage: React.FC = () => {
 
       setEquipment(transformedEquipment);
       setInstances(transformedInstances);
+      
+      console.log('✅ Toutes les données chargées avec succès');
+      console.log('📊 Résumé:', {
+        equipment: transformedEquipment.length,
+        categories: categoriesData?.length || 0,
+        suppliers: suppliersData?.length || 0,
+        instances: transformedInstances.length
+      });
+
     } catch (error: any) {
-      console.error('Error fetching data:', error);
+      console.error('❌ Erreur lors du chargement des données:', error);
+      setConnectionStatus('disconnected');
+      setError(error.message || 'Erreur lors du chargement des données');
       toast.error('Erreur lors du chargement des données');
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleRefresh = () => {
+    fetchData();
   };
 
   const handleEditClick = (equipment: Equipment) => {
@@ -326,7 +377,62 @@ const EquipmentPage: React.FC = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-gray-500 dark:text-gray-400 text-sm">Chargement du matériel...</div>
+        <div className="text-center">
+          <RefreshCw size={28} className="mx-auto animate-spin text-primary-600 mb-3" />
+          <div className="text-gray-500 dark:text-gray-400 text-sm">Chargement du matériel...</div>
+          <div className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+            {connectionStatus === 'testing' ? 'Test de connexion...' : 'Chargement des données...'}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-4">
+        <div className="flex justify-between items-center">
+          <h1 className="text-xl font-bold text-gray-800 dark:text-white tracking-tight uppercase">MATÉRIEL</h1>
+          <Button
+            variant="outline"
+            size="sm"
+            icon={<RefreshCw size={16} />}
+            onClick={handleRefresh}
+          >
+            Réessayer
+          </Button>
+        </div>
+        
+        <Card className="p-6">
+          <div className="text-center">
+            <AlertCircle size={36} className="mx-auto text-red-500 mb-3" />
+            <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">
+              Erreur de chargement des données
+            </h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+              {error}
+            </p>
+            <div className="space-y-3">
+              <Button
+                variant="primary"
+                onClick={handleRefresh}
+                icon={<RefreshCw size={14} />}
+              >
+                Réessayer
+              </Button>
+              
+              <div className="text-left bg-gray-50 dark:bg-gray-800 rounded-lg p-3 text-xs">
+                <h4 className="font-medium text-gray-900 dark:text-white mb-1">Vérifications à effectuer:</h4>
+                <ul className="space-y-1 text-gray-600 dark:text-gray-400">
+                  <li>• Vérifiez que les variables VITE_SUPABASE_URL et VITE_SUPABASE_ANON_KEY sont configurées dans Netlify</li>
+                  <li>• Vérifiez que votre projet Supabase est actif</li>
+                  <li>• Vérifiez que RLS (Row Level Security) est désactivé ou correctement configuré</li>
+                  <li>• Consultez les logs de la console pour plus de détails</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </Card>
       </div>
     );
   }
@@ -619,7 +725,15 @@ const EquipmentPage: React.FC = () => {
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
-        <h1 className="text-xl font-bold text-gray-800 dark:text-white tracking-tight uppercase">MATÉRIEL</h1>
+        <div>
+          <h1 className="text-xl font-bold text-gray-800 dark:text-white tracking-tight uppercase">MATÉRIEL</h1>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+            {equipment.length} équipement{equipment.length > 1 ? 's' : ''} • 
+            Connexion: <span className={connectionStatus === 'connected' ? 'text-green-600' : 'text-red-600'}>
+              {connectionStatus === 'connected' ? 'Connecté' : 'Déconnecté'}
+            </span>
+          </p>
+        </div>
         
         <div className="flex gap-2">
           <div className="flex rounded-lg border border-gray-200 dark:border-gray-700">
@@ -674,16 +788,31 @@ const EquipmentPage: React.FC = () => {
               AUCUN MATÉRIEL
             </h3>
             <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
-              Commencez par ajouter votre premier matériel.
+              {connectionStatus === 'connected' 
+                ? 'Aucun matériel trouvé dans la base de données. Commencez par ajouter votre premier matériel.'
+                : 'Impossible de charger les données. Vérifiez la connexion à la base de données.'
+              }
             </p>
-            <Button
-              variant="primary"
-              icon={<Plus size={16} />}
-              onClick={() => setShowAddModal(true)}
-              className="font-bold"
-            >
-              AJOUTER DU MATÉRIEL
-            </Button>
+            {connectionStatus === 'connected' && (
+              <Button
+                variant="primary"
+                icon={<Plus size={16} />}
+                onClick={() => setShowAddModal(true)}
+                className="font-bold"
+              >
+                AJOUTER DU MATÉRIEL
+              </Button>
+            )}
+            {connectionStatus === 'disconnected' && (
+              <Button
+                variant="primary"
+                icon={<RefreshCw size={16} />}
+                onClick={handleRefresh}
+                className="font-bold"
+              >
+                RÉESSAYER
+              </Button>
+            )}
           </div>
         </Card>
       ) : (

@@ -15,34 +15,27 @@ const validateEnvironmentVariables = () => {
     if (!supabaseUrl) missingVars.push('VITE_SUPABASE_URL');
     if (!supabaseAnonKey) missingVars.push('VITE_SUPABASE_ANON_KEY');
     
-    throw new Error(`❌ Variables d'environnement Supabase manquantes: ${missingVars.join(', ')}
-
-Pour Netlify, configurez ces variables dans:
-1. Dashboard Netlify > Site settings > Environment variables
-2. Ajoutez VITE_SUPABASE_URL avec votre URL Supabase
-3. Ajoutez VITE_SUPABASE_ANON_KEY avec votre clé anonyme Supabase
-4. Redéployez le site
-
-Variables actuelles:
-- VITE_SUPABASE_URL: ${supabaseUrl || 'NON DÉFINIE'}
-- VITE_SUPABASE_ANON_KEY: ${supabaseAnonKey ? 'DÉFINIE' : 'NON DÉFINIE'}`);
+    console.error(`❌ Variables d'environnement Supabase manquantes: ${missingVars.join(', ')}`);
+    return false;
   }
 
   // Validation du format de l'URL
   try {
     new URL(supabaseUrl);
   } catch (error) {
-    throw new Error(`❌ Format d'URL Supabase invalide: ${supabaseUrl}`);
+    console.error(`❌ Format d'URL Supabase invalide: ${supabaseUrl}`);
+    return false;
   }
 
   console.log('✅ Variables d\'environnement Supabase validées avec succès');
+  return true;
 };
 
 // Validation des variables d'environnement
-validateEnvironmentVariables();
+const isValidConfig = validateEnvironmentVariables();
 
-// Création du client Supabase
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+// Création du client Supabase seulement si la configuration est valide
+export const supabase = isValidConfig ? createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     persistSession: false,
     autoRefreshToken: false,
@@ -58,12 +51,28 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
       eventsPerSecond: 10,
     },
   },
-});
+}) : null;
 
 // Fonction de test de connexion
 export const testSupabaseConnection = async (): Promise<{ success: boolean; error?: string }> => {
   try {
     console.log('🔄 Test de connexion Supabase...');
+    
+    // Vérifier d'abord si la configuration est valide
+    if (!isValidConfig || !supabase) {
+      return {
+        success: false,
+        error: 'Configuration Supabase invalide. Vérifiez vos variables d\'environnement VITE_SUPABASE_URL et VITE_SUPABASE_ANON_KEY.'
+      };
+    }
+
+    // Vérifier si les variables contiennent des valeurs par défaut
+    if (supabaseUrl.includes('votre-projet.supabase.co') || supabaseAnonKey.includes('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...')) {
+      return {
+        success: false,
+        error: 'Veuillez remplacer les valeurs par défaut dans le fichier .env par vos vraies valeurs Supabase.'
+      };
+    }
     
     // Test simple de connexion avec une requête basique
     const { data, error } = await supabase
@@ -103,6 +112,15 @@ export const testSupabaseConnection = async (): Promise<{ success: boolean; erro
     return { success: true };
   } catch (error: any) {
     console.error('❌ Erreur lors du test de connexion:', error);
+    
+    // Gestion spécifique des erreurs de réseau
+    if (error.message?.includes('Failed to fetch') || error.name === 'TypeError') {
+      return {
+        success: false,
+        error: 'Impossible de se connecter à Supabase. Vérifiez votre connexion internet et vos variables d\'environnement.'
+      };
+    }
+    
     return { 
       success: false, 
       error: error.message || 'Erreur de connexion inconnue' 
@@ -111,7 +129,7 @@ export const testSupabaseConnection = async (): Promise<{ success: boolean; erro
 };
 
 // Test de connexion au chargement (uniquement en développement)
-if (import.meta.env.DEV) {
+if (import.meta.env.DEV && isValidConfig) {
   testSupabaseConnection().then(result => {
     if (result.success) {
       console.log('🎉 Supabase connecté avec succès en mode développement');

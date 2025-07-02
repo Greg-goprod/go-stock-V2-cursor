@@ -76,6 +76,21 @@ const Scan: React.FC = () => {
       }
     }
 
+    // Si toujours pas trouvé, essayer avec ILIKE pour une correspondance partielle
+    if (!equipment && !equipmentError) {
+      const { data: equipmentByPartialArticle, error: partialArticleError } = await supabase
+        .from('equipment')
+        .select('*')
+        .ilike('article_number', `%${id}%`)
+        .limit(1);
+      
+      console.log("Recherche par correspondance partielle d'article:", equipmentByPartialArticle, partialArticleError);
+      
+      if (equipmentByPartialArticle && equipmentByPartialArticle.length > 0) {
+        equipment = equipmentByPartialArticle[0];
+      }
+    }
+
     // Si on a trouvé un équipement
     if (equipment) {
       console.log("Équipement trouvé:", equipment);
@@ -116,6 +131,56 @@ const Scan: React.FC = () => {
       
       setItem(transformedEquipment);
       toast.success(`Équipement trouvé: ${equipment.name}`);
+      return;
+    }
+
+    // Essayer de trouver une instance d'équipement
+    const { data: instance, error: instanceError } = await supabase
+      .from('equipment_instances')
+      .select(`
+        *,
+        equipment(*)
+      `)
+      .eq('qr_code', id)
+      .maybeSingle();
+
+    console.log("Recherche instance:", instance, instanceError);
+
+    if (instance) {
+      console.log("Instance d'équipement trouvée:", instance);
+      setItemType('equipment');
+      
+      // Transformer les données pour correspondre à notre interface
+      const transformedEquipment: Equipment = {
+        id: instance.equipment.id,
+        name: instance.equipment.name,
+        description: instance.equipment.description || '',
+        category: '',
+        serialNumber: instance.equipment.serial_number,
+        status: instance.equipment.status as Equipment['status'],
+        addedDate: instance.equipment.added_date || instance.equipment.created_at,
+        lastMaintenance: instance.equipment.last_maintenance,
+        imageUrl: instance.equipment.image_url,
+        supplier: '',
+        location: instance.equipment.location || '',
+        articleNumber: instance.equipment.article_number,
+        qrType: instance.equipment.qr_type || 'individual',
+        totalQuantity: instance.equipment.total_quantity || 1,
+        availableQuantity: instance.equipment.available_quantity || 1,
+        shortTitle: instance.equipment.short_title
+      };
+      
+      setItem({
+        ...transformedEquipment,
+        instance: {
+          id: instance.id,
+          instanceNumber: instance.instance_number,
+          qrCode: instance.qr_code,
+          status: instance.status
+        }
+      });
+      
+      toast.success(`Instance d'équipement trouvée: ${instance.equipment.name} #${instance.instance_number}`);
       return;
     }
 
@@ -182,56 +247,6 @@ const Scan: React.FC = () => {
       
       setItem(transformedCheckout);
       toast.success(`Emprunt trouvé pour: ${checkout.equipment?.name}`);
-      return;
-    }
-
-    // Essayer de trouver une instance d'équipement
-    const { data: instance, error: instanceError } = await supabase
-      .from('equipment_instances')
-      .select(`
-        *,
-        equipment(*)
-      `)
-      .eq('qr_code', id)
-      .maybeSingle();
-
-    console.log("Recherche instance:", instance, instanceError);
-
-    if (instance) {
-      console.log("Instance d'équipement trouvée:", instance);
-      setItemType('equipment');
-      
-      // Transformer les données pour correspondre à notre interface
-      const transformedEquipment: Equipment = {
-        id: instance.equipment.id,
-        name: instance.equipment.name,
-        description: instance.equipment.description || '',
-        category: '',
-        serialNumber: instance.equipment.serial_number,
-        status: instance.equipment.status as Equipment['status'],
-        addedDate: instance.equipment.added_date || instance.equipment.created_at,
-        lastMaintenance: instance.equipment.last_maintenance,
-        imageUrl: instance.equipment.image_url,
-        supplier: '',
-        location: instance.equipment.location || '',
-        articleNumber: instance.equipment.article_number,
-        qrType: instance.equipment.qr_type || 'individual',
-        totalQuantity: instance.equipment.total_quantity || 1,
-        availableQuantity: instance.equipment.available_quantity || 1,
-        shortTitle: instance.equipment.short_title
-      };
-      
-      setItem({
-        ...transformedEquipment,
-        instance: {
-          id: instance.id,
-          instanceNumber: instance.instance_number,
-          qrCode: instance.qr_code,
-          status: instance.status
-        }
-      });
-      
-      toast.success(`Instance d'équipement trouvée: ${instance.equipment.name} #${instance.instance_number}`);
       return;
     }
 

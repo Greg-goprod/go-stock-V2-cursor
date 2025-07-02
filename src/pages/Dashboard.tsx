@@ -20,7 +20,8 @@ import {
   Calendar,
   Clock,
   Wifi,
-  WifiOff
+  WifiOff,
+  Settings
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { supabase, testSupabaseConnection } from '../lib/supabase';
@@ -45,7 +46,7 @@ const Dashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected' | 'testing'>('testing');
+  const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected' | 'testing' | 'config_error'>('testing');
   const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
@@ -93,9 +94,22 @@ const Dashboard: React.FC = () => {
 
       setConnectionStatus('testing');
 
+      // Vérifier si Supabase est configuré
+      if (!supabase) {
+        throw new Error('Configuration Supabase manquante. Veuillez configurer vos variables d\'environnement VITE_SUPABASE_URL et VITE_SUPABASE_ANON_KEY.');
+      }
+
       // Vérifier si les variables d'environnement sont configurées
       if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY) {
-        throw new Error('Variables d\'environnement Supabase non configurées. Vérifiez VITE_SUPABASE_URL et VITE_SUPABASE_ANON_KEY dans les paramètres de déploiement Netlify.');
+        setConnectionStatus('config_error');
+        throw new Error('Variables d\'environnement Supabase non configurées. Vérifiez VITE_SUPABASE_URL et VITE_SUPABASE_ANON_KEY.');
+      }
+
+      // Vérifier si ce sont les valeurs par défaut
+      if (import.meta.env.VITE_SUPABASE_URL.includes('votre-projet.supabase.co') || 
+          import.meta.env.VITE_SUPABASE_ANON_KEY.includes('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...')) {
+        setConnectionStatus('config_error');
+        throw new Error('Veuillez remplacer les valeurs par défaut dans le fichier .env par vos vraies valeurs Supabase.');
       }
 
       // Test connection first with timeout
@@ -246,16 +260,21 @@ const Dashboard: React.FC = () => {
       
       let errorMessage = 'Une erreur est survenue lors du chargement des données';
       
-      if (error.message?.includes('Variables d\'environnement Supabase non configurées')) {
-        errorMessage = 'Variables d\'environnement Supabase non configurées. Vérifiez la configuration dans les paramètres de déploiement Netlify.';
+      if (error.message?.includes('Configuration Supabase manquante')) {
+        setConnectionStatus('config_error');
+        errorMessage = 'Configuration Supabase manquante. Veuillez configurer vos variables d\'environnement.';
+      } else if (error.message?.includes('Variables d\'environnement Supabase non configurées')) {
+        setConnectionStatus('config_error');
+        errorMessage = 'Variables d\'environnement Supabase non configurées. Vérifiez la configuration dans le fichier .env.';
+      } else if (error.message?.includes('Veuillez remplacer les valeurs par défaut')) {
+        setConnectionStatus('config_error');
+        errorMessage = 'Veuillez remplacer les valeurs par défaut dans le fichier .env par vos vraies valeurs Supabase.';
       } else if (error.message?.includes('Connection timeout')) {
         errorMessage = 'Délai de connexion dépassé. Vérifiez votre connexion internet.';
       } else if (error.message?.includes('Failed to fetch')) {
         errorMessage = 'Impossible de se connecter au serveur. Vérifiez votre connexion internet et les paramètres Supabase.';
       } else if (error.message?.includes('Invalid URL')) {
         errorMessage = 'URL Supabase invalide. Vérifiez votre configuration dans les variables d\'environnement.';
-      } else if (error.message?.includes('Missing Supabase environment variables')) {
-        errorMessage = 'Variables d\'environnement Supabase manquantes. Vérifiez la configuration Netlify.';
       } else if (error.message) {
         errorMessage = error.message;
       }
@@ -356,56 +375,81 @@ const Dashboard: React.FC = () => {
             <div className="flex items-center gap-1">
               {connectionStatus === 'connected' ? (
                 <Wifi size={14} className="text-green-500" />
+              ) : connectionStatus === 'config_error' ? (
+                <Settings size={14} className="text-orange-500" />
               ) : (
                 <WifiOff size={14} className="text-red-500" />
               )}
               <span className="text-xs text-gray-500 dark:text-gray-400">
-                {connectionStatus === 'connected' ? 'Connecté' : 'Déconnecté'}
+                {connectionStatus === 'connected' ? 'Connecté' : 
+                 connectionStatus === 'config_error' ? 'Configuration' : 'Déconnecté'}
               </span>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              icon={<RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />}
-              onClick={handleManualRefresh}
-              disabled={refreshing}
-            >
-              {refreshing ? 'Reconnexion...' : 'Réessayer'}
-            </Button>
+            {connectionStatus !== 'config_error' && (
+              <Button
+                variant="outline"
+                size="sm"
+                icon={<RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />}
+                onClick={handleManualRefresh}
+                disabled={refreshing}
+              >
+                {refreshing ? 'Reconnexion...' : 'Réessayer'}
+              </Button>
+            )}
           </div>
         </div>
         
         <Card className="p-6">
           <div className="text-center">
-            <AlertCircle size={36} className="mx-auto text-red-500 mb-3" />
+            {connectionStatus === 'config_error' ? (
+              <Settings size={36} className="mx-auto text-orange-500 mb-3" />
+            ) : (
+              <AlertCircle size={36} className="mx-auto text-red-500 mb-3" />
+            )}
             <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">
-              Erreur de connexion
+              {connectionStatus === 'config_error' ? 'Configuration requise' : 'Erreur de connexion'}
             </h3>
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
               {error}
             </p>
-            {retryCount > 0 && (
+            {retryCount > 0 && connectionStatus !== 'config_error' && (
               <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
                 Tentatives de reconnexion: {retryCount}
               </p>
             )}
             <div className="space-y-3">
-              <Button
-                variant="primary"
-                onClick={handleManualRefresh}
-                disabled={refreshing}
-                icon={<RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />}
-              >
-                {refreshing ? 'Reconnexion...' : 'Réessayer'}
-              </Button>
+              {connectionStatus !== 'config_error' && (
+                <Button
+                  variant="primary"
+                  onClick={handleManualRefresh}
+                  disabled={refreshing}
+                  icon={<RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />}
+                >
+                  {refreshing ? 'Reconnexion...' : 'Réessayer'}
+                </Button>
+              )}
               
               <div className="text-left bg-gray-50 dark:bg-gray-800 rounded-lg p-3 text-xs">
-                <h4 className="font-medium text-gray-900 dark:text-white mb-1">Vérifications à effectuer:</h4>
+                <h4 className="font-medium text-gray-900 dark:text-white mb-1">
+                  {connectionStatus === 'config_error' ? 'Configuration Supabase:' : 'Vérifications à effectuer:'}
+                </h4>
                 <ul className="space-y-1 text-gray-600 dark:text-gray-400">
-                  <li>• Vérifiez votre connexion internet</li>
-                  <li>• Vérifiez que les variables VITE_SUPABASE_URL et VITE_SUPABASE_ANON_KEY sont configurées dans Netlify</li>
-                  <li>• Vérifiez que votre projet Supabase est actif</li>
-                  <li>• Consultez les logs de déploiement Netlify pour plus de détails</li>
+                  {connectionStatus === 'config_error' ? (
+                    <>
+                      <li>• Créez un compte sur <a href="https://supabase.com" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">supabase.com</a></li>
+                      <li>• Créez un nouveau projet Supabase</li>
+                      <li>• Copiez l'URL du projet et la clé anon depuis Settings > API</li>
+                      <li>• Modifiez le fichier .env avec vos vraies valeurs</li>
+                      <li>• Redémarrez le serveur de développement</li>
+                    </>
+                  ) : (
+                    <>
+                      <li>• Vérifiez votre connexion internet</li>
+                      <li>• Vérifiez que les variables VITE_SUPABASE_URL et VITE_SUPABASE_ANON_KEY sont configurées</li>
+                      <li>• Vérifiez que votre projet Supabase est actif</li>
+                      <li>• Consultez la console pour plus de détails</li>
+                    </>
+                  )}
                 </ul>
               </div>
             </div>

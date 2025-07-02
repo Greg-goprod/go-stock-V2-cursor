@@ -77,6 +77,7 @@ interface DeliveryNoteGroup {
   checkouts: CheckoutWithDetails[];
   totalItems: number;
   returnedItems: number;
+  lostCount: number;
 }
 
 type ViewMode = 'material' | 'delivery_note';
@@ -194,7 +195,8 @@ const Checkouts: React.FC = () => {
           status: checkout.delivery_notes?.status || 'active',
           checkouts: [],
           totalItems: 0,
-          returnedItems: 0
+          returnedItems: 0,
+          lostCount: 0
         };
       }
 
@@ -202,6 +204,9 @@ const Checkouts: React.FC = () => {
       groups[noteNumber].totalItems++;
       if (checkout.status === 'returned') {
         groups[noteNumber].returnedItems++;
+      }
+      if (checkout.status === 'lost') {
+        groups[noteNumber].lostCount++;
       }
     });
 

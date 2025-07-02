@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import QRCodeScanner from '../components/QRCode/QRCodeScanner';
 import Card from '../components/common/Card';
@@ -36,12 +36,6 @@ const Scan: React.FC = () => {
     }
   };
 
-  // Helper function to check if a string is a valid UUID
-  const isValidUUID = (str: string): boolean => {
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-    return uuidRegex.test(str);
-  };
-
   const identifyQRCode = async (id: string) => {
     console.log("Tentative d'identification du QR code:", id);
     
@@ -49,38 +43,33 @@ const Scan: React.FC = () => {
     // Remplacer les apostrophes par des tirets si présentes
     const normalizedId = id.replace(/'/g, '-');
     
-    console.log("Code normalisé:", normalizedId);
+    // Vérifier si c'est un code d'instance (format: ART-20250614-0025-001)
+    const isInstanceCode = /^[A-Z]+-\d+-\d+-\d+$/.test(normalizedId);
     
-    // Only try to find equipment by ID if the scanned value is a valid UUID
-    let equipment = null;
-    if (isValidUUID(normalizedId)) {
-      const { data: equipmentById, error: equipmentError } = await supabase
-        .from('equipment')
-        .select('*')
-        .eq('id', normalizedId)
-        .maybeSingle();
-      
-      console.log("Recherche par ID:", equipmentById, equipmentError);
-      equipment = equipmentById;
-    }
-    
-    // Si pas trouvé par ID, essayer par numéro de série
-    if (!equipment) {
-      const { data: equipmentBySerial, error: serialError } = await supabase
-        .from('equipment')
-        .select('*')
-        .eq('serial_number', normalizedId)
-        .maybeSingle();
-      
-      console.log("Recherche par numéro de série:", equipmentBySerial, serialError);
-      
-      if (equipmentBySerial) {
-        equipment = equipmentBySerial;
+    // Extraire le code article de base si c'est un code d'instance
+    let articleCode = normalizedId;
+    if (isInstanceCode) {
+      // Extraire la partie article sans le numéro d'instance
+      const parts = normalizedId.split('-');
+      if (parts.length >= 3) {
+        articleCode = parts.slice(0, 3).join('-');
       }
     }
     
+    console.log("Code normalisé:", normalizedId);
+    console.log("Code article extrait:", articleCode);
+    
+    // Recherche par numéro de série exact
+    let { data: equipment, error: equipmentError } = await supabase
+      .from('equipment')
+      .select('*')
+      .eq('serial_number', normalizedId)
+      .maybeSingle();
+    
+    console.log("Recherche par numéro de série:", equipment, equipmentError);
+    
     // Si pas trouvé par numéro de série, essayer par numéro d'article
-    if (!equipment) {
+    if (!equipment && !equipmentError) {
       const { data: equipmentByArticle, error: articleError } = await supabase
         .from('equipment')
         .select('*')
@@ -93,34 +82,34 @@ const Scan: React.FC = () => {
         equipment = equipmentByArticle;
       }
     }
+    
+    // Si pas trouvé par numéro d'article, essayer par code article extrait
+    if (!equipment && !equipmentError) {
+      const { data: equipmentByArticleCode, error: articleCodeError } = await supabase
+        .from('equipment')
+        .select('*')
+        .eq('article_number', articleCode)
+        .maybeSingle();
+      
+      console.log("Recherche par code article extrait:", equipmentByArticleCode, articleCodeError);
+      
+      if (equipmentByArticleCode) {
+        equipment = equipmentByArticleCode;
+      }
+    }
 
     // Si toujours pas trouvé, essayer avec ILIKE pour une correspondance partielle
-    if (!equipment) {
+    if (!equipment && !equipmentError) {
       const { data: equipmentByPartialArticle, error: partialArticleError } = await supabase
         .from('equipment')
         .select('*')
-        .ilike('article_number', `%${normalizedId}%`)
+        .ilike('article_number', `%${articleCode}%`)
         .limit(1);
       
       console.log("Recherche par correspondance partielle d'article:", equipmentByPartialArticle, partialArticleError);
       
       if (equipmentByPartialArticle && equipmentByPartialArticle.length > 0) {
         equipment = equipmentByPartialArticle[0];
-      }
-    }
-    
-    // Essayer avec la recherche de similarité textuelle
-    if (!equipment) {
-      const { data: equipmentBySimilarity, error: similarityError } = await supabase
-        .from('equipment')
-        .select('*')
-        .or(`serial_number.ilike.%${normalizedId}%,article_number.ilike.%${normalizedId}%,name.ilike.%${normalizedId}%`)
-        .limit(1);
-      
-      console.log("Recherche par similarité textuelle:", equipmentBySimilarity, similarityError);
-      
-      if (equipmentBySimilarity && equipmentBySimilarity.length > 0) {
-        equipment = equipmentBySimilarity[0];
       }
     }
 
@@ -219,18 +208,14 @@ const Scan: React.FC = () => {
       return;
     }
 
-    // Only try to find user by ID if the scanned value is a valid UUID
-    let user = null;
-    if (isValidUUID(normalizedId)) {
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', normalizedId)
-        .maybeSingle();
+    // Essayer de trouver un utilisateur par ID
+    const { data: user, error: userError } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
 
-      console.log("Recherche utilisateur:", userData, userError);
-      user = userData;
-    }
+    console.log("Recherche utilisateur:", user, userError);
 
     if (user) {
       console.log("Utilisateur trouvé:", user);
@@ -254,22 +239,18 @@ const Scan: React.FC = () => {
       return;
     }
 
-    // Only try to find checkout by ID if the scanned value is a valid UUID
-    let checkout = null;
-    if (isValidUUID(normalizedId)) {
-      const { data: checkoutData, error: checkoutError } = await supabase
-        .from('checkouts')
-        .select(`
-          *,
-          equipment(id, name, serial_number, article_number),
-          users(id, first_name, last_name, email, department)
-        `)
-        .eq('id', normalizedId)
-        .maybeSingle();
+    // Essayer de trouver un checkout par ID
+    const { data: checkout, error: checkoutError } = await supabase
+      .from('checkouts')
+      .select(`
+        *,
+        equipment(id, name, serial_number, article_number),
+        users(id, first_name, last_name, email, department)
+      `)
+      .eq('id', id)
+      .maybeSingle();
 
-      console.log("Recherche checkout:", checkoutData, checkoutError);
-      checkout = checkoutData;
-    }
+    console.log("Recherche checkout:", checkout, checkoutError);
 
     if (checkout) {
       console.log("Checkout trouvé:", checkout);

@@ -132,12 +132,6 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
     // Le scanner sera automatiquement actif grâce à l'autoFocus dans QRCodeScanner
   };
 
-  // Helper function to check if a string is a valid UUID
-  const isValidUUID = (str: string): boolean => {
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-    return uuidRegex.test(str);
-  };
-
   const handleEquipmentScan = async (scannedId: string) => {
     console.log("Code scanné:", scannedId);
     
@@ -162,19 +156,10 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
     console.log("Code article extrait:", articleCode);
     
     try {
-      let foundEquipment = null;
-
-      // Only search by ID if the scanned value is a valid UUID
-      if (isValidUUID(normalizedId)) {
-        foundEquipment = equipment.find(eq => eq.id === normalizedId);
-      }
+      // Recherche par numéro de série exact
+      let foundEquipment = equipment.find(eq => eq.serialNumber === normalizedId);
       
-      // Si non trouvé, recherche par numéro de série exact (utiliser normalizedId)
-      if (!foundEquipment) {
-        foundEquipment = equipment.find(eq => eq.serialNumber === normalizedId);
-      }
-      
-      // Si non trouvé, recherche par numéro d'article exact (utiliser normalizedId)
+      // Si non trouvé, recherche par numéro d'article exact
       if (!foundEquipment) {
         foundEquipment = equipment.find(eq => eq.articleNumber === normalizedId);
       }
@@ -184,7 +169,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
         foundEquipment = equipment.find(eq => eq.articleNumber === articleCode);
       }
       
-      // Si non trouvé, recherche par correspondance partielle (utiliser normalizedId et articleCode)
+      // Si toujours pas trouvé, recherche par correspondance partielle
       if (!foundEquipment) {
         foundEquipment = equipment.find(eq => 
           eq.articleNumber?.includes(normalizedId) || 
@@ -196,14 +181,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
       if (!foundEquipment) {
         console.log("Équipement non trouvé en mémoire, recherche en base de données...");
         
-        // Build the query conditions based on whether the ID is a valid UUID
-        let queryConditions = `serial_number.eq.${normalizedId},article_number.eq.${normalizedId},article_number.eq.${articleCode},article_number.ilike.%${articleCode}%`;
-        
-        // Only add ID condition if it's a valid UUID
-        if (isValidUUID(normalizedId)) {
-          queryConditions = `id.eq.${normalizedId},${queryConditions}`;
-        }
-        
+        // Recherche directe dans la base de données avec ILIKE pour une correspondance partielle
         const { data: equipmentData, error: equipmentError } = await supabase
           .from('equipment')
           .select(`
@@ -212,7 +190,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
             suppliers(id, name),
             equipment_groups(id, name)
           `)
-          .or(queryConditions)
+          .or(`serial_number.eq.${normalizedId},article_number.eq.${normalizedId},article_number.eq.${articleCode},article_number.ilike.%${articleCode}%`)
           .eq('status', 'available')
           .gt('available_quantity', 0)
           .limit(1);
@@ -247,7 +225,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
         console.log("Équipement trouvé:", foundEquipment);
         addEquipmentToCheckout(foundEquipment);
       } else {
-        console.log("Aucun équipement trouvé pour:", normalizedId);
+        console.log("Aucun équipement trouvé pour:", scannedId);
         toast.error('Matériel non trouvé ou non disponible');
       }
     } catch (error) {

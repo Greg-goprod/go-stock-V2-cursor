@@ -147,7 +147,7 @@ const ReturnModal: React.FC<ReturnModalProps> = ({
         
         // Update note status if any checkout is overdue
         let noteStatus = note.status;
-        if (hasOverdueCheckouts && note.status !== 'returned') {
+        if (hasOverdueCheckouts && noteStatus !== 'returned') {
           noteStatus = 'overdue';
         }
 
@@ -495,6 +495,9 @@ const ReturnModal: React.FC<ReturnModalProps> = ({
               .extended { background-color: #fff3cd; }
               .lost { background-color: #f8d7da; }
               .recovered { background-color: #d1ecf1; }
+              .total-row {
+                font-weight: bold;
+              }
               .footer {
                 margin-top: 30px;
                 border-top: 1px solid #ddd;
@@ -562,12 +565,6 @@ const ReturnModal: React.FC<ReturnModalProps> = ({
                 text-align: center;
                 margin-top: 2px;
               }
-              .section-title {
-                font-size: 12pt;
-                font-weight: bold;
-                margin: 15px 0;
-                color: #333;
-              }
             </style>
           </head>
           <body>
@@ -619,14 +616,13 @@ const ReturnModal: React.FC<ReturnModalProps> = ({
             </div>
 
             ${returnedItems.length > 0 ? `
-              <div class="section-title">✓ Matériel Retourné</div>
               <table>
                 <thead>
                   <tr>
                     <th style="width: 5%;">N°</th>
                     <th style="width: 45%;">Désignation</th>
                     <th style="width: 20%;">Référence</th>
-                    <th style="width: 15%;">Date d'emprunt</th>
+                    <th style="width: 15%;">Statut</th>
                     <th style="width: 15%;">Notes</th>
                   </tr>
                 </thead>
@@ -636,16 +632,19 @@ const ReturnModal: React.FC<ReturnModalProps> = ({
                       <td>${index + 1}</td>
                       <td>${item.checkout.equipment.name} ${item.action === 'recover' ? '(Retrouvé)' : ''}</td>
                       <td>${item.checkout.equipment.serialNumber}</td>
-                      <td>${new Date(item.checkout.checkout_date).toLocaleDateString('fr-FR')}</td>
+                      <td>${item.action === 'recover' ? 'Retrouvé' : 'Retourné'}</td>
                       <td>${item.notes || '-'}</td>
                     </tr>
                   `).join('')}
+                  <tr class="total-row">
+                    <td colspan="3" style="text-align: right;">Total retourné:</td>
+                    <td colspan="2">${returnedItems.length}</td>
+                  </tr>
                 </tbody>
               </table>
             ` : ''}
 
             ${extendedItems.length > 0 ? `
-              <div class="section-title">📅 Prolongations Accordées</div>
               <table>
                 <thead>
                   <tr>
@@ -666,19 +665,22 @@ const ReturnModal: React.FC<ReturnModalProps> = ({
                       <td>${item.notes || '-'}</td>
                     </tr>
                   `).join('')}
+                  <tr class="total-row">
+                    <td colspan="3" style="text-align: right;">Total prolongé:</td>
+                    <td colspan="2">${extendedItems.length}</td>
+                  </tr>
                 </tbody>
               </table>
             ` : ''}
 
             ${lostItems.length > 0 ? `
-              <div class="section-title">✗ Matériel Déclaré Perdu</div>
               <table>
                 <thead>
                   <tr>
                     <th style="width: 5%;">N°</th>
                     <th style="width: 45%;">Désignation</th>
                     <th style="width: 20%;">Référence</th>
-                    <th style="width: 15%;">Date d'emprunt</th>
+                    <th style="width: 15%;">Statut</th>
                     <th style="width: 15%;">Notes</th>
                   </tr>
                 </thead>
@@ -688,10 +690,14 @@ const ReturnModal: React.FC<ReturnModalProps> = ({
                       <td>${index + 1}</td>
                       <td>${item.checkout.equipment.name}</td>
                       <td>${item.checkout.equipment.serialNumber}</td>
-                      <td>${new Date(item.checkout.checkout_date).toLocaleDateString('fr-FR')}</td>
+                      <td>Perdu</td>
                       <td>${item.notes || '-'}</td>
                     </tr>
                   `).join('')}
+                  <tr class="total-row">
+                    <td colspan="3" style="text-align: right;">Total perdu:</td>
+                    <td colspan="2">${lostItems.length}</td>
+                  </tr>
                 </tbody>
               </table>
             ` : ''}
@@ -1094,7 +1100,8 @@ const ReturnModal: React.FC<ReturnModalProps> = ({
                                 )}
                               </div>
                               <p className="text-sm text-gray-500">{checkout.equipment.serialNumber}</p>
-                              <p className="text-sm text-gray-500 dark:text-gray-400">
+                              <p className={`text-sm ${isOverdue ? 'text-red-600 dark:text-red-400 font-bold' : 'text-gray-500 dark:text-gray-400'}`}>
+                                {isOverdue && <AlertTriangle size={14} className="inline mr-1" />}
                                 Retour prévu: {new Date(checkout.due_date).toLocaleDateString('fr-FR')}
                               </p>
                             </div>

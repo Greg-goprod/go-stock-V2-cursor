@@ -19,6 +19,12 @@ const validateEnvironmentVariables = () => {
     return false;
   }
 
+  // Vérifier si ce sont les valeurs par défaut
+  if (supabaseUrl.includes('votre-projet.supabase.co') || supabaseAnonKey.includes('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...')) {
+    console.error('❌ Veuillez remplacer les valeurs par défaut par vos vraies valeurs Supabase');
+    return false;
+  }
+
   // Validation du format de l'URL
   try {
     new URL(supabaseUrl);
@@ -62,7 +68,7 @@ export const testSupabaseConnection = async (): Promise<{ success: boolean; erro
     if (!isValidConfig || !supabase) {
       return {
         success: false,
-        error: 'Configuration Supabase invalide. Vérifiez vos variables d\'environnement VITE_SUPABASE_URL et VITE_SUPABASE_ANON_KEY.'
+        error: 'Configuration Supabase invalide. Vérifiez vos variables d\'environnement VITE_SUPABASE_URL et VITE_SUPABASE_ANON_KEY dans le fichier .env'
       };
     }
 
@@ -70,46 +76,64 @@ export const testSupabaseConnection = async (): Promise<{ success: boolean; erro
     if (supabaseUrl.includes('votre-projet.supabase.co') || supabaseAnonKey.includes('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...')) {
       return {
         success: false,
-        error: 'Veuillez remplacer les valeurs par défaut dans le fichier .env par vos vraies valeurs Supabase.'
+        error: 'Veuillez remplacer les valeurs par défaut dans le fichier .env par vos vraies valeurs Supabase. Consultez https://supabase.com/dashboard pour obtenir vos clés.'
       };
     }
     
-    // Test simple de connexion avec une requête basique
-    const { data, error } = await supabase
-      .from('equipment')
-      .select('id')
-      .limit(1);
+    // Test simple de connexion avec une requête basique et timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
     
-    if (error) {
-      console.error('❌ Erreur de connexion Supabase:', error.message);
+    try {
+      const { data, error } = await supabase
+        .from('equipment')
+        .select('id')
+        .limit(1)
+        .abortSignal(controller.signal);
       
-      // Vérifier si c'est un problème de RLS
-      if (error.message.includes('RLS') || error.message.includes('policy')) {
-        console.log('🔧 Tentative de désactivation temporaire de RLS...');
+      clearTimeout(timeoutId);
+      
+      if (error) {
+        console.error('❌ Erreur de connexion Supabase:', error.message);
         
-        // Essayer une requête sur une table publique
-        const { data: publicData, error: publicError } = await supabase
-          .from('categories')
-          .select('id')
-          .limit(1);
-          
-        if (publicError) {
+        // Vérifier si c'est un problème de RLS ou de table inexistante
+        if (error.message.includes('relation "equipment" does not exist')) {
           return { 
             success: false, 
-            error: `Erreur RLS: ${error.message}. Vérifiez que RLS est correctement configuré ou désactivé pour les tables.` 
+            error: 'La table "equipment" n\'existe pas. Veuillez exécuter les migrations Supabase.' 
           };
         }
+        
+        if (error.message.includes('RLS') || error.message.includes('policy')) {
+          return { 
+            success: false, 
+            error: `Erreur RLS: ${error.message}. Vérifiez que RLS est correctement configuré.` 
+          };
+        }
+        
+        return { 
+          success: false, 
+          error: `Erreur de connexion: ${error.message}` 
+        };
       }
       
-      return { 
-        success: false, 
-        error: `Erreur de connexion: ${error.message}` 
-      };
+      console.log('✅ Connexion Supabase réussie');
+      console.log('📊 Données trouvées:', data?.length || 0, 'enregistrements');
+      return { success: true };
+      
+    } catch (fetchError: any) {
+      clearTimeout(timeoutId);
+      
+      if (fetchError.name === 'AbortError') {
+        return {
+          success: false,
+          error: 'Délai de connexion dépassé. Vérifiez votre connexion internet et l\'URL Supabase.'
+        };
+      }
+      
+      throw fetchError;
     }
     
-    console.log('✅ Connexion Supabase réussie');
-    console.log('📊 Données trouvées:', data?.length || 0, 'enregistrements');
-    return { success: true };
   } catch (error: any) {
     console.error('❌ Erreur lors du test de connexion:', error);
     
@@ -117,7 +141,14 @@ export const testSupabaseConnection = async (): Promise<{ success: boolean; erro
     if (error.message?.includes('Failed to fetch') || error.name === 'TypeError') {
       return {
         success: false,
-        error: 'Impossible de se connecter à Supabase. Vérifiez votre connexion internet et vos variables d\'environnement.'
+        error: 'Impossible de se connecter à Supabase. Vérifiez votre connexion internet et que l\'URL Supabase est correcte.'
+      };
+    }
+    
+    if (error.message?.includes('Invalid URL')) {
+      return {
+        success: false,
+        error: 'URL Supabase invalide. Vérifiez la valeur de VITE_SUPABASE_URL dans votre fichier .env'
       };
     }
     

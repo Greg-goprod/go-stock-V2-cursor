@@ -21,7 +21,8 @@ import {
   Clock,
   Wifi,
   WifiOff,
-  Settings
+  Settings,
+  ExternalLink
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { supabase, testSupabaseConnection } from '../lib/supabase';
@@ -96,13 +97,14 @@ const Dashboard: React.FC = () => {
 
       // Vérifier si Supabase est configuré
       if (!supabase) {
-        throw new Error('Configuration Supabase manquante. Veuillez configurer vos variables d\'environnement VITE_SUPABASE_URL et VITE_SUPABASE_ANON_KEY.');
+        setConnectionStatus('config_error');
+        throw new Error('Configuration Supabase manquante. Veuillez configurer vos variables d\'environnement VITE_SUPABASE_URL et VITE_SUPABASE_ANON_KEY dans le fichier .env');
       }
 
       // Vérifier si les variables d'environnement sont configurées
       if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY) {
         setConnectionStatus('config_error');
-        throw new Error('Variables d\'environnement Supabase non configurées. Vérifiez VITE_SUPABASE_URL et VITE_SUPABASE_ANON_KEY.');
+        throw new Error('Variables d\'environnement Supabase non configurées. Créez un fichier .env avec VITE_SUPABASE_URL et VITE_SUPABASE_ANON_KEY.');
       }
 
       // Vérifier si ce sont les valeurs par défaut
@@ -113,15 +115,16 @@ const Dashboard: React.FC = () => {
       }
 
       // Test connection first with timeout
-      const connectionTest = await Promise.race([
-        testSupabaseConnection(),
-        new Promise<{ success: boolean; error: string }>((_, reject) => 
-          setTimeout(() => reject(new Error('Connection timeout')), 10000)
-        )
-      ]);
+      const connectionTest = await testSupabaseConnection();
 
       if (!connectionTest.success) {
-        throw new Error(`Connection failed: ${connectionTest.error}`);
+        if (connectionTest.error?.includes('Configuration Supabase invalide') || 
+            connectionTest.error?.includes('valeurs par défaut')) {
+          setConnectionStatus('config_error');
+        } else {
+          setConnectionStatus('disconnected');
+        }
+        throw new Error(connectionTest.error || 'Connection failed');
       }
 
       setConnectionStatus('connected');
@@ -256,25 +259,21 @@ const Dashboard: React.FC = () => {
 
     } catch (error: any) {
       console.error('Error fetching dashboard data:', error);
-      setConnectionStatus('disconnected');
       
       let errorMessage = 'Une erreur est survenue lors du chargement des données';
       
       if (error.message?.includes('Configuration Supabase manquante')) {
-        setConnectionStatus('config_error');
         errorMessage = 'Configuration Supabase manquante. Veuillez configurer vos variables d\'environnement.';
       } else if (error.message?.includes('Variables d\'environnement Supabase non configurées')) {
-        setConnectionStatus('config_error');
-        errorMessage = 'Variables d\'environnement Supabase non configurées. Vérifiez la configuration dans le fichier .env.';
+        errorMessage = 'Variables d\'environnement Supabase non configurées. Créez un fichier .env avec vos clés Supabase.';
       } else if (error.message?.includes('Veuillez remplacer les valeurs par défaut')) {
-        setConnectionStatus('config_error');
         errorMessage = 'Veuillez remplacer les valeurs par défaut dans le fichier .env par vos vraies valeurs Supabase.';
-      } else if (error.message?.includes('Connection timeout')) {
-        errorMessage = 'Délai de connexion dépassé. Vérifiez votre connexion internet.';
-      } else if (error.message?.includes('Failed to fetch')) {
+      } else if (error.message?.includes('Connection timeout') || error.message?.includes('Délai de connexion')) {
+        errorMessage = 'Délai de connexion dépassé. Vérifiez votre connexion internet et l\'URL Supabase.';
+      } else if (error.message?.includes('Failed to fetch') || error.message?.includes('Impossible de se connecter')) {
         errorMessage = 'Impossible de se connecter au serveur. Vérifiez votre connexion internet et les paramètres Supabase.';
       } else if (error.message?.includes('Invalid URL')) {
-        errorMessage = 'URL Supabase invalide. Vérifiez votre configuration dans les variables d\'environnement.';
+        errorMessage = 'URL Supabase invalide. Vérifiez votre configuration dans le fichier .env';
       } else if (error.message) {
         errorMessage = error.message;
       }
@@ -407,7 +406,7 @@ const Dashboard: React.FC = () => {
               <AlertCircle size={36} className="mx-auto text-red-500 mb-3" />
             )}
             <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">
-              {connectionStatus === 'config_error' ? 'Configuration requise' : 'Erreur de connexion'}
+              {connectionStatus === 'config_error' ? 'Configuration Supabase requise' : 'Erreur de connexion'}
             </h3>
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
               {error}
@@ -429,28 +428,50 @@ const Dashboard: React.FC = () => {
                 </Button>
               )}
               
-              <div className="text-left bg-gray-50 dark:bg-gray-800 rounded-lg p-3 text-xs">
-                <h4 className="font-medium text-gray-900 dark:text-white mb-1">
+              <div className="text-left bg-gray-50 dark:bg-gray-800 rounded-lg p-4 text-sm">
+                <h4 className="font-medium text-gray-900 dark:text-white mb-2">
                   {connectionStatus === 'config_error' ? 'Configuration Supabase:' : 'Vérifications à effectuer:'}
                 </h4>
-                <ul className="space-y-1 text-gray-600 dark:text-gray-400">
+                <div className="space-y-2 text-gray-600 dark:text-gray-400">
                   {connectionStatus === 'config_error' ? (
                     <>
-                      <li>• Créez un compte sur <a href="https://supabase.com" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">supabase.com</a></li>
-                      <li>• Créez un nouveau projet Supabase</li>
-                      <li>• Copiez l'URL du projet et la clé anon depuis Settings &gt; API</li>
-                      <li>• Modifiez le fichier .env avec vos vraies valeurs</li>
-                      <li>• Redémarrez le serveur de développement</li>
+                      <div className="space-y-1">
+                        <p className="font-medium">1. Créez un projet Supabase:</p>
+                        <a 
+                          href="https://supabase.com/dashboard" 
+                          target="_blank" 
+                          rel="noopener noreferrer" 
+                          className="inline-flex items-center gap-1 text-blue-600 hover:underline text-sm"
+                        >
+                          <ExternalLink size={12} />
+                          Ouvrir le dashboard Supabase
+                        </a>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="font-medium">2. Obtenez vos clés:</p>
+                        <ul className="text-xs space-y-1 ml-4">
+                          <li>• Allez dans Settings → API</li>
+                          <li>• Copiez "Project URL" et "anon public key"</li>
+                        </ul>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="font-medium">3. Configurez le fichier .env:</p>
+                        <ul className="text-xs space-y-1 ml-4">
+                          <li>• Modifiez le fichier .env à la racine du projet</li>
+                          <li>• Remplacez les valeurs par défaut par vos vraies clés</li>
+                          <li>• Redémarrez le serveur: <code className="bg-gray-200 dark:bg-gray-700 px-1 rounded">npm run dev</code></li>
+                        </ul>
+                      </div>
                     </>
                   ) : (
-                    <>
+                    <ul className="space-y-1 text-sm">
                       <li>• Vérifiez votre connexion internet</li>
                       <li>• Vérifiez que les variables VITE_SUPABASE_URL et VITE_SUPABASE_ANON_KEY sont configurées</li>
                       <li>• Vérifiez que votre projet Supabase est actif</li>
                       <li>• Consultez la console pour plus de détails</li>
-                    </>
+                    </ul>
                   )}
-                </ul>
+                </div>
               </div>
             </div>
           </div>

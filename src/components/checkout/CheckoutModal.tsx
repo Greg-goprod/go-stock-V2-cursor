@@ -371,8 +371,8 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
 
       toast.success(`Sortie créée avec succès! Bon N° ${deliveryNote.note_number}`);
       
-      // Print delivery note
-      handlePrintDeliveryNote(deliveryNote, selectedUser, checkoutItems);
+      // Generate and download PDF
+      await generateDeliveryNotePDF(deliveryNote, selectedUser, checkoutItems);
       
       // Close modal
       onClose();
@@ -384,7 +384,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
     }
   };
 
-  const handlePrintDeliveryNote = async (deliveryNote: any, user: User, items: CheckoutItem[]) => {
+  const generateDeliveryNotePDF = async (deliveryNote: any, user: User, items: CheckoutItem[]) => {
     try {
       // Récupérer le logo depuis les paramètres système
       const { data: logoSetting } = await supabase
@@ -672,28 +672,32 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
         </html>
       `;
 
-      // Ouvrir dans une nouvelle fenêtre avec des dimensions spécifiques
-      const printWindow = window.open('', '_blank', 'width=800,height=900,scrollbars=yes,resizable=yes');
+      // Créer un Blob avec le contenu HTML
+      const blob = new Blob([printContent], { type: 'text/html' });
       
-      if (!printWindow) {
-        toast.error('Impossible d\'ouvrir la fenêtre d\'impression. Vérifiez que les popups ne sont pas bloquées.');
-        return;
-      }
+      // Créer une URL pour le blob
+      const blobUrl = URL.createObjectURL(blob);
       
-      printWindow.document.open();
-      printWindow.document.write(printContent);
-      printWindow.document.close();
+      // Créer un lien pour télécharger le fichier
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = `Bon_Sortie_${deliveryNote.note_number}.html`;
       
-      // Attendre que le contenu soit chargé avant d'imprimer
-      printWindow.onload = () => {
-        setTimeout(() => {
-          printWindow.print();
-        }, 1000);
-      };
+      // Ajouter le lien au document et cliquer dessus
+      document.body.appendChild(a);
+      a.click();
+      
+      // Nettoyer
+      document.body.removeChild(a);
+      setTimeout(() => {
+        URL.revokeObjectURL(blobUrl);
+      }, 100);
+      
+      toast.success('Bon de sortie téléchargé');
       
     } catch (error) {
-      console.error('Error printing delivery note:', error);
-      toast.error('Erreur lors de l\'impression');
+      console.error('Error generating delivery note PDF:', error);
+      toast.error('Erreur lors de la génération du PDF');
     }
   };
 
@@ -982,7 +986,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
                 onClick={handleCheckout}
                 disabled={isLoading || !dueDate}
               >
-                {isLoading ? 'Création en cours...' : 'Créer et Imprimer'}
+                {isLoading ? 'Création en cours...' : 'Créer et Télécharger'}
               </Button>
             </div>
           </div>

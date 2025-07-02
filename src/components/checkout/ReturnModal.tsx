@@ -358,8 +358,8 @@ const ReturnModal: React.FC<ReturnModalProps> = ({
       setReturnSuccess(true);
       toast.success('Opérations de retour enregistrées avec succès');
       
-      // Imprimer la quittance de retour
-      handlePrintReturn();
+      // Générer et télécharger le PDF de quittance
+      await generateReturnPDF();
       
       // Si le bon est toujours actif ou partiel, le garder sélectionné pour d'autres retours potentiels
       if (updatedNote && (updatedNote.status === 'active' || updatedNote.status === 'partial')) {
@@ -382,7 +382,7 @@ const ReturnModal: React.FC<ReturnModalProps> = ({
     }
   };
 
-  const handlePrintReturn = async () => {
+  const generateReturnPDF = async () => {
     if (!selectedNote) return;
 
     try {
@@ -672,28 +672,32 @@ const ReturnModal: React.FC<ReturnModalProps> = ({
         </html>
       `;
 
-      // Ouvrir dans une nouvelle fenêtre avec des dimensions spécifiques
-      const printWindow = window.open('', '_blank', 'width=800,height=900,scrollbars=yes,resizable=yes');
+      // Créer un Blob avec le contenu HTML
+      const blob = new Blob([printContent], { type: 'text/html' });
       
-      if (!printWindow) {
-        toast.error('Impossible d\'ouvrir la fenêtre d\'impression. Vérifiez que les popups ne sont pas bloquées.');
-        return;
-      }
+      // Créer une URL pour le blob
+      const blobUrl = URL.createObjectURL(blob);
       
-      printWindow.document.open();
-      printWindow.document.write(printContent);
-      printWindow.document.close();
+      // Créer un lien pour télécharger le fichier
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = `Quittance_Retour_${selectedNote.noteNumber}.html`;
       
-      // Attendre que le contenu soit chargé avant d'imprimer
-      printWindow.onload = () => {
-        setTimeout(() => {
-          printWindow.print();
-        }, 1000);
-      };
+      // Ajouter le lien au document et cliquer dessus
+      document.body.appendChild(a);
+      a.click();
+      
+      // Nettoyer
+      document.body.removeChild(a);
+      setTimeout(() => {
+        URL.revokeObjectURL(blobUrl);
+      }, 100);
+      
+      toast.success('Quittance de retour téléchargée');
       
     } catch (error) {
-      console.error('Error printing return:', error);
-      toast.error('Erreur lors de l\'impression');
+      console.error('Error generating return PDF:', error);
+      toast.error('Erreur lors de la génération du PDF');
     }
   };
 
@@ -1183,7 +1187,7 @@ const ReturnModal: React.FC<ReturnModalProps> = ({
                   onClick={handleReturn}
                   disabled={isLoading}
                 >
-                  {isLoading ? 'Traitement en cours...' : 'Valider et Imprimer Quittance'}
+                  {isLoading ? 'Traitement en cours...' : 'Valider et Télécharger Quittance'}
                 </Button>
               )}
             </div>

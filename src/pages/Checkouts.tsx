@@ -545,28 +545,32 @@ const Checkouts: React.FC = () => {
         </html>
       `;
 
-      // Ouvrir dans une nouvelle fenêtre avec des dimensions spécifiques
-      const printWindow = window.open('', '_blank', 'width=800,height=900,scrollbars=yes,resizable=yes');
+      // Créer un Blob avec le contenu HTML
+      const blob = new Blob([printContent], { type: 'text/html' });
       
-      if (!printWindow) {
-        toast.error('Impossible d\'ouvrir la fenêtre d\'impression. Vérifiez que les popups ne sont pas bloquées.');
-        return;
-      }
+      // Créer une URL pour le blob
+      const blobUrl = URL.createObjectURL(blob);
       
-      printWindow.document.open();
-      printWindow.document.write(printContent);
-      printWindow.document.close();
+      // Créer un lien pour télécharger le fichier
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = `Bon_Sortie_${note.noteNumber}.html`;
       
-      // Attendre que le contenu soit chargé avant d'imprimer
-      printWindow.onload = () => {
-        setTimeout(() => {
-          printWindow.print();
-        }, 1000);
-      };
+      // Ajouter le lien au document et cliquer dessus
+      document.body.appendChild(a);
+      a.click();
+      
+      // Nettoyer
+      document.body.removeChild(a);
+      setTimeout(() => {
+        URL.revokeObjectURL(blobUrl);
+      }, 100);
+      
+      toast.success('Bon de sortie téléchargé');
       
     } catch (error) {
-      console.error('Error printing checkout:', error);
-      toast.error('Erreur lors de l\'impression');
+      console.error('Error generating delivery note PDF:', error);
+      toast.error('Erreur lors de la génération du PDF');
     }
   };
 
@@ -936,10 +940,8 @@ const Checkouts: React.FC = () => {
                               <div className="flex items-center gap-3">
                                 <Package size={16} className="text-gray-500" />
                                 <div>
-                                  <p className="font-medium text-gray-900 dark:text-white">
-                                    {checkout.equipment.name}
-                                  </p>
-                                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                                  <p className="font-medium text-gray-900 dark:text-white">{checkout.equipment.name}</p>
+                                  <p className="text-xs text-gray-500 dark:text-gray-400">
                                     {checkout.equipment.serial_number}
                                     {checkout.equipment.article_number && ` • ${checkout.equipment.article_number}`}
                                   </p>
@@ -978,7 +980,7 @@ const Checkouts: React.FC = () => {
                         icon={<Printer size={16} />}
                         onClick={() => handlePrintNote(note)}
                       >
-                        Imprimer
+                        Télécharger PDF
                       </Button>
                       {note.status === 'partial' ? (
                         <Button

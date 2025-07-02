@@ -515,13 +515,6 @@ const Checkouts: React.FC = () => {
               </tbody>
             </table>
             
-            ${note.notes ? `
-              <div class="notes">
-                <strong>Notes:</strong>
-                <p>${note.notes}</p>
-              </div>
-            ` : ''}
-            
             <div class="important-notice">
               <strong>Important:</strong> Ce bon de sortie doit être conservé et présenté lors du retour du matériel.
               En cas de perte ou de dommage du matériel, veuillez contacter immédiatement le service de gestion.
@@ -568,7 +561,7 @@ const Checkouts: React.FC = () => {
       printWindow.onload = () => {
         setTimeout(() => {
           printWindow.print();
-        }, 500);
+        }, 1000);
       };
       
     } catch (error) {

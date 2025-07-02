@@ -105,7 +105,7 @@ const ReturnModal: React.FC<ReturnModalProps> = ({
       
       const notesWithDetails: DeliveryNoteWithDetails[] = data?.map(note => {
         const checkouts = note.checkouts?.map(checkout => {
-          // Check if the checkout is overdue (due date is before today)
+          // Check if the checkout is overdue
           const dueDate = new Date(checkout.due_date);
           dueDate.setHours(23, 59, 59, 999); // Set to end of the due date
           
@@ -142,12 +142,9 @@ const ReturnModal: React.FC<ReturnModalProps> = ({
         const returnedCount = checkouts.filter(c => c.status === 'returned').length;
         const lostCount = checkouts.filter(c => c.status === 'lost').length;
         
-        // Check if any checkout is overdue
-        const hasOverdueCheckouts = checkouts.some(c => c.status === 'overdue');
-        
         // Update note status if any checkout is overdue
         let noteStatus = note.status;
-        if (hasOverdueCheckouts && noteStatus !== 'returned') {
+        if (checkouts.some(c => c.status === 'overdue') && noteStatus !== 'returned') {
           noteStatus = 'overdue';
         }
 
@@ -212,17 +209,16 @@ const ReturnModal: React.FC<ReturnModalProps> = ({
       return;
     }
 
-    // Normaliser le format du code scanné
-    // Remplacer les apostrophes par des tirets si présentes
+    // Normalize the scanned ID
     const normalizedId = scannedId.replace(/'/g, '-');
     
-    // Vérifier si c'est un code d'instance (format: ART-20250614-0025-001)
+    // Check if it's an instance code (format: ART-20250614-0025-001)
     const isInstanceCode = /^[A-Z]+-\d+-\d+-\d+$/.test(normalizedId);
     
-    // Extraire le code article de base si c'est un code d'instance
+    // Extract the base article code if it's an instance code
     let articleCode = normalizedId;
     if (isInstanceCode) {
-      // Extraire la partie article sans le numéro d'instance
+      // Extract the article part without the instance number
       const parts = normalizedId.split('-');
       if (parts.length >= 3) {
         articleCode = parts.slice(0, 3).join('-');
@@ -362,7 +358,7 @@ const ReturnModal: React.FC<ReturnModalProps> = ({
       handlePrintReturn();
       
       // Si le bon est toujours actif ou partiel, le garder sélectionné pour d'autres retours potentiels
-      if (updatedNote && (updatedNote.status === 'active' || updatedNote.status === 'partial')) {
+      if (updatedNote && (updatedNote.status === 'active' || updatedNote.status === 'partial' || updatedNote.status === 'overdue')) {
         setSelectedNote(updatedNote);
         // Réinitialiser les éléments de retour
         setReturnItems([]);
@@ -391,7 +387,7 @@ const ReturnModal: React.FC<ReturnModalProps> = ({
         .from('system_settings')
         .select('value')
         .eq('id', 'company_logo')
-        .single();
+        .maybeSingle();
 
       const logoUrl = logoSetting?.value || '';
       const today = new Date();
@@ -472,10 +468,20 @@ const ReturnModal: React.FC<ReturnModalProps> = ({
                 text-align: right;
                 margin-bottom: 10px;
               }
+              .section {
+                margin-bottom: 20px;
+                border: 1px solid #ddd;
+                padding: 10px;
+              }
+              .section-title {
+                font-weight: bold;
+                margin-bottom: 10px;
+                color: #4CAF50;
+              }
               table {
                 width: 100%;
                 border-collapse: collapse;
-                margin: 20px 0;
+                margin: 10px 0;
               }
               th {
                 background-color: #4CAF50;
@@ -495,9 +501,6 @@ const ReturnModal: React.FC<ReturnModalProps> = ({
               .extended { background-color: #fff3cd; }
               .lost { background-color: #f8d7da; }
               .recovered { background-color: #d1ecf1; }
-              .total-row {
-                font-weight: bold;
-              }
               .footer {
                 margin-top: 30px;
                 border-top: 1px solid #ddd;
@@ -517,24 +520,11 @@ const ReturnModal: React.FC<ReturnModalProps> = ({
                 margin-top: 50px;
                 margin-bottom: 5px;
               }
-              .notes {
-                margin-top: 20px;
-                border: 1px solid #ddd;
-                padding: 10px;
-                background-color: #f9f9f9;
-              }
               .page-number {
                 text-align: center;
                 font-size: 8pt;
                 color: #777;
                 margin-top: 20px;
-              }
-              .important-notice {
-                margin-top: 20px;
-                padding: 10px;
-                background-color: #fff3cd;
-                border: 1px solid #ffeeba;
-                color: #856404;
               }
               .contact-info {
                 display: flex;
@@ -595,12 +585,12 @@ const ReturnModal: React.FC<ReturnModalProps> = ({
                 <div>Email: contact@go-mat.fr</div>
               </div>
             </div>
-            
+
             <div class="date-info">
               <div>Date de retour: ${formattedDate}</div>
               <div>Référence: ${selectedNote.noteNumber}</div>
             </div>
-            
+
             <div class="customer-info">
               <div class="customer-box">
                 <div><strong>Emprunteur:</strong></div>
@@ -610,102 +600,94 @@ const ReturnModal: React.FC<ReturnModalProps> = ({
                 ${selectedNote.user.phone ? `<div>Téléphone: ${selectedNote.user.phone}</div>` : ''}
               </div>
             </div>
-            
+
             <div class="document-title">
               Quittance de Retour <span class="document-number">N° ${selectedNote.noteNumber}</span>
             </div>
 
             ${returnedItems.length > 0 ? `
-              <table>
-                <thead>
-                  <tr>
-                    <th style="width: 5%;">N°</th>
-                    <th style="width: 45%;">Désignation</th>
-                    <th style="width: 20%;">Référence</th>
-                    <th style="width: 15%;">Statut</th>
-                    <th style="width: 15%;">Notes</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${returnedItems.map((item, index) => `
-                    <tr class="${item.action === 'recover' ? 'recovered' : 'returned'}">
-                      <td>${index + 1}</td>
-                      <td>${item.checkout.equipment.name} ${item.action === 'recover' ? '(Retrouvé)' : ''}</td>
-                      <td>${item.checkout.equipment.serialNumber}</td>
-                      <td>${item.action === 'recover' ? 'Retrouvé' : 'Retourné'}</td>
-                      <td>${item.notes || '-'}</td>
+              <div class="section">
+                <div class="section-title">✓ Matériel Retourné</div>
+                <table>
+                  <thead>
+                    <tr>
+                      <th style="width: 5%;">N°</th>
+                      <th style="width: 40%;">Désignation</th>
+                      <th style="width: 20%;">Référence</th>
+                      <th style="width: 20%;">Date d'emprunt</th>
+                      <th style="width: 15%;">Notes</th>
                     </tr>
-                  `).join('')}
-                  <tr class="total-row">
-                    <td colspan="3" style="text-align: right;">Total retourné:</td>
-                    <td colspan="2">${returnedItems.length}</td>
-                  </tr>
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    ${returnedItems.map((item, index) => `
+                      <tr class="${item.action === 'recover' ? 'recovered' : 'returned'}">
+                        <td>${index + 1}</td>
+                        <td>${item.checkout.equipment.name} ${item.action === 'recover' ? '(Retrouvé)' : ''}</td>
+                        <td>${item.checkout.equipment.serialNumber}</td>
+                        <td>${new Date(item.checkout.checkoutDate).toLocaleDateString('fr-FR')}</td>
+                        <td>${item.notes || '-'}</td>
+                      </tr>
+                    `).join('')}
+                  </tbody>
+                </table>
+              </div>
             ` : ''}
 
             ${extendedItems.length > 0 ? `
-              <table>
-                <thead>
-                  <tr>
-                    <th style="width: 5%;">N°</th>
-                    <th style="width: 45%;">Désignation</th>
-                    <th style="width: 20%;">Référence</th>
-                    <th style="width: 15%;">Nouvelle date</th>
-                    <th style="width: 15%;">Notes</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${extendedItems.map((item, index) => `
-                    <tr class="extended">
-                      <td>${index + 1}</td>
-                      <td>${item.checkout.equipment.name}</td>
-                      <td>${item.checkout.equipment.serialNumber}</td>
-                      <td>${item.newDueDate ? new Date(item.newDueDate).toLocaleDateString('fr-FR') : '-'}</td>
-                      <td>${item.notes || '-'}</td>
+              <div class="section">
+                <div class="section-title">📅 Prolongations Accordées</div>
+                <table>
+                  <thead>
+                    <tr>
+                      <th style="width: 5%;">N°</th>
+                      <th style="width: 40%;">Désignation</th>
+                      <th style="width: 20%;">Référence</th>
+                      <th style="width: 20%;">Nouvelle date</th>
+                      <th style="width: 15%;">Notes</th>
                     </tr>
-                  `).join('')}
-                  <tr class="total-row">
-                    <td colspan="3" style="text-align: right;">Total prolongé:</td>
-                    <td colspan="2">${extendedItems.length}</td>
-                  </tr>
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    ${extendedItems.map((item, index) => `
+                      <tr class="extended">
+                        <td>${index + 1}</td>
+                        <td>${item.checkout.equipment.name}</td>
+                        <td>${item.checkout.equipment.serialNumber}</td>
+                        <td>${item.newDueDate ? new Date(item.newDueDate).toLocaleDateString('fr-FR') : '-'}</td>
+                        <td>${item.notes || '-'}</td>
+                      </tr>
+                    `).join('')}
+                  </tbody>
+                </table>
+              </div>
             ` : ''}
 
             ${lostItems.length > 0 ? `
-              <table>
-                <thead>
-                  <tr>
-                    <th style="width: 5%;">N°</th>
-                    <th style="width: 45%;">Désignation</th>
-                    <th style="width: 20%;">Référence</th>
-                    <th style="width: 15%;">Statut</th>
-                    <th style="width: 15%;">Notes</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${lostItems.map((item, index) => `
-                    <tr class="lost">
-                      <td>${index + 1}</td>
-                      <td>${item.checkout.equipment.name}</td>
-                      <td>${item.checkout.equipment.serialNumber}</td>
-                      <td>Perdu</td>
-                      <td>${item.notes || '-'}</td>
+              <div class="section">
+                <div class="section-title">✗ Matériel Déclaré Perdu</div>
+                <table>
+                  <thead>
+                    <tr>
+                      <th style="width: 5%;">N°</th>
+                      <th style="width: 40%;">Désignation</th>
+                      <th style="width: 20%;">Référence</th>
+                      <th style="width: 20%;">Date d'emprunt</th>
+                      <th style="width: 15%;">Notes</th>
                     </tr>
-                  `).join('')}
-                  <tr class="total-row">
-                    <td colspan="3" style="text-align: right;">Total perdu:</td>
-                    <td colspan="2">${lostItems.length}</td>
-                  </tr>
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    ${lostItems.map((item, index) => `
+                      <tr class="lost">
+                        <td>${index + 1}</td>
+                        <td>${item.checkout.equipment.name}</td>
+                        <td>${item.checkout.equipment.serialNumber}</td>
+                        <td>${new Date(item.checkout.checkoutDate).toLocaleDateString('fr-FR')}</td>
+                        <td>${item.notes || '-'}</td>
+                      </tr>
+                    `).join('')}
+                  </tbody>
+                </table>
+              </div>
             ` : ''}
-            
-            <div class="important-notice">
-              <strong>Important:</strong> Cette quittance confirme les opérations de retour pour le bon N° ${selectedNote.noteNumber}.
-              Conservez ce document comme preuve de retour.
-            </div>
 
             <div class="signatures">
               <div class="signature-box">
@@ -719,7 +701,7 @@ const ReturnModal: React.FC<ReturnModalProps> = ({
                 <div>Date: ___________________</div>
               </div>
             </div>
-            
+
             <div class="footer">
               <div class="contact-info">
                 <div>GO-Mat - Système de Gestion de Matériel</div>
@@ -1093,15 +1075,14 @@ const ReturnModal: React.FC<ReturnModalProps> = ({
                                     PERDU
                                   </span>
                                 )}
-                                {isOverdue && (
+                                {isOverdue && !isLost && (
                                   <span className="text-xs bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-200 px-2 py-0.5 rounded-full">
                                     EN RETARD
                                   </span>
                                 )}
                               </div>
                               <p className="text-sm text-gray-500">{checkout.equipment.serialNumber}</p>
-                              <p className={`text-sm ${isOverdue ? 'text-red-600 dark:text-red-400 font-bold' : 'text-gray-500 dark:text-gray-400'}`}>
-                                {isOverdue && <AlertTriangle size={14} className="inline mr-1" />}
+                              <p className="text-sm text-gray-500 dark:text-gray-400">
                                 Retour prévu: {new Date(checkout.due_date).toLocaleDateString('fr-FR')}
                               </p>
                             </div>

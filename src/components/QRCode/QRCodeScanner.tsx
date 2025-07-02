@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { QrCode, Zap } from 'lucide-react';
+import { Html5QrcodeScanner } from 'html5-qrcode';
 
 interface QRCodeScannerProps {
   onScan: (decodedText: string) => void;
@@ -10,9 +11,59 @@ const QRCodeScanner: React.FC<QRCodeScannerProps> = ({ onScan, onError }) => {
   const [scannedValue, setScannedValue] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [lastScanStatus, setLastScanStatus] = useState<'success' | 'error' | 'duplicate' | null>(null);
+  const [isScanning, setIsScanning] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const scannerRef = useRef<Html5QrcodeScanner | null>(null);
+  const scannerDivRef = useRef<HTMLDivElement>(null);
   const lastScanTimeRef = useRef<number>(0);
   const lastScannedValueRef = useRef<string>('');
+
+  // Initialiser le scanner de QR code
+  useEffect(() => {
+    if (!isScanning && scannerDivRef.current) {
+      // Configuration du scanner
+      const config = {
+        fps: 10,
+        qrbox: { width: 250, height: 250 },
+        rememberLastUsedCamera: true,
+        aspectRatio: 1.0
+      };
+
+      // Créer une nouvelle instance du scanner
+      scannerRef.current = new Html5QrcodeScanner(
+        "qr-reader",
+        config,
+        false // Ne pas démarrer le scan automatiquement
+      );
+
+      // Démarrer le scanner
+      scannerRef.current.render(
+        // Succès
+        (decodedText: string) => {
+          console.log("QR Code détecté:", decodedText);
+          handleScan(decodedText);
+        },
+        // Erreur
+        (errorMessage: string) => {
+          console.error("Erreur de scan:", errorMessage);
+          if (onError) {
+            onError(errorMessage);
+          }
+        }
+      );
+
+      setIsScanning(true);
+    }
+
+    // Nettoyage lors du démontage du composant
+    return () => {
+      if (scannerRef.current) {
+        scannerRef.current.clear().catch(error => {
+          console.error("Erreur lors du nettoyage du scanner:", error);
+        });
+      }
+    };
+  }, [isScanning]);
 
   // Auto-focus permanent sur le champ
   useEffect(() => {
@@ -70,6 +121,7 @@ const QRCodeScanner: React.FC<QRCodeScannerProps> = ({ onScan, onError }) => {
     setLastScanStatus(null);
 
     try {
+      console.log("Traitement du QR code:", cleanValue);
       await onScan(cleanValue);
       setLastScanStatus('success');
       setScannedValue('');
@@ -137,11 +189,16 @@ const QRCodeScanner: React.FC<QRCodeScannerProps> = ({ onScan, onError }) => {
           </h3>
         </div>
         <p className="text-sm text-blue-700 dark:text-blue-300 font-medium">
-          Utilisez votre douchette pour scanner en continu
+          Utilisez votre caméra ou saisissez manuellement un code
         </p>
       </div>
 
-      {/* Champ de saisie optimisé */}
+      {/* Scanner HTML5 */}
+      <div className="mb-4">
+        <div id="qr-reader" ref={scannerDivRef} className="w-full"></div>
+      </div>
+
+      {/* Champ de saisie manuelle */}
       <div className="relative">
         <input
           ref={inputRef}
@@ -149,7 +206,7 @@ const QRCodeScanner: React.FC<QRCodeScannerProps> = ({ onScan, onError }) => {
           value={scannedValue}
           onChange={handleInputChange}
           onKeyDown={handleKeyDown}
-          placeholder="Scannez un QR code..."
+          placeholder="Scannez un QR code ou saisissez un code..."
           disabled={isProcessing}
           className={`w-full px-4 py-4 text-center border-2 rounded-lg font-mono text-lg focus:outline-none focus:ring-2 focus:ring-primary-500 transition-all ${getStatusColor()}`}
           autoComplete="off"

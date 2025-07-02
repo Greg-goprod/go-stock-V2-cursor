@@ -31,7 +31,14 @@ const DirectReturnModal: React.FC<DirectReturnModalProps> = ({ isOpen, onClose, 
   const [notes, setNotes] = useState('');
   const [success, setSuccess] = useState(false);
   
-  const isOverdue = new Date(checkout.due_date) < new Date();
+  // Check if the checkout is overdue
+  const dueDate = new Date(checkout.due_date);
+  dueDate.setHours(23, 59, 59, 999); // Set to end of the due date
+  
+  const today = new Date();
+  today.setHours(0, 0, 0, 0); // Set to start of today
+  
+  const isOverdue = dueDate < today && checkout.status === 'active';
   const isLost = checkout.status === 'lost';
 
   const handleReturnEquipment = async () => {
@@ -93,7 +100,7 @@ const DirectReturnModal: React.FC<DirectReturnModalProps> = ({ isOpen, onClose, 
           if (relatedError) throw relatedError;
 
           const allReturned = relatedCheckouts?.every(c => c.status === 'returned');
-          const anyActive = relatedCheckouts?.some(c => c.status === 'active');
+          const anyActive = relatedCheckouts?.some(c => c.status === 'active' || c.status === 'overdue');
 
           // Mettre à jour le statut du bon de sortie
           if (allReturned) {

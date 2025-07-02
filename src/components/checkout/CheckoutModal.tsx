@@ -402,6 +402,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
       const logoUrl = logoSetting?.value || '';
 
       const printContent = `
+        <!DOCTYPE html>
         <html>
           <head>
             <title>Bon de Sortie ${deliveryNote.note_number} - GO-Mat</title>
@@ -607,6 +608,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
         return;
       }
       
+      printWindow.document.open();
       printWindow.document.write(printContent);
       printWindow.document.close();
       

@@ -405,9 +405,6 @@ const ReturnModal: React.FC<ReturnModalProps> = ({
       const extendedItems = returnItems.filter(item => item.action === 'extend');
       const lostItems = returnItems.filter(item => item.action === 'lost');
 
-      // Générer le QR code pour le bon de sortie
-      const noteQrCode = selectedNote.qrCode || `DN-${selectedNote.noteNumber}`;
-
       const printContent = `
         <!DOCTYPE html>
         <html>
@@ -535,78 +532,9 @@ const ReturnModal: React.FC<ReturnModalProps> = ({
                 font-size: 8pt;
                 color: #777;
               }
-              .print-button {
-                position: fixed;
-                top: 20px;
-                right: 20px;
-                padding: 15px 25px;
-                background-color: #4CAF50;
-                color: white;
-                border: none;
-                border-radius: 5px;
-                cursor: pointer;
-                font-size: 16px;
-                font-weight: bold;
-                box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-                display: flex;
-                align-items: center;
-                gap: 10px;
-                z-index: 1000;
-              }
-              .print-button:hover {
-                background-color: #45a049;
-              }
-              .print-icon {
-                width: 20px;
-                height: 20px;
-              }
-              @media print {
-                .print-button {
-                  display: none;
-                }
-              }
-              .qr-code-container {
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                justify-content: center;
-                margin: 0 auto 20px auto;
-                width: 120px;
-                height: 140px;
-                background-color: white;
-                padding: 5px;
-                border: 1px solid #ddd;
-                border-radius: 5px;
-              }
-              .qr-code {
-                width: 100%;
-                height: 100%;
-              }
-              .qr-code-label {
-                text-align: center;
-                font-size: 8pt;
-                margin-top: 5px;
-                color: #333;
-                font-weight: bold;
-              }
             </style>
-            <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
           </head>
           <body>
-            <button class="print-button" onclick="window.print()">
-              <svg class="print-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="6 9 6 2 18 2 18 9"></polyline>
-                <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
-                <rect x="6" y="14" width="12" height="8"></rect>
-              </svg>
-              IMPRIMER
-            </button>
-            
-            <div class="qr-code-container">
-              <div id="qrcode" class="qr-code"></div>
-              <div class="qr-code-label">Bon N° ${selectedNote.noteNumber}</div>
-            </div>
-            
             <div class="header">
               <div class="logo-container">
                 ${logoUrl ? `<img src="${logoUrl}" alt="Logo" class="logo" />` : `<div class="company-name">GO-Mat</div>`}
@@ -740,39 +668,28 @@ const ReturnModal: React.FC<ReturnModalProps> = ({
               </div>
               <div class="page-number">Page 1/1</div>
             </div>
-
-            <script>
-              // Générer le QR code
-              window.onload = function() {
-                QRCode.toCanvas(document.getElementById('qrcode'), '${noteQrCode}', {
-                  width: 100,
-                  margin: 0,
-                  color: {
-                    dark: '#000000',
-                    light: '#FFFFFF'
-                  }
-                });
-              };
-            </script>
           </body>
         </html>
       `;
 
-      // Créer un Blob avec le contenu HTML
-      const blob = new Blob([printContent], { type: 'text/html' });
+      // Ouvrir dans une nouvelle fenêtre avec des dimensions spécifiques
+      const printWindow = window.open('', '_blank', 'width=800,height=900,scrollbars=yes,resizable=yes');
       
-      // Créer une URL pour le blob
-      const blobUrl = URL.createObjectURL(blob);
+      if (!printWindow) {
+        toast.error('Impossible d\'ouvrir la fenêtre d\'impression. Vérifiez que les popups ne sont pas bloquées.');
+        return;
+      }
       
-      // Ouvrir dans un nouvel onglet
-      window.open(blobUrl, '_blank');
+      printWindow.document.open();
+      printWindow.document.write(printContent);
+      printWindow.document.close();
       
-      // Nettoyer l'URL après un délai
-      setTimeout(() => {
-        URL.revokeObjectURL(blobUrl);
-      }, 1000);
-      
-      toast.success('Quittance de retour ouverte dans un nouvel onglet');
+      // Attendre que le contenu soit chargé avant d'imprimer
+      printWindow.onload = () => {
+        setTimeout(() => {
+          printWindow.print();
+        }, 1000);
+      };
       
     } catch (error) {
       console.error('Error printing return:', error);

@@ -132,6 +132,12 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
     // Le scanner sera automatiquement actif grâce à l'autoFocus dans QRCodeScanner
   };
 
+  // Helper function to check if a string is a valid UUID
+  const isValidUUID = (str: string): boolean => {
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    return uuidRegex.test(str);
+  };
+
   const handleEquipmentScan = async (scannedId: string) => {
     console.log("Code scanné:", scannedId);
     
@@ -156,8 +162,12 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
     console.log("Code article extrait:", articleCode);
     
     try {
-      // Recherche par ID exact (utiliser normalizedId)
-      let foundEquipment = equipment.find(eq => eq.id === normalizedId);
+      let foundEquipment = null;
+
+      // Only search by ID if the scanned value is a valid UUID
+      if (isValidUUID(normalizedId)) {
+        foundEquipment = equipment.find(eq => eq.id === normalizedId);
+      }
       
       // Si non trouvé, recherche par numéro de série exact (utiliser normalizedId)
       if (!foundEquipment) {
@@ -186,8 +196,14 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
       if (!foundEquipment) {
         console.log("Équipement non trouvé en mémoire, recherche en base de données...");
         
-        // Recherche directe dans la base de données avec ILIKE pour une correspondance partielle
-        // Utiliser uniquement normalizedId et articleCode (pas scannedId original)
+        // Build the query conditions based on whether the ID is a valid UUID
+        let queryConditions = `serial_number.eq.${normalizedId},article_number.eq.${normalizedId},article_number.eq.${articleCode},article_number.ilike.%${articleCode}%`;
+        
+        // Only add ID condition if it's a valid UUID
+        if (isValidUUID(normalizedId)) {
+          queryConditions = `id.eq.${normalizedId},${queryConditions}`;
+        }
+        
         const { data: equipmentData, error: equipmentError } = await supabase
           .from('equipment')
           .select(`
@@ -196,7 +212,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
             suppliers(id, name),
             equipment_groups(id, name)
           `)
-          .or(`id.eq.${normalizedId},serial_number.eq.${normalizedId},article_number.eq.${normalizedId},article_number.eq.${articleCode},article_number.ilike.%${articleCode}%`)
+          .or(queryConditions)
           .eq('status', 'available')
           .gt('available_quantity', 0)
           .limit(1);

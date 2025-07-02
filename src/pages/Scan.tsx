@@ -36,6 +36,12 @@ const Scan: React.FC = () => {
     }
   };
 
+  // Helper function to check if a string is a valid UUID
+  const isValidUUID = (str: string): boolean => {
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    return uuidRegex.test(str);
+  };
+
   const identifyQRCode = async (id: string) => {
     console.log("Tentative d'identification du QR code:", id);
     
@@ -45,17 +51,21 @@ const Scan: React.FC = () => {
     
     console.log("Code normalisé:", normalizedId);
     
-    // Essayer d'abord de trouver l'équipement par ID
-    let { data: equipment, error: equipmentError } = await supabase
-      .from('equipment')
-      .select('*')
-      .eq('id', normalizedId)
-      .maybeSingle();
-    
-    console.log("Recherche par ID:", equipment, equipmentError);
+    // Only try to find equipment by ID if the scanned value is a valid UUID
+    let equipment = null;
+    if (isValidUUID(normalizedId)) {
+      const { data: equipmentById, error: equipmentError } = await supabase
+        .from('equipment')
+        .select('*')
+        .eq('id', normalizedId)
+        .maybeSingle();
+      
+      console.log("Recherche par ID:", equipmentById, equipmentError);
+      equipment = equipmentById;
+    }
     
     // Si pas trouvé par ID, essayer par numéro de série
-    if (!equipment && !equipmentError) {
+    if (!equipment) {
       const { data: equipmentBySerial, error: serialError } = await supabase
         .from('equipment')
         .select('*')
@@ -70,7 +80,7 @@ const Scan: React.FC = () => {
     }
     
     // Si pas trouvé par numéro de série, essayer par numéro d'article
-    if (!equipment && !equipmentError) {
+    if (!equipment) {
       const { data: equipmentByArticle, error: articleError } = await supabase
         .from('equipment')
         .select('*')
@@ -85,7 +95,7 @@ const Scan: React.FC = () => {
     }
 
     // Si toujours pas trouvé, essayer avec ILIKE pour une correspondance partielle
-    if (!equipment && !equipmentError) {
+    if (!equipment) {
       const { data: equipmentByPartialArticle, error: partialArticleError } = await supabase
         .from('equipment')
         .select('*')
@@ -100,7 +110,7 @@ const Scan: React.FC = () => {
     }
     
     // Essayer avec la recherche de similarité textuelle
-    if (!equipment && !equipmentError) {
+    if (!equipment) {
       const { data: equipmentBySimilarity, error: similarityError } = await supabase
         .from('equipment')
         .select('*')
@@ -209,14 +219,18 @@ const Scan: React.FC = () => {
       return;
     }
 
-    // Essayer de trouver un utilisateur
-    const { data: user, error: userError } = await supabase
-      .from('users')
-      .select('*')
-      .eq('id', normalizedId)
-      .maybeSingle();
+    // Only try to find user by ID if the scanned value is a valid UUID
+    let user = null;
+    if (isValidUUID(normalizedId)) {
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', normalizedId)
+        .maybeSingle();
 
-    console.log("Recherche utilisateur:", user, userError);
+      console.log("Recherche utilisateur:", userData, userError);
+      user = userData;
+    }
 
     if (user) {
       console.log("Utilisateur trouvé:", user);
@@ -240,18 +254,22 @@ const Scan: React.FC = () => {
       return;
     }
 
-    // Essayer de trouver un checkout
-    const { data: checkout, error: checkoutError } = await supabase
-      .from('checkouts')
-      .select(`
-        *,
-        equipment(id, name, serial_number, article_number),
-        users(id, first_name, last_name, email, department)
-      `)
-      .eq('id', normalizedId)
-      .maybeSingle();
+    // Only try to find checkout by ID if the scanned value is a valid UUID
+    let checkout = null;
+    if (isValidUUID(normalizedId)) {
+      const { data: checkoutData, error: checkoutError } = await supabase
+        .from('checkouts')
+        .select(`
+          *,
+          equipment(id, name, serial_number, article_number),
+          users(id, first_name, last_name, email, department)
+        `)
+        .eq('id', normalizedId)
+        .maybeSingle();
 
-    console.log("Recherche checkout:", checkout, checkoutError);
+      console.log("Recherche checkout:", checkoutData, checkoutError);
+      checkout = checkoutData;
+    }
 
     if (checkout) {
       console.log("Checkout trouvé:", checkout);

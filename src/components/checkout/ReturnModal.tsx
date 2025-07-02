@@ -358,8 +358,8 @@ const ReturnModal: React.FC<ReturnModalProps> = ({
       setReturnSuccess(true);
       toast.success('Opérations de retour enregistrées avec succès');
       
-      // Générer et télécharger le PDF de quittance
-      await generateReturnPDF();
+      // Imprimer la quittance de retour
+      handlePrintReturn();
       
       // Si le bon est toujours actif ou partiel, le garder sélectionné pour d'autres retours potentiels
       if (updatedNote && (updatedNote.status === 'active' || updatedNote.status === 'partial')) {
@@ -382,7 +382,7 @@ const ReturnModal: React.FC<ReturnModalProps> = ({
     }
   };
 
-  const generateReturnPDF = async () => {
+  const handlePrintReturn = async () => {
     if (!selectedNote) return;
 
     try {
@@ -678,22 +678,15 @@ const ReturnModal: React.FC<ReturnModalProps> = ({
       // Créer une URL pour le blob
       const blobUrl = URL.createObjectURL(blob);
       
-      // Créer un lien pour télécharger le fichier
-      const a = document.createElement('a');
-      a.href = blobUrl;
-      a.download = `Quittance_Retour_${selectedNote.noteNumber}.html`;
+      // Ouvrir dans un nouvel onglet
+      window.open(blobUrl, '_blank');
       
-      // Ajouter le lien au document et cliquer dessus
-      document.body.appendChild(a);
-      a.click();
-      
-      // Nettoyer
-      document.body.removeChild(a);
+      // Nettoyer l'URL après un délai
       setTimeout(() => {
         URL.revokeObjectURL(blobUrl);
-      }, 100);
+      }, 1000);
       
-      toast.success('Quittance de retour téléchargée');
+      toast.success('Quittance de retour ouverte dans un nouvel onglet');
       
     } catch (error) {
       console.error('Error generating return PDF:', error);
@@ -1187,7 +1180,7 @@ const ReturnModal: React.FC<ReturnModalProps> = ({
                   onClick={handleReturn}
                   disabled={isLoading}
                 >
-                  {isLoading ? 'Traitement en cours...' : 'Valider et Télécharger Quittance'}
+                  {isLoading ? 'Traitement en cours...' : 'Valider et Générer PDF'}
                 </Button>
               )}
             </div>

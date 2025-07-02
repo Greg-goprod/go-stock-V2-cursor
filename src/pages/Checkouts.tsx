@@ -551,22 +551,15 @@ const Checkouts: React.FC = () => {
       // Créer une URL pour le blob
       const blobUrl = URL.createObjectURL(blob);
       
-      // Créer un lien pour télécharger le fichier
-      const a = document.createElement('a');
-      a.href = blobUrl;
-      a.download = `Bon_Sortie_${note.noteNumber}.html`;
+      // Ouvrir dans un nouvel onglet
+      window.open(blobUrl, '_blank');
       
-      // Ajouter le lien au document et cliquer dessus
-      document.body.appendChild(a);
-      a.click();
-      
-      // Nettoyer
-      document.body.removeChild(a);
+      // Nettoyer l'URL après un délai
       setTimeout(() => {
         URL.revokeObjectURL(blobUrl);
-      }, 100);
+      }, 1000);
       
-      toast.success('Bon de sortie téléchargé');
+      toast.success('Bon de sortie ouvert dans un nouvel onglet');
       
     } catch (error) {
       console.error('Error generating delivery note PDF:', error);
@@ -980,7 +973,7 @@ const Checkouts: React.FC = () => {
                         icon={<Printer size={16} />}
                         onClick={() => handlePrintNote(note)}
                       >
-                        Télécharger PDF
+                        Ouvrir PDF
                       </Button>
                       {note.status === 'partial' ? (
                         <Button

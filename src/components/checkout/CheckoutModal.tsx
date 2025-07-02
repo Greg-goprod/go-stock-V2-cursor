@@ -371,7 +371,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
 
       toast.success(`Sortie créée avec succès! Bon N° ${deliveryNote.note_number}`);
       
-      // Generate and download PDF
+      // Generate and open PDF
       await generateDeliveryNotePDF(deliveryNote, selectedUser, checkoutItems);
       
       // Close modal
@@ -678,22 +678,15 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
       // Créer une URL pour le blob
       const blobUrl = URL.createObjectURL(blob);
       
-      // Créer un lien pour télécharger le fichier
-      const a = document.createElement('a');
-      a.href = blobUrl;
-      a.download = `Bon_Sortie_${deliveryNote.note_number}.html`;
+      // Ouvrir dans un nouvel onglet
+      window.open(blobUrl, '_blank');
       
-      // Ajouter le lien au document et cliquer dessus
-      document.body.appendChild(a);
-      a.click();
-      
-      // Nettoyer
-      document.body.removeChild(a);
+      // Nettoyer l'URL après un délai
       setTimeout(() => {
         URL.revokeObjectURL(blobUrl);
-      }, 100);
+      }, 1000);
       
-      toast.success('Bon de sortie téléchargé');
+      toast.success('Bon de sortie ouvert dans un nouvel onglet');
       
     } catch (error) {
       console.error('Error generating delivery note PDF:', error);
@@ -986,7 +979,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
                 onClick={handleCheckout}
                 disabled={isLoading || !dueDate}
               >
-                {isLoading ? 'Création en cours...' : 'Créer et Télécharger'}
+                {isLoading ? 'Création en cours...' : 'Créer et Ouvrir PDF'}
               </Button>
             </div>
           </div>

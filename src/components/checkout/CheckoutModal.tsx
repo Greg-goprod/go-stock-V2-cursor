@@ -164,7 +164,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
         foundEquipment = equipment.find(eq => eq.articleNumber === normalizedId);
       }
       
-      // Si non trouvé, recherche par numéro d'article extrait (sans numéro d'instance)
+      // Si non trouvé, recherche par code article extrait
       if (!foundEquipment) {
         foundEquipment = equipment.find(eq => eq.articleNumber === articleCode);
       }
@@ -688,7 +688,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
       printWindow.onload = () => {
         setTimeout(() => {
           printWindow.print();
-        }, 500);
+        }, 1000);
       };
       
     } catch (error) {

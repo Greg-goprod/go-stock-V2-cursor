@@ -144,10 +144,10 @@ const ReturnModal: React.FC<ReturnModalProps> = ({
         
         // Check if any checkout is overdue
         const hasOverdueCheckouts = checkouts.some(c => c.status === 'overdue');
-        let noteStatus = note.status;
         
         // Update note status if any checkout is overdue
-        if (hasOverdueCheckouts && noteStatus !== 'returned') {
+        let noteStatus = note.status;
+        if (hasOverdueCheckouts && note.status !== 'returned') {
           noteStatus = 'overdue';
         }
 
@@ -157,7 +157,7 @@ const ReturnModal: React.FC<ReturnModalProps> = ({
           userId: note.user_id,
           issueDate: note.issue_date,
           dueDate: note.due_date,
-          status: noteStatus,
+          status: noteStatus as DeliveryNote['status'],
           notes: note.notes,
           createdAt: note.created_at,
           updatedAt: note.updated_at,
@@ -212,10 +212,27 @@ const ReturnModal: React.FC<ReturnModalProps> = ({
       return;
     }
 
+    // Normaliser le format du code scanné
+    // Remplacer les apostrophes par des tirets si présentes
+    const normalizedId = scannedId.replace(/'/g, '-');
+    
+    // Vérifier si c'est un code d'instance (format: ART-20250614-0025-001)
+    const isInstanceCode = /^[A-Z]+-\d+-\d+-\d+$/.test(normalizedId);
+    
+    // Extraire le code article de base si c'est un code d'instance
+    let articleCode = normalizedId;
+    if (isInstanceCode) {
+      // Extraire la partie article sans le numéro d'instance
+      const parts = normalizedId.split('-');
+      if (parts.length >= 3) {
+        articleCode = parts.slice(0, 3).join('-');
+      }
+    }
+
     const checkout = selectedNote.checkouts.find(c => 
-      c.equipment.id === scannedId || 
-      c.equipment.serialNumber === scannedId || 
-      c.equipment.articleNumber === scannedId
+      c.equipment.serialNumber === normalizedId || 
+      c.equipment.articleNumber === normalizedId ||
+      c.equipment.articleNumber === articleCode
     );
     
     if (checkout) {
@@ -345,7 +362,7 @@ const ReturnModal: React.FC<ReturnModalProps> = ({
       handlePrintReturn();
       
       // Si le bon est toujours actif ou partiel, le garder sélectionné pour d'autres retours potentiels
-      if (updatedNote && (updatedNote.status === 'active' || updatedNote.status === 'partial' || updatedNote.status === 'overdue')) {
+      if (updatedNote && (updatedNote.status === 'active' || updatedNote.status === 'partial')) {
         setSelectedNote(updatedNote);
         // Réinitialiser les éléments de retour
         setReturnItems([]);
@@ -478,9 +495,6 @@ const ReturnModal: React.FC<ReturnModalProps> = ({
               .extended { background-color: #fff3cd; }
               .lost { background-color: #f8d7da; }
               .recovered { background-color: #d1ecf1; }
-              .total-row {
-                font-weight: bold;
-              }
               .footer {
                 margin-top: 30px;
                 border-top: 1px solid #ddd;
@@ -551,7 +565,7 @@ const ReturnModal: React.FC<ReturnModalProps> = ({
               .section-title {
                 font-size: 12pt;
                 font-weight: bold;
-                margin: 15px 0 10px 0;
+                margin: 15px 0;
                 color: #333;
               }
             </style>
@@ -603,7 +617,7 @@ const ReturnModal: React.FC<ReturnModalProps> = ({
             <div class="document-title">
               Quittance de Retour <span class="document-number">N° ${selectedNote.noteNumber}</span>
             </div>
-            
+
             ${returnedItems.length > 0 ? `
               <div class="section-title">✓ Matériel Retourné</div>
               <table>
@@ -622,7 +636,7 @@ const ReturnModal: React.FC<ReturnModalProps> = ({
                       <td>${index + 1}</td>
                       <td>${item.checkout.equipment.name} ${item.action === 'recover' ? '(Retrouvé)' : ''}</td>
                       <td>${item.checkout.equipment.serialNumber}</td>
-                      <td>${new Date(item.checkout.checkoutDate).toLocaleDateString('fr-FR')}</td>
+                      <td>${new Date(item.checkout.checkout_date).toLocaleDateString('fr-FR')}</td>
                       <td>${item.notes || '-'}</td>
                     </tr>
                   `).join('')}
@@ -674,7 +688,7 @@ const ReturnModal: React.FC<ReturnModalProps> = ({
                       <td>${index + 1}</td>
                       <td>${item.checkout.equipment.name}</td>
                       <td>${item.checkout.equipment.serialNumber}</td>
-                      <td>${new Date(item.checkout.checkoutDate).toLocaleDateString('fr-FR')}</td>
+                      <td>${new Date(item.checkout.checkout_date).toLocaleDateString('fr-FR')}</td>
                       <td>${item.notes || '-'}</td>
                     </tr>
                   `).join('')}
@@ -684,9 +698,9 @@ const ReturnModal: React.FC<ReturnModalProps> = ({
             
             <div class="important-notice">
               <strong>Important:</strong> Cette quittance confirme les opérations de retour pour le bon N° ${selectedNote.noteNumber}.
-              Veuillez la conserver comme preuve de retour.
+              Conservez ce document comme preuve de retour.
             </div>
-            
+
             <div class="signatures">
               <div class="signature-box">
                 <div><strong>Signature de l'emprunteur:</strong></div>
@@ -728,7 +742,7 @@ const ReturnModal: React.FC<ReturnModalProps> = ({
       printWindow.onload = () => {
         setTimeout(() => {
           printWindow.print();
-        }, 500);
+        }, 1000);
       };
       
     } catch (error) {
@@ -1073,16 +1087,15 @@ const ReturnModal: React.FC<ReturnModalProps> = ({
                                     PERDU
                                   </span>
                                 )}
-                                {isOverdue && !isLost && (
+                                {isOverdue && (
                                   <span className="text-xs bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-200 px-2 py-0.5 rounded-full">
                                     EN RETARD
                                   </span>
                                 )}
                               </div>
                               <p className="text-sm text-gray-500">{checkout.equipment.serialNumber}</p>
-                              <p className={`text-sm ${isOverdue && !isLost ? 'text-red-600 dark:text-red-400 font-bold' : 'text-gray-500 dark:text-gray-400'}`}>
-                                {isOverdue && !isLost && <AlertTriangle size={14} className="inline mr-1" />}
-                                Retour prévu: {new Date(checkout.dueDate).toLocaleDateString('fr-FR')}
+                              <p className="text-sm text-gray-500 dark:text-gray-400">
+                                Retour prévu: {new Date(checkout.due_date).toLocaleDateString('fr-FR')}
                               </p>
                             </div>
                             
@@ -1194,7 +1207,7 @@ const ReturnModal: React.FC<ReturnModalProps> = ({
                             </div>
                             <div className="flex items-center gap-2">
                               <span className="text-xs bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-200 px-2 py-1 rounded">
-                                Retourné le {checkout.returnDate ? new Date(checkout.returnDate).toLocaleDateString('fr-FR') : 'N/A'}
+                                Retourné le {checkout.return_date ? new Date(checkout.return_date).toLocaleDateString('fr-FR') : 'N/A'}
                               </span>
                             </div>
                           </div>

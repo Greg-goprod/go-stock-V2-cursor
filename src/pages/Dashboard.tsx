@@ -114,12 +114,14 @@ const Dashboard: React.FC = () => {
         throw new Error('Veuillez remplacer les valeurs par défaut dans le fichier .env par vos vraies valeurs Supabase.');
       }
 
-      // Test connection first with timeout
+      // Test connection first with improved error handling
       const connectionTest = await testSupabaseConnection();
 
       if (!connectionTest.success) {
         if (connectionTest.error?.includes('Configuration Supabase invalide') || 
-            connectionTest.error?.includes('valeurs par défaut')) {
+            connectionTest.error?.includes('valeurs par défaut') ||
+            connectionTest.error?.includes('Variables d\'environnement') ||
+            connectionTest.error?.includes('Clé API Supabase invalide')) {
           setConnectionStatus('config_error');
         } else {
           setConnectionStatus('disconnected');
@@ -130,20 +132,34 @@ const Dashboard: React.FC = () => {
       setConnectionStatus('connected');
       setRetryCount(0);
 
+      // Fetch equipment avec timeout et retry logic
+      const fetchWithTimeout = async (query: any, timeoutMs = 10000) => {
+        return Promise.race([
+          query,
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Request timeout')), timeoutMs)
+          )
+        ]);
+      };
+
       // Fetch equipment avec les quantités réelles
-      const { data: equipment, error: equipmentError } = await supabase
-        .from('equipment')
-        .select('id, status, total_quantity, available_quantity');
+      const { data: equipment, error: equipmentError } = await fetchWithTimeout(
+        supabase
+          .from('equipment')
+          .select('id, status, total_quantity, available_quantity')
+      ) as any;
 
       if (equipmentError) {
         throw new Error(`Equipment fetch failed: ${equipmentError.message}`);
       }
 
       // Fetch active checkouts pour calculer les emprunts réels
-      const { data: activeCheckouts, error: checkoutsError } = await supabase
-        .from('checkouts')
-        .select('equipment_id')
-        .eq('status', 'active');
+      const { data: activeCheckouts, error: checkoutsError } = await fetchWithTimeout(
+        supabase
+          .from('checkouts')
+          .select('equipment_id')
+          .eq('status', 'active')
+      ) as any;
 
       if (checkoutsError) {
         throw new Error(`Checkouts fetch failed: ${checkoutsError.message}`);
@@ -155,10 +171,10 @@ const Dashboard: React.FC = () => {
       let maintenanceCount = 0;
 
       if (equipment) {
-        equipment.forEach(eq => {
+        equipment.forEach((eq: any) => {
           const total = eq.total_quantity || 1;
           const available = eq.available_quantity || 0;
-          const borrowed = activeCheckouts?.filter(c => c.equipment_id === eq.id).length || 0;
+          const borrowed = activeCheckouts?.filter((c: any) => c.equipment_id === eq.id).length || 0;
           
           totalAvailable += available;
           totalCheckedOut += borrowed;
@@ -170,30 +186,34 @@ const Dashboard: React.FC = () => {
       }
 
       // Fetch overdue checkouts
-      const { data: overdueCheckouts, error: overdueError } = await supabase
-        .from('checkouts')
-        .select('id')
-        .eq('status', 'active')
-        .lt('due_date', new Date().toISOString());
+      const { data: overdueCheckouts, error: overdueError } = await fetchWithTimeout(
+        supabase
+          .from('checkouts')
+          .select('id')
+          .eq('status', 'active')
+          .lt('due_date', new Date().toISOString())
+      ) as any;
 
       if (overdueError) {
         throw new Error(`Overdue checkouts fetch failed: ${overdueError.message}`);
       }
 
       // Fetch recent checkouts with user and equipment info
-      const { data: checkouts, error: recentCheckoutsError } = await supabase
-        .from('checkouts')
-        .select(`
-          id,
-          checkout_date,
-          due_date,
-          status,
-          equipment!inner(name),
-          users!inner(first_name, last_name)
-        `)
-        .in('status', ['active', 'overdue'])
-        .order('checkout_date', { ascending: false })
-        .limit(5);
+      const { data: checkouts, error: recentCheckoutsError } = await fetchWithTimeout(
+        supabase
+          .from('checkouts')
+          .select(`
+            id,
+            checkout_date,
+            due_date,
+            status,
+            equipment!inner(name),
+            users!inner(first_name, last_name)
+          `)
+          .in('status', ['active', 'overdue'])
+          .order('checkout_date', { ascending: false })
+          .limit(5)
+      ) as any;
 
       if (recentCheckoutsError) {
         console.warn('Recent checkouts fetch failed:', recentCheckoutsError.message);
@@ -201,25 +221,27 @@ const Dashboard: React.FC = () => {
       }
 
       // Fetch equipment in maintenance with maintenance details
-      const { data: maintenanceData, error: maintenanceError } = await supabase
-        .from('equipment')
-        .select(`
-          id,
-          name,
-          serial_number,
-          article_number,
-          last_maintenance,
-          equipment_maintenance!inner(
+      const { data: maintenanceData, error: maintenanceError } = await fetchWithTimeout(
+        supabase
+          .from('equipment')
+          .select(`
             id,
-            title,
-            start_date,
-            status,
-            maintenance_types(name, color)
-          )
-        `)
-        .eq('status', 'maintenance')
-        .eq('equipment_maintenance.status', 'in_progress')
-        .limit(10);
+            name,
+            serial_number,
+            article_number,
+            last_maintenance,
+            equipment_maintenance!inner(
+              id,
+              title,
+              start_date,
+              status,
+              maintenance_types(name, color)
+            )
+          `)
+          .eq('status', 'maintenance')
+          .eq('equipment_maintenance.status', 'in_progress')
+          .limit(10)
+      ) as any;
 
       if (maintenanceError) {
         console.warn('Maintenance fetch error:', maintenanceError.message);
@@ -229,7 +251,7 @@ const Dashboard: React.FC = () => {
       // Sort maintenance data by start_date in JavaScript since we can't order by related table fields
       let sortedMaintenanceData = maintenanceData || [];
       if (sortedMaintenanceData.length > 0) {
-        sortedMaintenanceData = sortedMaintenanceData.sort((a, b) => {
+        sortedMaintenanceData = sortedMaintenanceData.sort((a: any, b: any) => {
           const aDate = new Date(a.equipment_maintenance[0]?.start_date || 0);
           const bDate = new Date(b.equipment_maintenance[0]?.start_date || 0);
           return bDate.getTime() - aDate.getTime(); // Descending order (most recent first)
@@ -268,12 +290,16 @@ const Dashboard: React.FC = () => {
         errorMessage = 'Variables d\'environnement Supabase non configurées. Créez un fichier .env avec vos clés Supabase.';
       } else if (error.message?.includes('Veuillez remplacer les valeurs par défaut')) {
         errorMessage = 'Veuillez remplacer les valeurs par défaut dans le fichier .env par vos vraies valeurs Supabase.';
-      } else if (error.message?.includes('Connection timeout') || error.message?.includes('Délai de connexion')) {
+      } else if (error.message?.includes('Connection timeout') || error.message?.includes('Délai de connexion') || error.message?.includes('Request timeout')) {
         errorMessage = 'Délai de connexion dépassé. Vérifiez votre connexion internet et l\'URL Supabase.';
       } else if (error.message?.includes('Failed to fetch') || error.message?.includes('Impossible de se connecter')) {
         errorMessage = 'Impossible de se connecter au serveur. Vérifiez votre connexion internet et les paramètres Supabase.';
       } else if (error.message?.includes('Invalid URL')) {
         errorMessage = 'URL Supabase invalide. Vérifiez votre configuration dans le fichier .env';
+      } else if (error.message?.includes('Clé API Supabase invalide')) {
+        errorMessage = 'Clé API Supabase invalide. Vérifiez votre VITE_SUPABASE_ANON_KEY dans le fichier .env';
+      } else if (error.message?.includes('Serveur Supabase inaccessible')) {
+        errorMessage = error.message;
       } else if (error.message) {
         errorMessage = error.message;
       }
@@ -436,7 +462,7 @@ const Dashboard: React.FC = () => {
                   {connectionStatus === 'config_error' ? (
                     <>
                       <div className="space-y-1">
-                        <p className="font-medium">1. Créez un projet Supabase:</p>
+                        <p className="font-medium">1. Vérifiez votre projet Supabase:</p>
                         <a 
                           href="https://supabase.com/dashboard" 
                           target="_blank" 
@@ -448,17 +474,17 @@ const Dashboard: React.FC = () => {
                         </a>
                       </div>
                       <div className="space-y-1">
-                        <p className="font-medium">2. Obtenez vos clés:</p>
+                        <p className="font-medium">2. Vérifiez vos clés API:</p>
                         <ul className="text-xs space-y-1 ml-4">
                           <li>• Allez dans Settings → API</li>
-                          <li>• Copiez "Project URL" et "anon public key"</li>
+                          <li>• Vérifiez que "Project URL" et "anon public key" sont corrects</li>
+                          <li>• Assurez-vous que le projet est actif et accessible</li>
                         </ul>
                       </div>
                       <div className="space-y-1">
-                        <p className="font-medium">3. Configurez le fichier .env:</p>
+                        <p className="font-medium">3. Vérifiez le fichier .env:</p>
                         <ul className="text-xs space-y-1 ml-4">
-                          <li>• Modifiez le fichier .env à la racine du projet</li>
-                          <li>• Remplacez les valeurs par défaut par vos vraies clés</li>
+                          <li>• Vérifiez que VITE_SUPABASE_URL et VITE_SUPABASE_ANON_KEY sont corrects</li>
                           <li>• Redémarrez le serveur: <code className="bg-gray-200 dark:bg-gray-700 px-1 rounded">npm run dev</code></li>
                         </ul>
                       </div>
@@ -466,8 +492,8 @@ const Dashboard: React.FC = () => {
                   ) : (
                     <ul className="space-y-1 text-sm">
                       <li>• Vérifiez votre connexion internet</li>
-                      <li>• Vérifiez que les variables VITE_SUPABASE_URL et VITE_SUPABASE_ANON_KEY sont configurées</li>
-                      <li>• Vérifiez que votre projet Supabase est actif</li>
+                      <li>• Vérifiez que votre projet Supabase est actif et accessible</li>
+                      <li>• Vérifiez que les variables VITE_SUPABASE_URL et VITE_SUPABASE_ANON_KEY sont correctes</li>
                       <li>• Consultez la console pour plus de détails</li>
                     </ul>
                   )}

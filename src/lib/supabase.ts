@@ -57,9 +57,12 @@ export const supabase = isValidConfig ? createClient(supabaseUrl, supabaseAnonKe
       eventsPerSecond: 10,
     },
   },
+  db: {
+    schema: 'public',
+  },
 }) : null;
 
-// Fonction de test de connexion
+// Fonction de test de connexion améliorée
 export const testSupabaseConnection = async (): Promise<{ success: boolean; error?: string }> => {
   try {
     console.log('🔄 Test de connexion Supabase...');
@@ -79,19 +82,51 @@ export const testSupabaseConnection = async (): Promise<{ success: boolean; erro
         error: 'Veuillez remplacer les valeurs par défaut dans le fichier .env par vos vraies valeurs Supabase. Consultez https://supabase.com/dashboard pour obtenir vos clés.'
       };
     }
+
+    // Test de connectivité réseau d'abord
+    try {
+      const healthCheckUrl = `${supabaseUrl}/rest/v1/`;
+      const healthResponse = await fetch(healthCheckUrl, {
+        method: 'HEAD',
+        headers: {
+          'apikey': supabaseAnonKey,
+        },
+        signal: AbortSignal.timeout(5000)
+      });
+
+      if (!healthResponse.ok) {
+        return {
+          success: false,
+          error: `Serveur Supabase inaccessible (HTTP ${healthResponse.status}). Vérifiez que votre projet Supabase est actif.`
+        };
+      }
+    } catch (networkError: any) {
+      if (networkError.name === 'TimeoutError') {
+        return {
+          success: false,
+          error: 'Délai de connexion dépassé. Vérifiez votre connexion internet et l\'URL Supabase.'
+        };
+      }
+      
+      if (networkError.message?.includes('Failed to fetch')) {
+        return {
+          success: false,
+          error: 'Impossible de se connecter à Supabase. Vérifiez votre connexion internet et que l\'URL Supabase est correcte.'
+        };
+      }
+
+      return {
+        success: false,
+        error: `Erreur de connectivité réseau: ${networkError.message}`
+      };
+    }
     
     // Test simple de connexion avec une requête basique et timeout
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000);
-    
     try {
       const { data, error } = await supabase
         .from('equipment')
         .select('id')
-        .limit(1)
-        .abortSignal(controller.signal);
-      
-      clearTimeout(timeoutId);
+        .limit(1);
       
       if (error) {
         console.error('❌ Erreur de connexion Supabase:', error.message);
@@ -110,6 +145,13 @@ export const testSupabaseConnection = async (): Promise<{ success: boolean; erro
             error: `Erreur RLS: ${error.message}. Vérifiez que RLS est correctement configuré.` 
           };
         }
+
+        if (error.message.includes('Invalid API key')) {
+          return {
+            success: false,
+            error: 'Clé API Supabase invalide. Vérifiez votre VITE_SUPABASE_ANON_KEY dans le fichier .env'
+          };
+        }
         
         return { 
           success: false, 
@@ -122,9 +164,7 @@ export const testSupabaseConnection = async (): Promise<{ success: boolean; erro
       return { success: true };
       
     } catch (fetchError: any) {
-      clearTimeout(timeoutId);
-      
-      if (fetchError.name === 'AbortError') {
+      if (fetchError.name === 'AbortError' || fetchError.name === 'TimeoutError') {
         return {
           success: false,
           error: 'Délai de connexion dépassé. Vérifiez votre connexion internet et l\'URL Supabase.'
@@ -149,6 +189,13 @@ export const testSupabaseConnection = async (): Promise<{ success: boolean; erro
       return {
         success: false,
         error: 'URL Supabase invalide. Vérifiez la valeur de VITE_SUPABASE_URL dans votre fichier .env'
+      };
+    }
+
+    if (error.name === 'TimeoutError') {
+      return {
+        success: false,
+        error: 'Délai de connexion dépassé. Le serveur Supabase ne répond pas.'
       };
     }
     

@@ -162,7 +162,7 @@ const QRCodesModal: React.FC<QRCodesModalProps> = ({
           <div className="flex justify-center items-center h-40">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
           </div>
-        ) : equipment.qrType === 'individual' && instances.length > 0 ? (
+        ) : equipment.qrType === 'individual' && allInstances.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {allInstances.map(instance => (
               <div key={instance.id} className="flex justify-center">

@@ -5,7 +5,7 @@ import Button from '../components/common/Button';
 import Badge from '../components/common/Badge';
 import { Modal } from '../components/common/Modal';
 import AddEquipmentModal from '../components/equipment/AddEquipmentModal';
-import { EditEquipmentModal } from '../components/equipment/EditEquipmentModal';
+import EditEquipmentModal from '../components/equipment/EditEquipmentModal';
 import { QRCodeGenerator } from '../components/QRCode/QRCodeGenerator';
 import { QRCodesModal } from '../components/equipment/QRCodesModal';
 import { MaintenanceModal } from '../components/maintenance/MaintenanceModal';

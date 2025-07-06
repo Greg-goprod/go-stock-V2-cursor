@@ -1,5 +1,3 @@
-Here's the fixed version with the missing closing brackets and corrected syntax:
-
 import React, { useState, useEffect } from 'react';
 import Modal from '../common/Modal';
 import Button from '../common/Button';

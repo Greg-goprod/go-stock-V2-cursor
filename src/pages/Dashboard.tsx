@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Card from '../components/common/Card';
 import Badge from '../components/common/Badge';
 import StatusBadge from '../components/common/StatusBadge';
+import StatusBadge from '../components/common/StatusBadge';
 import CheckoutModal from '../components/checkout/CheckoutModal';
 import ReturnModal from '../components/checkout/ReturnModal';
 import MaintenanceModal from '../components/maintenance/MaintenanceModal';
@@ -701,10 +702,8 @@ const Dashboard: React.FC = () => {
                 
                 return (
                   <div 
-                    key={equipment.id} 
-                    className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer"
-                    onClick={() => handleMaintenanceClick(equipment)}
-                  >
+                  <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium text-white"
+                        style={{ backgroundColor: maintenance.maintenance_types?.color || '#3b82f6' }}>
                     <div className="flex justify-between items-start">
                       <div className="flex-1">
                         <div className="flex items-center gap-1 mb-1">
@@ -749,7 +748,7 @@ const Dashboard: React.FC = () => {
                           </div>
                         )}
                       </div>
-                    </div>
+                    <span>{note.equipmentCount} article{note.equipmentCount > 1 ? 's' : ''}</span>
                   </div>
                 );
               })}

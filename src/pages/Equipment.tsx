@@ -187,7 +187,7 @@ export default function Equipment() {
             )}
             <div className="flex flex-wrap gap-2 mb-2">
               <Badge variant="outline" color={getStatusColor(eq.status)}>
-                {eq.status}
+                {eq.status === 'available' ? `${eq.availableQuantity}/${eq.totalQuantity}` : eq.status}
               </Badge>
               {category && (
                 <Badge variant="outline" style={{ backgroundColor: category.color + '20', color: category.color }}>
@@ -273,7 +273,7 @@ export default function Equipment() {
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium">#{instance.instanceNumber}</span>
                     <Badge variant="outline" color={getStatusColor(instance.status || 'available')}>
-                      {instance.status || 'available'}
+                      {instance.status || 'available'} 
                     </Badge>
                   </div>
                   <div className="flex gap-1">

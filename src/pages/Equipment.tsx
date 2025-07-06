@@ -3,7 +3,7 @@ import { useAppContext } from '../contexts/AppContext';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import Badge from '../components/common/Badge';
-import { Modal } from '../components/common/Modal';
+import Modal from '../components/common/Modal';
 import AddEquipmentModal from '../components/equipment/AddEquipmentModal';
 import EditEquipmentModal from '../components/equipment/EditEquipmentModal';
 import { QRCodeGenerator } from '../components/QRCode/QRCodeGenerator';

@@ -504,7 +504,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ isOpen, onClose }
                    Entrez une URL d'image valide et accessible publiquement. Exemple: https://images.pexels.com/photos/1029243/pexels-photo-1029243.jpeg
                  </p>
                 <p className="text-xs text-gray-500 dark:text-gray-400">
-                  Utilisez des sites comme <a href="https://www.pexels.com" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">Pexels</a> ou <a href="https://unsplash.com" target=\"_blank" rel="noopener noreferrer\" className="text-blue-500 hover:underline">Unsplash</a> pour trouver des images libres de droits.
+                  Utilisez des sites comme <a href="https://www.pexels.com" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">Pexels</a> ou <a href="https://unsplash.com" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">Unsplash</a> pour trouver des images libres de droits.
                 </p>
                  {formData.image_url && (
                    <div className="mt-2 p-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800">

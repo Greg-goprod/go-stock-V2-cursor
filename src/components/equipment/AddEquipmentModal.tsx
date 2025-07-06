@@ -503,6 +503,9 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ isOpen, onClose }
                  <p className="text-xs text-gray-500 dark:text-gray-400">
                    Entrez une URL d'image valide et accessible publiquement. Exemple: https://images.pexels.com/photos/1029243/pexels-photo-1029243.jpeg
                  </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Utilisez des sites comme <a href="https://www.pexels.com" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">Pexels</a> ou <a href="https://unsplash.com" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">Unsplash</a> pour trouver des images libres de droits.
+                </p>
                  {formData.image_url && (
                    <div className="mt-2 p-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800">
                      <p className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Aperçu de l'image:</p>
@@ -510,12 +513,12 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ isOpen, onClose }
                        <img 
                          src={formData.image_url} 
                          alt="Aperçu" 
-                         className="h-24 object-contain rounded border border-gray-200 dark:border-gray-700 bg-white"
+                        className="h-32 object-contain rounded-lg border-2 border-gray-200 dark:border-gray-700 bg-white shadow-sm"
                          onError={(e) => {
                            e.currentTarget.style.display = 'none';
                            const errorMsg = document.createElement('p');
                            errorMsg.className = 'text-xs text-red-500 mt-2';
-                           errorMsg.textContent = "⚠️ Impossible de charger l'image. Vérifiez que l'URL est correcte et accessible.";
+                          errorMsg.textContent = "⚠️ Impossible de charger l'image. Vérifiez que l'URL est correcte, accessible et se termine par .jpg, .jpeg, .png ou .webp";
                            e.currentTarget.parentElement?.appendChild(errorMsg);
                          }}
                        />

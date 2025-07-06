@@ -61,7 +61,13 @@ const MaintenanceHistoryModal: React.FC<MaintenanceHistoryModalProps> = ({ isOpe
           description: item.maintenance_types.description,
           color: item.maintenance_types.color,
           createdAt: item.maintenance_types.created_at
-        } : undefined
+        } : {
+          id: '',
+          name: 'Maintenance',
+          description: '',
+          color: '#f59e0b',
+          createdAt: ''
+        }
       })) || [];
       
       setMaintenanceHistory(transformedData);
@@ -211,9 +217,9 @@ const MaintenanceHistoryModal: React.FC<MaintenanceHistoryModalProps> = ({ isOpe
                       <div className="flex items-center gap-2 mb-2">
                         <span 
                           className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium text-white"
-                          style={{ backgroundColor: maintenance.maintenanceType?.color || '#f59e0b' }}
+                          style={{ backgroundColor: maintenance.maintenanceType.color }}
                         >
-                          {maintenance.maintenanceType?.name || 'Maintenance'}
+                          {maintenance.maintenanceType.name}
                         </span>
                         {getStatusBadge(maintenance.status)}
                       </div>

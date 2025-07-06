@@ -289,10 +289,7 @@ const EquipmentPage: React.FC = () => {
   const handleCloseEditModal = () => {
     setShowEditModal(false);
     setEditingEquipment(null);
-    // Refresh data after editing equipment
-    setTimeout(() => {
-      fetchData();
-    }, 500);
+    fetchData(); // Refresh data after editing equipment
   };
 
   const handleCloseMaintenanceModal = () => {
@@ -304,24 +301,6 @@ const EquipmentPage: React.FC = () => {
   const getEquipmentInstances = (equipmentId: string) => {
     return instances.filter(instance => instance.equipmentId === equipmentId);
   };
-
-  // Vérifier si tous les équipements avec QR individuels ont le bon nombre d'instances
-  useEffect(() => {
-    const checkInstances = async () => {
-      const individualEquipment = equipment.filter(eq => eq.qrType === 'individual');
-      
-      for (const eq of individualEquipment) {
-        const eqInstances = getEquipmentInstances(eq.id);
-        if (eqInstances.length !== eq.totalQuantity) {
-          console.log(`Équipement ${eq.name} a ${eqInstances.length} instances mais devrait en avoir ${eq.totalQuantity}`);
-        }
-      }
-    };
-    
-    if (equipment.length > 0 && instances.length > 0) {
-      checkInstances();
-    }
-  }, [equipment, instances]);
 
   const getAvailableInstancesCount = (equipmentId: string) => {
     const equipmentInstances = getEquipmentInstances(equipmentId);
@@ -562,8 +541,8 @@ const EquipmentPage: React.FC = () => {
                   <td className="px-4 py-2 whitespace-nowrap">
                     <div className="flex items-center gap-1">
                       <span className={`text-xs font-bold ${
-                        item.status === 'checked-out' || availableCount === 0 ? 'text-red-600 dark:text-red-400' :
-                        item.status === 'maintenance' || availableCount < totalCount ? 'text-yellow-600 dark:text-yellow-400' :
+                        availableCount === 0 ? 'text-red-600 dark:text-red-400' :
+                        availableCount < totalCount ? 'text-yellow-600 dark:text-yellow-400' :
                         'text-green-600 dark:text-green-400'
                       }`}>
                         {availableCount}/{totalCount}
@@ -641,8 +620,8 @@ const EquipmentPage: React.FC = () => {
                 {/* Stock indicator */}
                 <div className="absolute top-1 left-1">
                   <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
-                    item.status === 'checked-out' || availableCount === 0 ? 'bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-200' :
-                    item.status === 'maintenance' || availableCount < totalCount ? 'bg-yellow-100 dark:bg-yellow-900/50 text-yellow-800 dark:text-yellow-200' :
+                    availableCount === 0 ? 'bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-200' :
+                    availableCount < totalCount ? 'bg-yellow-100 dark:bg-yellow-900/50 text-yellow-800 dark:text-yellow-200' :
                     'bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-200'
                   }`}>
                     {availableCount}/{totalCount}
@@ -865,13 +844,8 @@ const EquipmentPage: React.FC = () => {
               value={getQRCodeValue()}
               title={getQRCodeTitle()}
               subtitle={getQRCodeSubtitle()}
-            onClose={() => {
-              setShowEditModal(false);
-              setEditingEquipment(null);
-              fetchData(); // Refresh data after editing equipment
-            }}
+              size={180}
             />
-            onUpdate={fetchData}
           </div>
         )}
       </Modal>

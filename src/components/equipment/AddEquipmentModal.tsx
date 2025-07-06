@@ -41,6 +41,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ isOpen, onClose }
     totalQuantity: 1
   });
   const [isGeneratingQRCodes, setIsGeneratingQRCodes] = useState(false);
+  const [isGeneratingQRCodes, setIsGeneratingQRCodes] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -167,6 +168,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ isOpen, onClose }
   const handleFinalSubmit = async () => {
     setIsLoading(true);
     setIsGeneratingQRCodes(true);
+    setIsGeneratingQRCodes(true);
 
     try {
       // Préparer les données de l'équipement
@@ -220,6 +222,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ isOpen, onClose }
       toast.error(error.message || 'Erreur lors de l\'ajout du matériel');
     } finally {
       setIsGeneratingQRCodes(false);
+      setIsGeneratingQRCodes(false);
       setIsLoading(false);
     }
   };
@@ -248,6 +251,14 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ isOpen, onClose }
       }));
     }
   }, [formData.available_quantity, step]);
+
+  // Disable the submit button when generating QR codes
+  const isSubmitDisabled = isLoading || isGeneratingQRCodes;
+  
+  // Get submit button text
+  const getSubmitButtonText = () => {
+    return isGeneratingQRCodes ? 'Génération des QR codes...' : isLoading ? 'Création en cours...' : 'Créer le matériel';
+  };
 
   // Disable the submit button when generating QR codes
   const isSubmitDisabled = isLoading || isGeneratingQRCodes;
@@ -466,6 +477,9 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ isOpen, onClose }
                     required
                     value={formData.available_quantity}
                     onChange={(e) => {
+                      const newValue = parseInt(e.target.value) || 1;
+                      setFormData(prev => ({ ...prev, available_quantity: newValue }));
+                    }}
                       const newValue = parseInt(e.target.value) || 1;
                       setFormData(prev => ({ ...prev, available_quantity: newValue }));
                     }}

@@ -8,7 +8,7 @@ import AddEquipmentModal from '../components/equipment/AddEquipmentModal';
 import EditEquipmentModal from '../components/equipment/EditEquipmentModal';
 import { QRCodeGenerator } from '../components/QRCode/QRCodeGenerator';
 import { QRCodesModal } from '../components/equipment/QRCodesModal';
-import { MaintenanceModal } from '../components/maintenance/MaintenanceModal';
+import MaintenanceModal from '../components/maintenance/MaintenanceModal';
 import MaintenanceHistoryModal from '../components/maintenance/MaintenanceHistoryModal';
 import CheckoutModal from '../components/checkout/CheckoutModal';
 import { ReturnModal } from '../components/checkout/ReturnModal';

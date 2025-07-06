@@ -51,7 +51,7 @@ const ExcelImport: React.FC<ExcelImportProps> = ({ isOpen, onClose, onImportComp
           status: 'available',
           location: 'Bureau principal',
           supplier: 'TechSource Inc.',
-          image_url: 'https://images.pexels.com/photos/18105/pexels-photo.jpg',
+          image_url: 'https://images.pexels.com/photos/7974/pexels-photo.jpg',
           available_quantity: 1
         },
         {
@@ -62,7 +62,7 @@ const ExcelImport: React.FC<ExcelImportProps> = ({ isOpen, onClose, onImportComp
           status: 'available',
           location: 'Atelier',
           supplier: 'ToolMaster Supply',
-          image_url: 'https://images.pexels.com/photos/1029243/pexels-photo-1029243.jpeg',
+          image_url: 'https://images.pexels.com/photos/162553/keys-workshop-mechanic-tools-162553.jpeg',
           available_quantity: 3
         },
         {
@@ -73,7 +73,7 @@ const ExcelImport: React.FC<ExcelImportProps> = ({ isOpen, onClose, onImportComp
           status: 'available',
           location: 'Salle de stockage',
           supplier: 'Office Solutions',
-          image_url: 'https://images.pexels.com/photos/1957478/pexels-photo-1957478.jpeg',
+          image_url: 'https://images.pexels.com/photos/1957477/pexels-photo-1957477.jpeg',
           available_quantity: 5
         }
       ];

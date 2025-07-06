@@ -604,6 +604,7 @@ const EditEquipmentModal: React.FC<EditEquipmentModalProps> = ({ isOpen, onClose
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   URL de l'image
                 </label>
+                <div className="space-y-2">
                 <input
                   type="url"
                   name="image_url"
@@ -612,6 +613,29 @@ const EditEquipmentModal: React.FC<EditEquipmentModalProps> = ({ isOpen, onClose
                   className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
                   placeholder="https://example.com/image.jpg"
                 />
+                 <p className="text-xs text-gray-500 dark:text-gray-400">
+                   Entrez une URL d'image valide et accessible publiquement. Exemple: https://images.pexels.com/photos/1029243/pexels-photo-1029243.jpeg
+                 </p>
+                 {formData.image_url && (
+                   <div className="mt-2 p-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800">
+                     <p className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Aperçu de l'image:</p>
+                     <div className="flex justify-center">
+                       <img 
+                         src={formData.image_url} 
+                         alt="Aperçu" 
+                         className="h-24 object-contain rounded border border-gray-200 dark:border-gray-700 bg-white"
+                         onError={(e) => {
+                           e.currentTarget.style.display = 'none';
+                           const errorMsg = document.createElement('p');
+                           errorMsg.className = 'text-xs text-red-500 mt-2';
+                           errorMsg.textContent = "⚠️ Impossible de charger l'image. Vérifiez que l'URL est correcte et accessible.";
+                           e.currentTarget.parentElement?.appendChild(errorMsg);
+                         }}
+                       />
+                     </div>
+                   </div>
+                 )}
+                </div>
               </div>
 
               {/* Aperçu hiérarchique */}

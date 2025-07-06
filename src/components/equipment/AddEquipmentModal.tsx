@@ -1,3 +1,5 @@
+Here's the fixed version with the missing closing brackets and corrected syntax:
+
 import React, { useState, useEffect } from 'react';
 import Modal from '../common/Modal';
 import Button from '../common/Button';
@@ -455,9 +457,6 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ isOpen, onClose }
                     required
                     value={formData.available_quantity}
                     onChange={(e) => {
-                      const newValue = parseInt(e.target.value) || 1;
-                      setFormData(prev => ({ ...prev, available_quantity: newValue }));
-                    }}
                       const newValue = parseInt(e.target.value) || 1;
                       setFormData(prev => ({ ...prev, available_quantity: newValue }));
                     }}

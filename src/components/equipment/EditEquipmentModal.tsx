@@ -550,7 +550,7 @@ const EditEquipmentModal: React.FC<EditEquipmentModalProps> = ({ isOpen, onClose
                     onChange={handleChange}
                     className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
                   >
-                    <option value="available">Disponible ({formData.available_quantity}/{formData.total_quantity})</option>
+                    <option value="available">Disponible</option>
                     <option value="checked-out">Emprunté</option>
                     <option value="maintenance">En maintenance</option>
                     <option value="retired">Retiré</option>

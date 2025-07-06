@@ -19,7 +19,7 @@ import { Plus, QrCode, Wrench, History, LogOut, LogIn, Edit, Trash2, Download, U
 import { Equipment as EquipmentType, EquipmentInstance } from '../types';
 import { useStatusColors } from '../hooks/useStatusColors';
 
-const Equipment: React.FC = () => {
+export default function Equipment() {
   const {
     equipment,
     categories,
@@ -187,15 +187,8 @@ const Equipment: React.FC = () => {
             )}
             <div className="flex flex-wrap gap-2 mb-2">
               <Badge variant="outline" color={getStatusColor(eq.status)}>
-                {eq.status === 'available' ? `${eq.availableQuantity}/${eq.totalQuantity}` : eq.status}
+                {eq.status}
               </Badge>
-              {eq.status === 'available' && (
-                <StatusBadge 
-                  status={eq.status} 
-                  availableQuantity={eq.availableQuantity} 
-                  totalQuantity={eq.totalQuantity}
-                />
-              )}
               {category && (
                 <Badge variant="outline" style={{ backgroundColor: category.color + '20', color: category.color }}>
                   {category.name}
@@ -280,7 +273,7 @@ const Equipment: React.FC = () => {
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium">#{instance.instanceNumber}</span>
                     <Badge variant="outline" color={getStatusColor(instance.status || 'available')}>
-                      {instance.status || 'available'} 
+                      {instance.status || 'available'}
                     </Badge>
                   </div>
                   <div className="flex gap-1">
@@ -566,5 +559,3 @@ const Equipment: React.FC = () => {
     </div>
   );
 }
-
-export default Equipment;

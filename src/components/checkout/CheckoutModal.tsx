@@ -7,6 +7,7 @@ import { supabase } from '../../lib/supabase';
 import { Search, Package, Calendar, Printer, User as UserIcon, Plus, Minus, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 
 interface CheckoutModalProps {
   isOpen: boolean;
@@ -19,6 +20,7 @@ interface CheckoutItem {
 }
 
 const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
+  const navigate = useNavigate();
   const navigate = useNavigate();
   const [step, setStep] = useState<'user' | 'equipment' | 'summary'>('user');
   const [users, setUsers] = useState<User[]>([]);
@@ -825,6 +827,18 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
         {/* Step 1: User Selection */}
         {step === 'user' && (
           <div className="space-y-4">
+            <div className="flex justify-between items-center mb-2">
+              <h3 className="font-medium text-gray-900 dark:text-white">Sélectionner un utilisateur</h3>
+              <Button
+                variant="primary"
+                size="sm"
+                icon={<Plus size={14} />}
+                onClick={() => navigate('/users')}
+              >
+                AJOUTER CONTACT
+              </Button>
+            </div>
+            
             <div className="flex justify-between items-center mb-2">
               <h3 className="font-medium text-gray-900 dark:text-white">Sélectionner un utilisateur</h3>
               <Button

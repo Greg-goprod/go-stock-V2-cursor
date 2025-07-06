@@ -117,11 +117,6 @@ const ReturnModal: React.FC<ReturnModalProps> = ({
           return {
             ...checkout,
             status: isOverdue ? 'overdue' : checkout.status,
-          const isOverdue = dueDate < today && checkout.status === 'active';
-          
-          return {
-            ...checkout,
-            status: isOverdue ? 'overdue' : checkout.status,
             equipment: {
               id: checkout.equipment.id,
               name: checkout.equipment.name,

@@ -120,7 +120,7 @@ const ReturnModal: React.FC<ReturnModalProps> = ({
             status: isOverdue ? 'overdue' : checkout.status,
             equipment: {
               id: checkout.equipment.id,
-              name: checkout.equipment.name,
+              name: checkout.equipment.name || '',
               description: checkout.equipment.description || '',
               category: '',
               serialNumber: checkout.equipment.serial_number,

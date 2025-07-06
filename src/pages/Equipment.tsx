@@ -234,31 +234,24 @@ const EquipmentPage: React.FC = () => {
       toast.error(error.message || 'Erreur lors de la suppression');
     }
   };
-
-  const handleShowQR = (equipmentId: string, instance?: EquipmentInstance) => {
+    if (equipmentItem.qrType === 'individual' && (equipmentItem.totalQuantity || 1) > 1) {
     const equipmentItem = equipment.find(eq => eq.id === equipmentId);
     if (!equipmentItem) return;
     
-    // Récupérer les instances pour cet équipement
-    const equipmentInstances = getEquipmentInstances(equipmentId);
-    
-    // Si c'est un équipement avec QR individuels ET qu'il y a plusieurs instances
-    if (equipmentItem.qrType === 'individual' && equipmentItem.totalQuantity > 1) {
-      // Afficher la modal avec tous les QR codes
-      setSelectedEquipmentForQR(equipmentItem);
-      setShowQRCodesModal(true);
       return;
     }
-
-    // Si c'est un équipement avec QR individuels mais une seule instance
-    if (equipmentItem.qrType === 'individual' && equipmentItem.totalQuantity === 1) {
+    // Si c'est un équipement avec QR individuels mais une seule quantité
+    if (equipmentItem.qrType === 'individual' && (equipmentItem.totalQuantity || 1) === 1) {
+      // Récupérer l'instance si elle existe
+      const equipmentInstances = getEquipmentInstances(equipmentId);
+      const singleInstance = equipmentInstances.length > 0 ? equipmentInstances[0] : null;
+      
       setSelectedEquipment(equipmentId);
-      setSelectedInstance(equipmentInstances[0]);
+      setSelectedInstance(singleInstance);
       setShowQRModal(true);
       return;
     }
 
-    // Sinon, afficher le QR code unique (batch ou pas d'instances)
     setSelectedEquipment(equipmentId);
     setSelectedInstance(instance || null);
     setShowQRModal(true);
@@ -848,10 +841,9 @@ const EquipmentPage: React.FC = () => {
           isOpen={showQRCodesModal}
           onClose={() => {
             setShowQRCodesModal(false);
-            setSelectedEquipmentForQR(null);
+            setTimeout(() => setSelectedEquipmentForQR(null), 300);
           }}
           equipment={selectedEquipmentForQR}
-          instances={getEquipmentInstances(selectedEquipmentForQR.id)}
         />
       )}
 

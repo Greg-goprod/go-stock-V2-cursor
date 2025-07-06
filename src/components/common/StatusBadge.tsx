@@ -5,10 +5,12 @@ interface StatusBadgeProps {
   status: string;
   availableQuantity?: number;
   totalQuantity?: number;
+  availableQuantity?: number;
+  totalQuantity?: number;
   className?: string;
 }
 
-const StatusBadge: React.FC<StatusBadgeProps> = ({ 
+const StatusBadge: React.FC<StatusBadgeProps> = ({ status, availableQuantity, totalQuantity, className = '' }) => {
   status, 
   availableQuantity, 
   totalQuantity, 
@@ -19,6 +21,16 @@ const StatusBadge: React.FC<StatusBadgeProps> = ({
   const statusConfig = statusConfigs.find(s => s.id === status);
   const statusName = statusConfig?.name || status;
   const statusColor = getStatusColor(status);
+  
+  // Format the display text
+  let displayText = statusName;
+  if (status === 'available' && availableQuantity !== undefined && totalQuantity !== undefined) {
+    if (totalQuantity === 0) {
+      displayText = '0/0';
+    } else {
+      displayText = `${availableQuantity}/${totalQuantity}`;
+    }
+  }
 
   // Format the display text
   const getDisplayText = () => {
@@ -36,7 +48,7 @@ const StatusBadge: React.FC<StatusBadgeProps> = ({
       className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium text-white ${className}`}
       style={{ backgroundColor: statusColor }}
     >
-      {getDisplayText()}
+      {displayText}
     </span>
   );
 };

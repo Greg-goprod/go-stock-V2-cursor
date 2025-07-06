@@ -185,7 +185,7 @@ export default function Equipment() {
               <img 
                 src={eq.imageUrl} 
                 alt={eq.name}
-                className="w-16 h-16 object-cover rounded-lg border border-gray-200 dark:border-gray-700 bg-white"
+                className="w-16 h-16 object-cover rounded-lg border-2 border-gray-200 dark:border-gray-700 bg-white shadow-sm"
                 onError={(e) => {
                   console.log("Erreur de chargement d'image:", eq.imageUrl);
                   // Replace broken image with tool icon
@@ -194,7 +194,7 @@ export default function Equipment() {
                   if (parent) {
                     // Create a fallback div with the Tool icon
                     const fallbackDiv = document.createElement('div');
-                    fallbackDiv.className = 'w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center border border-gray-200 dark:border-gray-700';
+                    fallbackDiv.className = 'w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center border-2 border-gray-200 dark:border-gray-700 shadow-sm';
                     
                     // We can't directly insert a React component, so we'll use a simple SVG
                     fallbackDiv.innerHTML = `
@@ -208,7 +208,7 @@ export default function Equipment() {
                 }}
               />
             ) : (
-              <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center border border-gray-200 dark:border-gray-700">
+              <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center border-2 border-gray-200 dark:border-gray-700 shadow-sm">
                 <Tool className="w-8 h-8 text-gray-400" />
               </div>
             )}
@@ -264,6 +264,12 @@ export default function Equipment() {
           <div>
             <span className="font-medium">Numéro de série:</span>
             <p>{eq.serialNumber}</p>
+            {eq.imageUrl && (
+              <div className="mt-2">
+                <span className="font-medium text-xs text-gray-500">Image URL:</span>
+                <p className="text-xs text-gray-500 truncate max-w-[200px]">{eq.imageUrl}</p>
+              </div>
+            )}
           </div>
           {eq.articleNumber && (
             <div>

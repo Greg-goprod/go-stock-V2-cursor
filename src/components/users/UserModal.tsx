@@ -51,6 +51,13 @@ const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, user }) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    
+    // Validation supplémentaire
+    if (!formData.first_name.trim() || !formData.last_name.trim() || !formData.phone.trim()) {
+      toast.error('Veuillez remplir tous les champs obligatoires');
+      setIsLoading(false);
+      return;
+    }
 
     try {
       const dataToSubmit = {
@@ -178,10 +185,11 @@ const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, user }) => {
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                {t('email')}
+                {t('email')} 
               </label>
               <input
                 type="email"
+                name="email"
                 value={formData.email}
                 onChange={handleChange}
                 className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"

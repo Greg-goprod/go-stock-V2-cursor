@@ -35,6 +35,7 @@ const DirectReturnModal: React.FC<DirectReturnModalProps> = ({ isOpen, onClose, 
   const dueDate = new Date(checkout.due_date);
   dueDate.setHours(23, 59, 59, 999); // Set to end of the due date
   
+  const today = new Date();
   
   const isOverdue = dueDate < today && checkout.status === 'active';
   const isLost = checkout.status === 'lost';

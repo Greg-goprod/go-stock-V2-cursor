@@ -535,26 +535,26 @@ const Dashboard: React.FC = () => {
         </div>
 
         <div className="flex gap-2">
-          <Button
-            variant="success"
-            size="lg"
-            icon={<LogOut size={18} />}
-            className="flex-1 font-bold text-base tracking-wide"
-            onClick={() => setShowCheckoutModal(true)}
-            disabled={connectionStatus !== 'connected'}
-          >
-            SORTIE MATÉRIEL
-          </Button>
-          <Button
-            variant="warning"
-            size="lg"
-            icon={<LogIn size={18} />}
-            className="flex-1 font-bold text-base tracking-wide"
-            onClick={() => setShowReturnModal(true)}
-            disabled={connectionStatus !== 'connected'}
-          >
-            RETOUR MATÉRIEL
-          </Button>
+          <div className="flex-1 flex justify-center">
+            <button
+              className="w-32 h-32 rounded-full bg-success-600 hover:bg-success-700 text-white shadow-lg flex flex-col items-center justify-center gap-2 transition-transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+              onClick={() => setShowCheckoutModal(true)}
+              disabled={connectionStatus !== 'connected'}
+            >
+              <LogOut size={36} />
+              <span className="font-bold text-base tracking-wide">SORTIE</span>
+            </button>
+          </div>
+          <div className="flex-1 flex justify-center">
+            <button
+              className="w-32 h-32 rounded-full bg-warning-500 hover:bg-warning-600 text-white shadow-lg flex flex-col items-center justify-center gap-2 transition-transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+              onClick={() => setShowReturnModal(true)}
+              disabled={connectionStatus !== 'connected'}
+            >
+              <LogIn size={36} />
+              <span className="font-bold text-base tracking-wide">RETOUR</span>
+            </button>
+          </div>
         </div>
       </div>
       

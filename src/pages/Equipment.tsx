@@ -12,7 +12,7 @@ import { MaintenanceModal } from '../components/maintenance/MaintenanceModal';
 import { MaintenanceHistoryModal } from '../components/maintenance/MaintenanceHistoryModal';
 import CheckoutModal from '../components/checkout/CheckoutModal';
 import { ReturnModal } from '../components/checkout/ReturnModal';
-import { FilterPanel } from '../components/common/FilterPanel';
+import FilterPanel from '../components/common/FilterPanel';
 import ConfirmModal from '../components/common/ConfirmModal';
 import ExcelImport from '../components/import/ExcelImport';
 import { Plus, QrCode, Wrench, History, LogOut, LogIn, Edit, Trash2, Download, Upload, Search, Filter } from 'lucide-react';

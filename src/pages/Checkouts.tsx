@@ -23,7 +23,7 @@ import {
   FileText,
   Search,
   Eye,
-  Building
+  Building2
 } from 'lucide-react';
 import FilterPanel, { FilterOption } from '../components/common/FilterPanel';
 import { useLanguage } from '../contexts/LanguageContext';

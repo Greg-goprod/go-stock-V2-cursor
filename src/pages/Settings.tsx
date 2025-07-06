@@ -28,7 +28,8 @@ import {
   Sun,
   Languages,
   Truck,
-  Package
+  Package,
+  Building2
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useTheme } from '../contexts/ThemeContext';

@@ -880,7 +880,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
                       {eq.imageUrl ? (
                         <img 
                           src={eq.imageUrl} 
-                          alt={eq.name}
+                        src={eq.imageUrl}
                           className="w-8 h-8 object-cover rounded"
                           onError={(e) => {
                             e.currentTarget.style.display = 'none';

@@ -114,6 +114,10 @@ const ReturnModal: React.FC<ReturnModalProps> = ({
           
           // Mark as overdue if the due date is before today and status is active
           const isOverdue = dueDate < today && checkout.status === 'active';
+          
+          return {
+            ...checkout,
+            status: isOverdue ? 'overdue' : checkout.status,
             equipment: {
               id: checkout.equipment.id,
               name: checkout.equipment.name,

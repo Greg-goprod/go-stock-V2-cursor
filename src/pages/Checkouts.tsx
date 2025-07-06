@@ -1,243 +1,275 @@
 import React, { useState, useEffect } from 'react';
 import Card from '../components/common/Card';
-import Badge from '../components/common/Badge';
 import Button from '../components/common/Button';
-import Accordion from '../components/common/Accordion';
+import Badge from '../components/common/Badge';
+import CheckoutModal from '../components/checkout/CheckoutModal';
+import ReturnModal from '../components/checkout/ReturnModal';
 import DirectReturnModal from '../components/common/DirectReturnModal';
-import { useLanguage } from '../contexts/LanguageContext';
-import { supabase } from '../lib/supabase';
-import { format } from 'date-fns';
 import { 
-  Search, 
+  Plus, 
   Filter, 
   LayoutGrid, 
   List, 
   ArrowUpDown, 
-  Calendar,
-  User,
-  Package,
-  FileText,
-  Eye,
-  RefreshCw,
+  LogOut, 
+  LogIn, 
+  Package, 
+  User, 
+  Calendar, 
   AlertTriangle,
-  ChevronDown,
-  ChevronUp,
-  Edit,
-  Printer,
-  ArrowLeft,
-  ArrowRight,
-  QrCode
+  Clock,
+  CheckCircle,
+  RefreshCw,
+  FileText,
+  Search,
+  Eye
 } from 'lucide-react';
+import FilterPanel, { FilterOption } from '../components/common/FilterPanel';
+import { useLanguage } from '../contexts/LanguageContext';
+import { supabase } from '../lib/supabase';
 import toast from 'react-hot-toast';
-import ReturnModal from '../components/checkout/ReturnModal';
+import { format, differenceInDays, isPast } from 'date-fns';
+import { fr } from 'date-fns/locale';
 
 interface CheckoutWithDetails {
   id: string;
-  checkout_date: string;
-  due_date: string;
-  return_date?: string;
-  status: string;
+  equipmentId: string;
+  userId: string;
+  deliveryNoteId?: string;
+  checkoutDate: string;
+  dueDate: string;
+  returnDate?: string;
+  status: 'active' | 'returned' | 'overdue' | 'lost';
   notes?: string;
-  delivery_note_id?: string;
   equipment: {
     id: string;
     name: string;
-    serial_number: string;
-    article_number?: string;
+    serialNumber: string;
+    articleNumber?: string;
+    imageUrl?: string;
   };
-  users: {
+  user: {
     id: string;
     first_name: string;
     last_name: string;
     email: string;
-    phone?: string;
     department: string;
   };
-  delivery_notes?: {
+  deliveryNote?: {
     id: string;
     note_number: string;
-    issue_date: string;
-    due_date: string;
     status: string;
-    qr_code?: string;
   };
 }
 
-interface DeliveryNoteGroup {
+interface DeliveryNoteWithDetails {
+  id: string;
   noteNumber: string;
-  noteId: string;
-  qrCode?: string;
-  user: {
-    id: string;
-    name: string;
-    department: string;
-    email: string;
-    phone?: string;
-  };
+  userId: string;
   issueDate: string;
   dueDate: string;
-  status: string;
+  status: 'active' | 'returned' | 'partial' | 'overdue';
+  notes?: string;
+  user: {
+    id: string;
+    first_name: string;
+    last_name: string;
+    email: string;
+    department: string;
+  };
   checkouts: CheckoutWithDetails[];
-  totalItems: number;
-  returnedItems: number;
-  lostCount: number;
+  equipmentCount: number;
+  returnedCount: number;
+  activeCount: number;
 }
 
-type ViewMode = 'material' | 'delivery_note';
-type SortField = 'checkout_date' | 'due_date' | 'equipment_name' | 'user_name' | 'status' | 'note_number';
+type ViewMode = 'grid' | 'list';
+type SortField = 'checkoutDate' | 'dueDate' | 'equipment' | 'user' | 'status';
 type SortDirection = 'asc' | 'desc';
 
 const Checkouts: React.FC = () => {
   const { t } = useLanguage();
   const [checkouts, setCheckouts] = useState<CheckoutWithDetails[]>([]);
-  const [deliveryNotes, setDeliveryNotes] = useState<DeliveryNoteGroup[]>([]);
+  const [deliveryNotes, setDeliveryNotes] = useState<DeliveryNoteWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [viewMode, setViewMode] = useState<ViewMode>('delivery_note');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
-  const [sortField, setSortField] = useState<SortField>('checkout_date');
+  const [viewMode, setViewMode] = useState<ViewMode>('list');
+  const [currentView, setCurrentView] = useState<'checkouts' | 'delivery_notes'>('delivery_notes');
+  const [sortField, setSortField] = useState<SortField>('checkoutDate');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [showFilters, setShowFilters] = useState(false);
+  const [activeFilters, setActiveFilters] = useState<Record<string, string>>({});
+  const [showCheckoutModal, setShowCheckoutModal] = useState(false);
   const [showReturnModal, setShowReturnModal] = useState(false);
-  const [selectedNote, setSelectedNote] = useState<DeliveryNoteGroup | null>(null);
   const [showDirectReturnModal, setShowDirectReturnModal] = useState(false);
-  const [selectedCheckout, setSelectedCheckout] = useState<CheckoutWithDetails | null>(null);
-  const [selectedNoteId, setSelectedNoteId] = useState<string | undefined>(undefined);
-  const [showQRModal, setShowQRModal] = useState(false);
-  const [selectedNoteForQR, setSelectedNoteForQR] = useState<DeliveryNoteGroup | null>(null);
+  const [selectedCheckout, setSelectedCheckout] = useState<any>(null);
 
   useEffect(() => {
-    fetchCheckouts();
-  }, []);
+    fetchData();
+  }, [currentView]);
 
-  const fetchCheckouts = async (silent = false) => {
+  const fetchData = async () => {
     try {
-      if (!silent) {
-        setLoading(true);
+      setLoading(true);
+      
+      if (currentView === 'checkouts') {
+        await fetchCheckouts();
       } else {
-        setRefreshing(true);
+        await fetchDeliveryNotes();
       }
-      
-      const { data, error } = await supabase
-        .from('checkouts')
-        .select(`
-          *,
-          equipment(id, name, serial_number, article_number),
-          users(id, first_name, last_name, email, phone, department),
-          delivery_notes(id, note_number, issue_date, due_date, status, qr_code)
-        `)
-        .order('checkout_date', { ascending: false });
-
-      if (error) throw error;
-      
-      const transformedCheckouts: CheckoutWithDetails[] = (data || []).map(checkout => {
-        // Check if the checkout is overdue (due date is before today)
-        const dueDate = new Date(checkout.due_date);
-        dueDate.setHours(23, 59, 59, 999); // Set to end of the due date
-        
-        const today = new Date();
-        today.setHours(0, 0, 0, 0); // Set to start of today
-        
-        // Mark as overdue if the due date is before today and status is active
-        const isOverdue = dueDate < today && checkout.status === 'active';
-        
-        return {
-          id: checkout.id,
-          checkout_date: checkout.checkout_date,
-          due_date: checkout.due_date,
-          return_date: checkout.return_date,
-          status: isOverdue ? 'overdue' : checkout.status,
-          notes: checkout.notes,
-          delivery_note_id: checkout.delivery_note_id,
-          equipment: {
-            id: checkout.equipment?.id || '',
-            name: checkout.equipment?.name || 'Matériel inconnu',
-            serial_number: checkout.equipment?.serial_number || '',
-            article_number: checkout.equipment?.article_number || ''
-          },
-          users: {
-            id: checkout.users?.id || '',
-            first_name: checkout.users?.first_name || '',
-            last_name: checkout.users?.last_name || '',
-            email: checkout.users?.email || '',
-            phone: checkout.users?.phone || '',
-            department: checkout.users?.department || ''
-          },
-          delivery_notes: checkout.delivery_notes ? {
-            id: checkout.delivery_notes.id,
-            note_number: checkout.delivery_notes.note_number,
-            issue_date: checkout.delivery_notes.issue_date,
-            due_date: checkout.delivery_notes.due_date,
-            status: checkout.delivery_notes.status,
-            qr_code: checkout.delivery_notes.qr_code
-          } : undefined
-        };
-      });
-
-      setCheckouts(transformedCheckouts);
-      
-      // Group by delivery notes
-      const noteGroups = groupByDeliveryNotes(transformedCheckouts);
-      setDeliveryNotes(noteGroups);
-      
     } catch (error: any) {
-      console.error('Error fetching checkouts:', error);
-      toast.error('Erreur lors du chargement des sorties de matériel');
+      console.error('Error fetching data:', error);
+      toast.error('Erreur lors du chargement des données');
     } finally {
       setLoading(false);
-      setRefreshing(false);
     }
   };
 
-  const groupByDeliveryNotes = (checkouts: CheckoutWithDetails[]): DeliveryNoteGroup[] => {
-    const groups: Record<string, DeliveryNoteGroup> = {};
+  const fetchCheckouts = async () => {
+    const { data, error } = await supabase
+      .from('checkouts')
+      .select(`
+        *,
+        equipment(id, name, serial_number, article_number, image_url),
+        users(id, first_name, last_name, email, department),
+        delivery_notes(id, note_number, status)
+      `)
+      .order('checkout_date', { ascending: false });
 
-    checkouts.forEach(checkout => {
-      const noteNumber = checkout.delivery_notes?.note_number || 'Sans bon';
-      const noteId = checkout.delivery_notes?.id || 'no-note';
-      const qrCode = checkout.delivery_notes?.qr_code || `DN-${noteNumber}`;
-      
-      if (!groups[noteNumber]) {
-        groups[noteNumber] = {
-          noteNumber,
-          noteId,
-          qrCode,
-          user: {
-            id: checkout.users.id,
-            name: `${checkout.users.first_name} ${checkout.users.last_name}`,
-            department: checkout.users.department,
-            email: checkout.users.email,
-            phone: checkout.users.phone
+    if (error) throw error;
+
+    const transformedCheckouts: CheckoutWithDetails[] = data?.map(checkout => {
+      // Check if the checkout is overdue
+      const dueDate = new Date(checkout.due_date);
+      dueDate.setHours(23, 59, 59, 999);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const isOverdue = dueDate < today && checkout.status === 'active';
+
+      return {
+        id: checkout.id,
+        equipmentId: checkout.equipment_id,
+        userId: checkout.user_id,
+        deliveryNoteId: checkout.delivery_note_id,
+        checkoutDate: checkout.checkout_date,
+        dueDate: checkout.due_date,
+        returnDate: checkout.return_date,
+        status: isOverdue ? 'overdue' : checkout.status,
+        notes: checkout.notes,
+        equipment: {
+          id: checkout.equipment.id,
+          name: checkout.equipment.name,
+          serialNumber: checkout.equipment.serial_number,
+          articleNumber: checkout.equipment.article_number,
+          imageUrl: checkout.equipment.image_url
+        },
+        user: {
+          id: checkout.users.id,
+          first_name: checkout.users.first_name,
+          last_name: checkout.users.last_name,
+          email: checkout.users.email,
+          department: checkout.users.department
+        },
+        deliveryNote: checkout.delivery_notes ? {
+          id: checkout.delivery_notes.id,
+          note_number: checkout.delivery_notes.note_number,
+          status: checkout.delivery_notes.status
+        } : undefined
+      };
+    }) || [];
+
+    setCheckouts(transformedCheckouts);
+  };
+
+  const fetchDeliveryNotes = async () => {
+    const { data, error } = await supabase
+      .from('delivery_notes')
+      .select(`
+        *,
+        users(*),
+        checkouts(
+          *,
+          equipment(*)
+        )
+      `)
+      .order('issue_date', { ascending: false });
+
+    if (error) throw error;
+
+    const transformedNotes: DeliveryNoteWithDetails[] = data?.map(note => {
+      const checkouts = note.checkouts?.map((checkout: any) => {
+        // Check if the checkout is overdue
+        const dueDate = new Date(checkout.due_date);
+        dueDate.setHours(23, 59, 59, 999);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const isOverdue = dueDate < today && checkout.status === 'active';
+
+        return {
+          id: checkout.id,
+          equipmentId: checkout.equipment_id,
+          userId: checkout.user_id,
+          deliveryNoteId: checkout.delivery_note_id,
+          checkoutDate: checkout.checkout_date,
+          dueDate: checkout.due_date,
+          returnDate: checkout.return_date,
+          status: isOverdue ? 'overdue' : checkout.status,
+          notes: checkout.notes,
+          equipment: {
+            id: checkout.equipment.id,
+            name: checkout.equipment.name,
+            serialNumber: checkout.equipment.serial_number,
+            articleNumber: checkout.equipment.article_number,
+            imageUrl: checkout.equipment.image_url
           },
-          issueDate: checkout.delivery_notes?.issue_date || checkout.checkout_date,
-          dueDate: checkout.delivery_notes?.due_date || checkout.due_date,
-          status: checkout.delivery_notes?.status || 'active',
-          checkouts: [],
-          totalItems: 0,
-          returnedItems: 0,
-          lostCount: 0
+          user: {
+            id: note.users.id,
+            first_name: note.users.first_name,
+            last_name: note.users.last_name,
+            email: note.users.email,
+            department: note.users.department
+          }
         };
-      }
+      }) || [];
 
-      groups[noteNumber].checkouts.push(checkout);
-      groups[noteNumber].totalItems++;
-      if (checkout.status === 'returned') {
-        groups[noteNumber].returnedItems++;
-      }
-      if (checkout.status === 'lost') {
-        groups[noteNumber].lostCount++;
-      }
+      const equipmentCount = checkouts.length;
+      const returnedCount = checkouts.filter(c => c.status === 'returned').length;
+      const activeCount = checkouts.filter(c => c.status === 'active' || c.status === 'overdue').length;
+
+      // Determine note status based on checkouts
+      let noteStatus = note.status;
+      const hasOverdueCheckouts = checkouts.some(c => c.status === 'overdue');
       
-      // Update delivery note status if any checkout is overdue
-      if (checkout.status === 'overdue' && groups[noteNumber].status !== 'returned') {
-        groups[noteNumber].status = 'overdue';
+      if (hasOverdueCheckouts && noteStatus !== 'returned') {
+        noteStatus = 'overdue';
+      } else if (returnedCount > 0 && activeCount > 0) {
+        noteStatus = 'partial';
+      } else if (returnedCount === equipmentCount && equipmentCount > 0) {
+        noteStatus = 'returned';
       }
-    });
 
-    return Object.values(groups).sort((a, b) => 
-      new Date(b.issueDate).getTime() - new Date(a.issueDate).getTime()
-    );
+      return {
+        id: note.id,
+        noteNumber: note.note_number,
+        userId: note.user_id,
+        issueDate: note.issue_date,
+        dueDate: note.due_date,
+        status: noteStatus as DeliveryNoteWithDetails['status'],
+        notes: note.notes,
+        user: {
+          id: note.users.id,
+          first_name: note.users.first_name,
+          last_name: note.users.last_name,
+          email: note.users.email,
+          department: note.users.department
+        },
+        checkouts,
+        equipmentCount,
+        returnedCount,
+        activeCount
+      };
+    }) || [];
+
+    setDeliveryNotes(transformedNotes);
   };
 
   const handleSort = (field: SortField) => {
@@ -249,1083 +281,712 @@ const Checkouts: React.FC = () => {
     }
   };
 
-  const handleRefresh = () => {
-    fetchCheckouts(true);
-  };
-
-  const handleReturnNote = (note: DeliveryNoteGroup) => {
-    setSelectedNote(note);
-    setSelectedNoteId(note.noteId);
-    setShowReturnModal(true);
-  };
-
-  const handleCompletePartialReturn = (note: DeliveryNoteGroup) => {
-    setSelectedNoteId(note.noteId);
-    setShowReturnModal(true);
-  };
-
   const handleDirectReturn = (checkout: CheckoutWithDetails) => {
     setSelectedCheckout(checkout);
     setShowDirectReturnModal(true);
   };
 
-  const handleShowQRCode = (note: DeliveryNoteGroup) => {
-    setSelectedNoteForQR(note);
-    setShowQRModal(true);
+  const handleCloseDirectReturnModal = () => {
+    setShowDirectReturnModal(false);
+    setSelectedCheckout(null);
+    fetchData(); // Refresh data
   };
 
-  const handlePrintNote = async (note: DeliveryNoteGroup) => {
-    try {
-      // Récupérer le logo depuis les paramètres système
-      const { data: logoSetting } = await supabase
-        .from('system_settings')
-        .select('value')
-        .eq('id', 'company_logo')
-        .maybeSingle();
+  const handleCloseCheckoutModal = () => {
+    setShowCheckoutModal(false);
+    fetchData(); // Refresh data
+  };
 
-      const logoUrl = logoSetting?.value || '';
-      const today = new Date();
-      const formattedDate = today.toLocaleDateString('fr-FR', { 
-        day: '2-digit', 
-        month: '2-digit', 
-        year: 'numeric' 
+  const handleCloseReturnModal = () => {
+    setShowReturnModal(false);
+    fetchData(); // Refresh data
+  };
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'active':
+        return <Badge variant="success">ACTIF</Badge>;
+      case 'returned':
+        return <Badge variant="neutral">RETOURNÉ</Badge>;
+      case 'overdue':
+        return <Badge variant="danger">EN RETARD</Badge>;
+      case 'lost':
+        return <Badge variant="danger">PERDU</Badge>;
+      case 'partial':
+        return <Badge variant="warning">PARTIEL</Badge>;
+      default:
+        return <Badge variant="neutral">{status}</Badge>;
+    }
+  };
+
+  const getDaysOverdue = (dueDate: string) => {
+    const due = new Date(dueDate);
+    const today = new Date();
+    return Math.max(0, differenceInDays(today, due));
+  };
+
+  const filterOptions: FilterOption[] = [
+    {
+      id: 'status',
+      label: 'Statut',
+      type: 'select',
+      options: [
+        { value: 'active', label: 'Actif' },
+        { value: 'returned', label: 'Retourné' },
+        { value: 'overdue', label: 'En retard' },
+        { value: 'lost', label: 'Perdu' },
+        { value: 'partial', label: 'Partiel' },
+      ],
+    },
+    {
+      id: 'search',
+      label: 'Rechercher',
+      type: 'text',
+    },
+  ];
+
+  const sortedData = currentView === 'checkouts' 
+    ? [...checkouts].sort((a, b) => {
+        const direction = sortDirection === 'asc' ? 1 : -1;
+        switch (sortField) {
+          case 'checkoutDate':
+            return new Date(a.checkoutDate).getTime() - new Date(b.checkoutDate).getTime() * direction;
+          case 'dueDate':
+            return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime() * direction;
+          case 'equipment':
+            return a.equipment.name.localeCompare(b.equipment.name) * direction;
+          case 'user':
+            return `${a.user.first_name} ${a.user.last_name}`.localeCompare(`${b.user.first_name} ${b.user.last_name}`) * direction;
+          case 'status':
+            return a.status.localeCompare(b.status) * direction;
+          default:
+            return 0;
+        }
+      })
+    : [...deliveryNotes].sort((a, b) => {
+        const direction = sortDirection === 'asc' ? 1 : -1;
+        return new Date(a.issueDate).getTime() - new Date(b.issueDate).getTime() * direction;
       });
 
-      // Générer le QR code pour le bon de sortie
-      const noteQrCode = note.qrCode || `DN-${note.noteNumber}`;
-
-      const printContent = `
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <title>Bon de Sortie ${note.noteNumber} - GO-Mat</title>
-            <meta charset="UTF-8">
-            <style>
-              @page {
-                size: A4;
-                margin: 10mm;
-              }
-              body {
-                font-family: Arial, sans-serif;
-                margin: 0;
-                padding: 0;
-                color: #333;
-                font-size: 10pt;
-              }
-              .header {
-                display: flex;
-                justify-content: space-between;
-                margin-bottom: 20px;
-                border-bottom: 1px solid #ddd;
-                padding-bottom: 10px;
-              }
-              .logo-container {
-                width: 40%;
-              }
-              .logo {
-                max-height: 60px;
-                max-width: 200px;
-              }
-              .company-info {
-                text-align: right;
-                width: 40%;
-              }
-              .company-name {
-                font-size: 18pt;
-                font-weight: bold;
-                color: #4CAF50;
-                margin-bottom: 5px;
-              }
-              .document-title {
-                font-size: 14pt;
-                font-weight: bold;
-                margin: 20px 0;
-                color: #333;
-                text-align: center;
-                text-transform: uppercase;
-              }
-              .document-number {
-                font-weight: bold;
-                color: #4CAF50;
-              }
-              .customer-info {
-                margin-bottom: 20px;
-              }
-              .customer-box {
-                border: 1px solid #ddd;
-                padding: 10px;
-                width: 50%;
-                margin-left: auto;
-              }
-              .date-info {
-                text-align: right;
-                margin-bottom: 10px;
-              }
-              table {
-                width: 100%;
-                border-collapse: collapse;
-                margin: 20px 0;
-              }
-              th {
-                background-color: #4CAF50;
-                color: white;
-                font-weight: bold;
-                text-align: left;
-                padding: 8px;
-              }
-              td {
-                border: 1px solid #ddd;
-                padding: 8px;
-              }
-              tr:nth-child(even) {
-                background-color: #f2f2f2;
-              }
-              .total-row {
-                font-weight: bold;
-              }
-              .footer {
-                margin-top: 30px;
-                border-top: 1px solid #ddd;
-                padding-top: 10px;
-                font-size: 9pt;
-              }
-              .signatures {
-                display: flex;
-                justify-content: space-between;
-                margin-top: 40px;
-              }
-              .signature-box {
-                width: 45%;
-              }
-              .signature-line {
-                border-bottom: 1px solid #333;
-                margin-top: 50px;
-                margin-bottom: 5px;
-              }
-              .notes {
-                margin-top: 20px;
-                border: 1px solid #ddd;
-                padding: 10px;
-                background-color: #f9f9f9;
-              }
-              .page-number {
-                text-align: center;
-                font-size: 8pt;
-                color: #777;
-                margin-top: 20px;
-              }
-              .important-notice {
-                margin-top: 20px;
-                padding: 10px;
-                background-color: #fff3cd;
-                border: 1px solid #ffeeba;
-                color: #856404;
-              }
-              .contact-info {
-                display: flex;
-                justify-content: space-between;
-                font-size: 8pt;
-                color: #777;
-              }
-              .qr-icons {
-                display: flex;
-                justify-content: space-between;
-                margin-top: 10px;
-                max-width: 200px;
-              }
-              .qr-icon {
-                width: 30px;
-                height: 30px;
-                background-color: #333;
-                color: white;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                border-radius: 50%;
-                font-size: 8pt;
-                font-weight: bold;
-              }
-              .qr-label {
-                font-size: 6pt;
-                text-align: center;
-                margin-top: 2px;
-              }
-              .print-button {
-                position: fixed;
-                top: 20px;
-                right: 20px;
-                padding: 15px 25px;
-                background-color: #4CAF50;
-                color: white;
-                border: none;
-                border-radius: 5px;
-                cursor: pointer;
-                font-size: 16px;
-                font-weight: bold;
-                box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-                display: flex;
-                align-items: center;
-                gap: 10px;
-                z-index: 1000;
-              }
-              .print-button:hover {
-                background-color: #45a049;
-              }
-              .print-icon {
-                width: 20px;
-                height: 20px;
-              }
-              @media print {
-                .print-button {
-                  display: none;
-                }
-              }
-              .qr-code-container {
-                text-align: center;
-                margin: 0 auto 30px auto;
-                padding: 10px;
-                border: 1px solid #ddd;
-                border-radius: 5px;
-                width: 120px;
-                background-color: white;
-              }
-              .qr-code {
-                width: 100px;
-                height: 100px;
-                margin: 0 auto;
-              }
-              .qr-code-label {
-                text-align: center;
-                font-size: 8pt;
-                margin-top: 5px;
-                color: #333;
-                font-weight: bold;
-              }
-            </style>
-            <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
-          </head>
-          <body>
-            <button class="print-button" onclick="window.print()">
-              <svg class="print-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="6 9 6 2 18 2 18 9"></polyline>
-                <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
-                <rect x="6" y="14" width="12" height="8"></rect>
-              </svg>
-              IMPRIMER
-            </button>
-            
-            <div class="header">
-              <div class="logo-container">
-                ${logoUrl ? `<img src="${logoUrl}" alt="Logo" class="logo" />` : `<div class="company-name">GO-Mat</div>`}
-                <div class="qr-icons">
-                  <div>
-                    <div class="qr-icon">QR</div>
-                    <div class="qr-label">SCAN MATÉRIEL</div>
-                  </div>
-                  <div>
-                    <div class="qr-icon">PDF</div>
-                    <div class="qr-label">TÉLÉCHARGER</div>
-                  </div>
-                  <div>
-                    <div class="qr-icon">WWW</div>
-                    <div class="qr-label">SITE WEB</div>
-                  </div>
-                </div>
-              </div>
-              <div class="company-info">
-                <div class="company-name">GO-Mat</div>
-                <div>Gestion de Matériel</div>
-                <div>123 Rue de l'Équipement</div>
-                <div>75000 Paris</div>
-                <div>Tél: 01 23 45 67 89</div>
-                <div>Email: contact@go-mat.fr</div>
-              </div>
-            </div>
-            
-            <div class="qr-code-container">
-              <div id="qrcode" class="qr-code"></div>
-              <div class="qr-code-label">Bon N° ${note.noteNumber}</div>
-            </div>
-            
-            <div class="date-info">
-              <div>Date d'émission: ${formattedDate}</div>
-              <div>Référence: ${note.noteNumber}</div>
-            </div>
-            
-            <div class="customer-info">
-              <div class="customer-box">
-                <div><strong>Emprunteur:</strong></div>
-                <div>${note.user.name}</div>
-                <div>Département: ${note.user.department}</div>
-                <div>Email: ${note.user.email}</div>
-                ${note.user.phone ? `<div>Téléphone: ${note.user.phone}</div>` : ''}
-              </div>
-            </div>
-            
-            <div class="document-title">
-              Bon de Sortie <span class="document-number">N° ${note.noteNumber}</span>
-            </div>
-            
-            <table>
-              <thead>
-                <tr>
-                  <th style="width: 5%;">N°</th>
-                  <th style="width: 45%;">Désignation</th>
-                  <th style="width: 20%;">Référence</th>
-                  <th style="width: 10%;">Statut</th>
-                  <th style="width: 20%;">Retour prévu</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${note.checkouts.map((checkout, index) => `
-                  <tr>
-                    <td>${index + 1}</td>
-                    <td>${checkout.equipment.name}</td>
-                    <td>${checkout.equipment.serial_number}</td>
-                    <td>${checkout.status === 'returned' 
-                      ? '<span style="color: #10b981; font-weight: bold;">Retourné</span>' 
-                      : checkout.status === 'overdue'
-                      ? '<span style="color: #ef4444; font-weight: bold;">En retard</span>'
-                      : '<span style="color: #3b82f6; font-weight: bold;">Actif</span>'}</td>
-                    <td>${new Date(checkout.due_date).toLocaleDateString('fr-FR')}</td>
-                  </tr>
-                `).join('')}
-                <tr class="total-row">
-                  <td colspan="3" style="text-align: right;">Total articles:</td>
-                  <td colspan="2">${note.totalItems}</td>
-                </tr>
-              </tbody>
-            </table>
-            
-            <div class="important-notice">
-              <strong>Important:</strong> Ce bon de sortie doit être conservé et présenté lors du retour du matériel.
-              En cas de perte ou de dommage du matériel, veuillez contacter immédiatement le service de gestion.
-            </div>
-            
-            <div class="signatures">
-              <div class="signature-box">
-                <div><strong>Signature de l'emprunteur:</strong></div>
-                <div class="signature-line"></div>
-                <div>Date: ___________________</div>
-              </div>
-              <div class="signature-box">
-                <div><strong>Signature du responsable:</strong></div>
-                <div class="signature-line"></div>
-                <div>Date: ___________________</div>
-              </div>
-            </div>
-            
-            <div class="footer">
-              <div class="contact-info">
-                <div>GO-Mat - Système de Gestion de Matériel</div>
-                <div>Tél: 01 23 45 67 89</div>
-                <div>Email: contact@go-mat.fr</div>
-              </div>
-              <div class="page-number">Page 1/1</div>
-            </div>
-
-            <script>
-              // Générer le QR code
-              window.onload = function() {
-                QRCode.toCanvas(document.getElementById('qrcode'), '${noteQrCode}', {
-                  width: 100,
-                  margin: 0,
-                  color: {
-                    dark: '#000000',
-                    light: '#FFFFFF'
-                  }
-                });
-              };
-            </script>
-          </body>
-        </html>
-      `;
-
-      // Créer un Blob avec le contenu HTML
-      const blob = new Blob([printContent], { type: 'text/html' });
+  const filteredData = sortedData.filter(item => {
+    return Object.entries(activeFilters).every(([key, value]) => {
+      if (!value) return true;
       
-      // Créer une URL pour le blob
-      const blobUrl = URL.createObjectURL(blob);
-      
-      // Ouvrir dans un nouvel onglet
-      window.open(blobUrl, '_blank');
-      
-      // Nettoyer l'URL après un délai
-      setTimeout(() => {
-        URL.revokeObjectURL(blobUrl);
-      }, 1000);
-      
-      toast.success('Bon de sortie ouvert dans un nouvel onglet');
-      
-    } catch (error) {
-      console.error('Error generating delivery note PDF:', error);
-      toast.error('Erreur lors de la génération du PDF');
-    }
-  };
-
-  const getFilteredAndSortedCheckouts = () => {
-    let filtered = checkouts;
-
-    // Apply search filter
-    if (searchTerm) {
-      const search = searchTerm.toLowerCase();
-      filtered = filtered.filter(checkout =>
-        checkout.equipment.name.toLowerCase().includes(search) ||
-        checkout.equipment.serial_number.toLowerCase().includes(search) ||
-        checkout.equipment.article_number?.toLowerCase().includes(search) ||
-        `${checkout.users.first_name} ${checkout.users.last_name}`.toLowerCase().includes(search) ||
-        checkout.users.department.toLowerCase().includes(search) ||
-        checkout.delivery_notes?.note_number.toLowerCase().includes(search)
-      );
-    }
-
-    // Apply status filter
-    if (statusFilter) {
-      filtered = filtered.filter(checkout => checkout.status === statusFilter);
-    }
-
-    // Apply sorting
-    filtered.sort((a, b) => {
-      const direction = sortDirection === 'asc' ? 1 : -1;
-      
-      switch (sortField) {
-        case 'checkout_date':
-          return (new Date(a.checkout_date).getTime() - new Date(b.checkout_date).getTime()) * direction;
-        case 'due_date':
-          return (new Date(a.due_date).getTime() - new Date(b.due_date).getTime()) * direction;
-        case 'equipment_name':
-          return a.equipment.name.localeCompare(b.equipment.name) * direction;
-        case 'user_name':
-          return `${a.users.first_name} ${a.users.last_name}`.localeCompare(`${b.users.first_name} ${b.users.last_name}`) * direction;
+      switch (key) {
+        case 'search':
+          const searchTerm = value.toLowerCase();
+          if (currentView === 'checkouts') {
+            const checkout = item as CheckoutWithDetails;
+            return (
+              checkout.equipment.name.toLowerCase().includes(searchTerm) ||
+              checkout.equipment.serialNumber.toLowerCase().includes(searchTerm) ||
+              `${checkout.user.first_name} ${checkout.user.last_name}`.toLowerCase().includes(searchTerm) ||
+              checkout.user.department.toLowerCase().includes(searchTerm)
+            );
+          } else {
+            const note = item as DeliveryNoteWithDetails;
+            return (
+              note.noteNumber.toLowerCase().includes(searchTerm) ||
+              `${note.user.first_name} ${note.user.last_name}`.toLowerCase().includes(searchTerm) ||
+              note.user.department.toLowerCase().includes(searchTerm)
+            );
+          }
         case 'status':
-          return a.status.localeCompare(b.status) * direction;
-        case 'note_number':
-          return (a.delivery_notes?.note_number || '').localeCompare(b.delivery_notes?.note_number || '') * direction;
+          return item.status === value;
         default:
-          return 0;
+          return true;
       }
     });
-
-    return filtered;
-  };
-
-  const getFilteredDeliveryNotes = () => {
-    let filtered = deliveryNotes;
-
-    // Apply search filter
-    if (searchTerm) {
-      const search = searchTerm.toLowerCase();
-      filtered = filtered.filter(note =>
-        note.noteNumber.toLowerCase().includes(search) ||
-        note.user.name.toLowerCase().includes(search) ||
-        note.user.department.toLowerCase().includes(search) ||
-        note.checkouts.some(checkout =>
-          checkout.equipment.name.toLowerCase().includes(search) ||
-          checkout.equipment.serial_number.toLowerCase().includes(search)
-        )
-      );
-    }
-
-    // Apply status filter
-    if (statusFilter) {
-      filtered = filtered.filter(note => note.status === statusFilter);
-    }
-
-    return filtered;
-  };
-
-  const getStatusBadgeVariant = (status: string, isOverdue: boolean = false) => {
-    if (isOverdue) return 'danger';
-    
-    switch (status) {
-      case 'returned':
-        return 'neutral';
-      case 'active':
-        return 'success';
-      case 'partial':
-        return 'warning';
-      case 'overdue':
-        return 'danger';
-      default:
-        return 'neutral';
-    }
-  };
-
-  const getStatusLabel = (status: string, isOverdue: boolean = false) => {
-    if (isOverdue) return 'En retard';
-    
-    switch (status) {
-      case 'returned':
-        return 'Retourné';
-      case 'active':
-        return 'Actif';
-      case 'partial':
-        return 'Retour partiel';
-      case 'overdue':
-        return 'En retard';
-      default:
-        return status;
-    }
-  };
-
-  const handleReturnModalClose = () => {
-    setShowReturnModal(false);
-    setSelectedNote(null);
-    setSelectedNoteId(undefined);
-    // Refresh data after closing modal
-    setTimeout(() => fetchCheckouts(), 500);
-  };
+  });
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-gray-500 dark:text-gray-400 font-medium">{t('loading')}</div>
+        <div className="text-center">
+          <RefreshCw size={28} className="mx-auto animate-spin text-primary-600 mb-3" />
+          <div className="text-gray-500 dark:text-gray-400 text-sm">Chargement des données...</div>
+        </div>
       </div>
     );
   }
 
-  const filteredCheckouts = getFilteredAndSortedCheckouts();
-  const filteredDeliveryNotes = getFilteredDeliveryNotes();
+  const renderDeliveryNotesView = () => (
+    <div className="space-y-4">
+      {filteredData.length === 0 ? (
+        <Card>
+          <div className="text-center py-12">
+            <FileText size={48} className="mx-auto text-gray-400 mb-4" />
+            <h3 className="text-lg font-black text-gray-900 dark:text-white mb-2 uppercase">
+              AUCUN BON DE SORTIE
+            </h3>
+            <p className="text-gray-500 dark:text-gray-400 font-medium">
+              Aucun bon de sortie trouvé. Créez votre premier bon de sortie.
+            </p>
+          </div>
+        </Card>
+      ) : (
+        (filteredData as DeliveryNoteWithDetails[]).map(note => (
+          <Card key={note.id} className="hover:shadow-md transition-shadow">
+            <div className="p-4">
+              <div className="flex justify-between items-start mb-4">
+                <div className="flex items-center gap-3">
+                  <FileText size={24} className="text-primary-600 dark:text-primary-400" />
+                  <div>
+                    <h3 className="text-lg font-black text-gray-900 dark:text-white">
+                      Bon N° {note.noteNumber}
+                    </h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      {note.user.first_name} {note.user.last_name} • {note.user.department}
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  {getStatusBadge(note.status)}
+                  {note.status === 'overdue' && (
+                    <div className="flex items-center gap-1 text-red-600 dark:text-red-400 text-sm">
+                      <AlertTriangle size={16} />
+                      <span className="font-bold">
+                        {getDaysOverdue(note.dueDate)} jour(s) de retard
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+                <div>
+                  <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Date d'émission</p>
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">
+                    {format(new Date(note.issueDate), 'dd/MM/yyyy', { locale: fr })}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Date de retour</p>
+                  <p className={`text-sm font-medium ${
+                    note.status === 'overdue' ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-white'
+                  }`}>
+                    {format(new Date(note.dueDate), 'dd/MM/yyyy', { locale: fr })}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Équipements</p>
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">
+                    {note.equipmentCount} article{note.equipmentCount > 1 ? 's' : ''}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">Progression</p>
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">
+                    {note.returnedCount}/{note.equipmentCount} retourné{note.returnedCount > 1 ? 's' : ''}
+                  </p>
+                </div>
+              </div>
+
+              {note.checkouts.length > 0 && (
+                <div className="border-t pt-4">
+                  <h4 className="text-sm font-bold text-gray-900 dark:text-white mb-2 uppercase">
+                    Équipements ({note.checkouts.length})
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                    {note.checkouts.slice(0, 6).map(checkout => (
+                      <div key={checkout.id} className="flex items-center gap-2 p-2 bg-gray-50 dark:bg-gray-800 rounded">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium text-gray-900 dark:text-white truncate">
+                            {checkout.equipment.name}
+                          </p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 font-mono">
+                            {checkout.equipment.serialNumber}
+                          </p>
+                        </div>
+                        <div className="flex-shrink-0">
+                          {getStatusBadge(checkout.status)}
+                        </div>
+                      </div>
+                    ))}
+                    {note.checkouts.length > 6 && (
+                      <div className="flex items-center justify-center p-2 bg-gray-100 dark:bg-gray-700 rounded text-xs text-gray-500 dark:text-gray-400">
+                        +{note.checkouts.length - 6} autres
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {(note.status === 'active' || note.status === 'partial' || note.status === 'overdue') && (
+                <div className="flex justify-end mt-4">
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    icon={<LogIn size={16} />}
+                    onClick={() => setShowReturnModal(true)}
+                    className="font-bold"
+                  >
+                    GÉRER LES RETOURS
+                  </Button>
+                </div>
+              )}
+            </div>
+          </Card>
+        ))
+      )}
+    </div>
+  );
+
+  const renderCheckoutsListView = () => (
+    <Card>
+      <div className="overflow-x-auto">
+        <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+          <thead className="bg-gray-50 dark:bg-gray-800">
+            <tr>
+              <th 
+                className="px-6 py-3 text-left cursor-pointer group"
+                onClick={() => handleSort('equipment')}
+              >
+                <div className="flex items-center text-xs font-black text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  MATÉRIEL
+                  <ArrowUpDown size={14} className="ml-1 opacity-0 group-hover:opacity-100" />
+                </div>
+              </th>
+              <th 
+                className="px-6 py-3 text-left cursor-pointer group"
+                onClick={() => handleSort('user')}
+              >
+                <div className="flex items-center text-xs font-black text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  UTILISATEUR
+                  <ArrowUpDown size={14} className="ml-1 opacity-0 group-hover:opacity-100" />
+                </div>
+              </th>
+              <th 
+                className="px-6 py-3 text-left cursor-pointer group"
+                onClick={() => handleSort('checkoutDate')}
+              >
+                <div className="flex items-center text-xs font-black text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  DATE SORTIE
+                  <ArrowUpDown size={14} className="ml-1 opacity-0 group-hover:opacity-100" />
+                </div>
+              </th>
+              <th 
+                className="px-6 py-3 text-left cursor-pointer group"
+                onClick={() => handleSort('dueDate')}
+              >
+                <div className="flex items-center text-xs font-black text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  DATE RETOUR
+                  <ArrowUpDown size={14} className="ml-1 opacity-0 group-hover:opacity-100" />
+                </div>
+              </th>
+              <th 
+                className="px-6 py-3 text-left cursor-pointer group"
+                onClick={() => handleSort('status')}
+              >
+                <div className="flex items-center text-xs font-black text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  STATUT
+                  <ArrowUpDown size={14} className="ml-1 opacity-0 group-hover:opacity-100" />
+                </div>
+              </th>
+              <th className="px-6 py-3 text-right text-xs font-black text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                ACTIONS
+              </th>
+            </tr>
+          </thead>
+          <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
+            {(filteredData as CheckoutWithDetails[]).map((checkout) => (
+              <tr key={checkout.id} className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <div className="flex items-center">
+                    {checkout.equipment.imageUrl && (
+                      <img
+                        src={checkout.equipment.imageUrl}
+                        alt={checkout.equipment.name}
+                        className="h-10 w-10 rounded-lg object-cover mr-3"
+                      />
+                    )}
+                    <div>
+                      <div className="text-sm font-bold text-gray-900 dark:text-white">
+                        {checkout.equipment.name}
+                      </div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400 font-mono">
+                        {checkout.equipment.serialNumber}
+                      </div>
+                    </div>
+                  </div>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <div>
+                    <div className="text-sm font-bold text-gray-900 dark:text-white">
+                      {checkout.user.first_name} {checkout.user.last_name}
+                    </div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">
+                      {checkout.user.department}
+                    </div>
+                  </div>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
+                  {format(new Date(checkout.checkoutDate), 'dd/MM/yyyy', { locale: fr })}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <div className={`text-sm font-medium ${
+                    checkout.status === 'overdue' ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-white'
+                  }`}>
+                    {format(new Date(checkout.dueDate), 'dd/MM/yyyy', { locale: fr })}
+                  </div>
+                  {checkout.status === 'overdue' && (
+                    <div className="text-xs text-red-600 dark:text-red-400 font-bold">
+                      {getDaysOverdue(checkout.dueDate)} jour(s) de retard
+                    </div>
+                  )}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  {getStatusBadge(checkout.status)}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-right space-x-2">
+                  {checkout.deliveryNote && (
+                    <span className="text-xs text-gray-500 dark:text-gray-400 font-mono">
+                      {checkout.deliveryNote.note_number}
+                    </span>
+                  )}
+                  {(checkout.status === 'active' || checkout.status === 'overdue' || checkout.status === 'lost') && (
+                    <Button
+                      variant="success"
+                      size="sm"
+                      icon={<LogIn size={16} />}
+                      onClick={() => handleDirectReturn(checkout)}
+                      className="font-bold"
+                    >
+                      RETOUR
+                    </Button>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </Card>
+  );
+
+  const renderCheckoutsGridView = () => (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      {(filteredData as CheckoutWithDetails[]).map((checkout) => (
+        <Card key={checkout.id} className="hover:shadow-md transition-shadow">
+          <div className="p-4">
+            <div className="flex items-center gap-3 mb-3">
+              {checkout.equipment.imageUrl ? (
+                <img
+                  src={checkout.equipment.imageUrl}
+                  alt={checkout.equipment.name}
+                  className="h-12 w-12 rounded-lg object-cover"
+                />
+              ) : (
+                <div className="h-12 w-12 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center">
+                  <Package size={20} className="text-gray-400" />
+                </div>
+              )}
+              <div className="flex-1">
+                <h3 className="font-bold text-gray-900 dark:text-white text-sm">
+                  {checkout.equipment.name}
+                </h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400 font-mono">
+                  {checkout.equipment.serialNumber}
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-2 mb-4">
+              <div className="flex items-center gap-2">
+                <User size={14} className="text-gray-400" />
+                <span className="text-sm font-medium text-gray-900 dark:text-white">
+                  {checkout.user.first_name} {checkout.user.last_name}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Building2 size={14} className="text-gray-400" />
+                <span className="text-sm text-gray-600 dark:text-gray-400">
+                  {checkout.user.department}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Calendar size={14} className="text-gray-400" />
+                <span className="text-sm text-gray-600 dark:text-gray-400">
+                  Retour: {format(new Date(checkout.dueDate), 'dd/MM/yyyy', { locale: fr })}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex justify-between items-center">
+              {getStatusBadge(checkout.status)}
+              {(checkout.status === 'active' || checkout.status === 'overdue' || checkout.status === 'lost') && (
+                <Button
+                  variant="success"
+                  size="sm"
+                  icon={<LogIn size={16} />}
+                  onClick={() => handleDirectReturn(checkout)}
+                >
+                  RETOUR
+                </Button>
+              )}
+            </div>
+
+            {checkout.status === 'overdue' && (
+              <div className="mt-2 flex items-center gap-1 text-red-600 dark:text-red-400 text-xs">
+                <AlertTriangle size={12} />
+                <span className="font-bold">
+                  {getDaysOverdue(checkout.dueDate)} jour(s) de retard
+                </span>
+              </div>
+            )}
+          </div>
+        </Card>
+      ))}
+    </div>
+  );
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800 dark:text-white">SORTIE MATÉRIEL</h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-1">
-            Gestion des sorties et suivi du matériel emprunté
+          <h1 className="text-3xl font-black text-gray-800 dark:text-white tracking-tight uppercase">
+            {currentView === 'delivery_notes' ? 'BONS DE SORTIE' : 'EMPRUNTS'}
+          </h1>
+          <p className="text-gray-600 dark:text-gray-400 mt-1 font-medium">
+            {currentView === 'delivery_notes' 
+              ? 'Gestion des bons de sortie et retours de matériel'
+              : 'Suivi détaillé des emprunts individuels'
+            }
           </p>
         </div>
         
         <div className="flex gap-3">
           <Button
-            variant="outline"
-            size="sm"
-            icon={<RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />}
-            onClick={handleRefresh}
-            disabled={refreshing}
+            variant="success"
+            icon={<LogOut size={18} />}
+            onClick={() => setShowCheckoutModal(true)}
+            className="font-bold"
           >
-            {refreshing ? 'Actualisation...' : 'Actualiser'}
+            NOUVELLE SORTIE
+          </Button>
+          <Button
+            variant="warning"
+            icon={<LogIn size={18} />}
+            onClick={() => setShowReturnModal(true)}
+            className="font-bold"
+          >
+            RETOUR MATÉRIEL
           </Button>
         </div>
       </div>
 
-      {/* Filters and Search */}
-      <Card>
-        <div className="space-y-4">
-          <div className="flex flex-col sm:flex-row gap-4">
-            {/* Search */}
-            <div className="flex-1">
-              <div className="relative">
-                <Search size={20} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Rechercher par matériel, utilisateur, bon de sortie..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                />
-              </div>
-            </div>
+      {/* View Toggle */}
+      <div className="flex justify-between items-center">
+        <div className="flex rounded-lg border border-gray-200 dark:border-gray-700">
+          <Button
+            variant={currentView === 'delivery_notes' ? 'primary' : 'outline'}
+            size="sm"
+            icon={<FileText size={16} />}
+            onClick={() => setCurrentView('delivery_notes')}
+            className="rounded-r-none font-bold"
+          >
+            BONS DE SORTIE
+          </Button>
+          <Button
+            variant={currentView === 'checkouts' ? 'primary' : 'outline'}
+            size="sm"
+            icon={<Package size={16} />}
+            onClick={() => setCurrentView('checkouts')}
+            className="rounded-l-none font-bold"
+          >
+            EMPRUNTS DÉTAILLÉS
+          </Button>
+        </div>
 
-            {/* Status Filter */}
-            <div className="w-full sm:w-48">
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500"
-              >
-                <option value="">Tous les statuts</option>
-                <option value="active">Actif</option>
-                <option value="returned">Retourné</option>
-                <option value="partial">Retour partiel</option>
-                <option value="overdue">En retard</option>
-              </select>
-            </div>
-
-            {/* View Mode Toggle */}
+        <div className="flex gap-3">
+          {currentView === 'checkouts' && (
             <div className="flex rounded-lg border border-gray-200 dark:border-gray-700">
               <Button
-                variant={viewMode === 'delivery_note' ? 'primary' : 'outline'}
+                variant={viewMode === 'grid' ? 'primary' : 'outline'}
                 size="sm"
-                icon={<FileText size={18} />}
-                onClick={() => setViewMode('delivery_note')}
-                className="rounded-r-none"
+                icon={<LayoutGrid size={16} />}
+                onClick={() => setViewMode('grid')}
+                className="rounded-r-none font-bold"
               >
-                Par Bon
+                GRILLE
               </Button>
               <Button
-                variant={viewMode === 'material' ? 'primary' : 'outline'}
+                variant={viewMode === 'list' ? 'primary' : 'outline'}
                 size="sm"
-                icon={<Package size={18} />}
-                onClick={() => setViewMode('material')}
-                className="rounded-l-none"
+                icon={<List size={16} />}
+                onClick={() => setViewMode('list')}
+                className="rounded-l-none font-bold"
               >
-                Par Matériel
+                LISTE
               </Button>
             </div>
-          </div>
-
-          {/* Quick Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-            <div className="text-center">
-              <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                {checkouts.length}
-              </div>
-              <div className="text-sm text-gray-500 dark:text-gray-400">
-                Total sorties
-              </div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-                {checkouts.filter(c => c.status === 'active').length}
-              </div>
-              <div className="text-sm text-gray-500 dark:text-gray-400">
-                En cours
-              </div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-red-600 dark:text-red-400">
-                {checkouts.filter(c => c.status === 'overdue').length}
-              </div>
-              <div className="text-sm text-gray-500 dark:text-gray-400">
-                En retard
-              </div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-gray-600 dark:text-gray-400">
-                {checkouts.filter(c => c.status === 'returned').length}
-              </div>
-              <div className="text-sm text-gray-500 dark:text-gray-400">
-                Retournés
-              </div>
-            </div>
-          </div>
-        </div>
-      </Card>
-
-      {/* Content based on view mode */}
-      {viewMode === 'delivery_note' ? (
-        /* Vue par bon de sortie */
-        <div className="space-y-4">
-          {filteredDeliveryNotes.length === 0 ? (
-            <Card>
-              <div className="text-center py-12">
-                <FileText size={48} className="mx-auto text-gray-400 mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-                  Aucun bon de sortie
-                </h3>
-                <p className="text-gray-500 dark:text-gray-400">
-                  {searchTerm || statusFilter 
-                    ? 'Aucun bon ne correspond aux critères de recherche.'
-                    : 'Aucun bon de sortie pour le moment.'
-                  }
-                </p>
-              </div>
-            </Card>
-          ) : (
-            filteredDeliveryNotes.map((note) => {
-              const isOverdue = note.status === 'overdue';
-              const progress = note.totalItems > 0 ? (note.returnedItems / note.totalItems) * 100 : 0;
-              const isPartial = note.status === 'partial';
-              
-              return (
-                <Accordion
-                  key={note.noteId}
-                  className={`transition-all hover:shadow-md ${isOverdue ? 'border-l-4 border-l-red-500' : isPartial ? 'border-l-4 border-l-yellow-500' : ''}`}
-                  defaultOpen={false}
-                  title={
-                    <div className="flex justify-between items-start w-full">
-                      <div className="flex items-center gap-3">
-                        <FileText size={24} className="text-blue-600 dark:text-blue-400" />
-                        <div>
-                          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                            Bon N° {note.noteNumber}
-                          </h3>
-                          <p className="text-sm text-gray-500 dark:text-gray-400">
-                            Émis le {format(new Date(note.issueDate), 'dd/MM/yyyy')}
-                          </p>
-                        </div>
-                        {isOverdue && (
-                          <AlertTriangle size={20} className="text-red-500" />
-                        )}
-                      </div>
-                      
-                      <div className="text-right">
-                        <Badge variant={getStatusBadgeVariant(note.status, isOverdue)}>
-                          {getStatusLabel(note.status, isOverdue)}
-                        </Badge>
-                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                          Retour prévu: {format(new Date(note.dueDate), 'dd/MM/yyyy')}
-                        </p>
-                      </div>
-                    </div>
-                  }
-                >
-                  <div className="space-y-4">
-                    {/* User Info */}
-                    <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
-                      <div className="flex items-center gap-3">
-                        <User size={20} className="text-gray-600 dark:text-gray-400" />
-                        <div>
-                          <p className="font-medium text-gray-900 dark:text-white">
-                            {note.user.name}
-                          </p>
-                          <p className="text-sm text-gray-500 dark:text-gray-400">
-                            {note.user.department} • {note.user.email}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Progress */}
-                    <div>
-                      <div className="flex justify-between items-center mb-2">
-                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                          Progression du retour
-                        </span>
-                        <span className="text-sm text-gray-500 dark:text-gray-400">
-                          {note.returnedItems}/{note.totalItems} matériel(s)
-                        </span>
-                      </div>
-                      <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                        <div 
-                          className={`h-2 rounded-full transition-all ${
-                            progress === 100 ? 'bg-green-500' : 
-                            progress > 0 ? 'bg-yellow-500' : 'bg-blue-500'
-                          }`}
-                          style={{ width: `${progress}%` }}
-                        />
-                      </div>
-                    </div>
-
-                    {/* Material List */}
-                    <div className="space-y-2">
-                      <h4 className="font-medium text-gray-900 dark:text-white mb-2">
-                        Matériel ({note.totalItems})
-                      </h4>
-                      <div className="grid gap-2">
-                        {note.checkouts.map((checkout) => {
-                          // Check if the checkout is overdue
-                          const dueDate = new Date(checkout.due_date);
-                          dueDate.setHours(23, 59, 59, 999); // Set to end of the due date
-                          
-                          const today = new Date();
-                          today.setHours(0, 0, 0, 0); // Set to start of today
-                          
-                          const isOverdue = dueDate < today && checkout.status === 'active';
-                          
-                          return (
-                            <div 
-                              key={checkout.id}
-                              className={`flex justify-between items-center p-3 rounded-lg border ${
-                                checkout.status === 'returned' 
-                                  ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800' 
-                                  : isOverdue
-                                  ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
-                                  : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700'
-                              }`}
-                            >
-                              <div className="flex items-center gap-3">
-                                <Package size={16} className="text-gray-500" />
-                                <div>
-                                  <p className="font-medium text-gray-900 dark:text-white">
-                                    {checkout.equipment.name}
-                                  </p>
-                                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                                    {checkout.equipment.serial_number}
-                                    {checkout.equipment.article_number && ` • ${checkout.equipment.article_number}`}
-                                  </p>
-                                </div>
-                              </div>
-                              
-                              <div className="flex items-center gap-2">
-                                <Badge variant={getStatusBadgeVariant(checkout.status, isOverdue)}>
-                                  {isOverdue ? 'En retard' : getStatusLabel(checkout.status)}
-                                </Badge>
-                                {(checkout.status === 'active' || isOverdue) && (
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    icon={<ArrowLeft size={14} />}
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleDirectReturn(checkout);
-                                    }}
-                                  >
-                                    Retour
-                                  </Button>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-
-                    {/* Actions */}
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        icon={<QrCode size={16} />}
-                        onClick={() => handleShowQRCode(note)}
-                      >
-                        QR Code
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        icon={<Printer size={16} />}
-                        onClick={() => handlePrintNote(note)}
-                      >
-                        Imprimer
-                      </Button>
-                      {note.status === 'partial' ? (
-                        <Button
-                          variant="warning"
-                          size="sm"
-                          icon={<ArrowLeft size={16} />}
-                          onClick={() => handleCompletePartialReturn(note)}
-                        >
-                          Compléter le retour
-                        </Button>
-                      ) : (
-                        <Button
-                          variant="primary"
-                          size="sm"
-                          icon={<ArrowLeft size={16} />}
-                          onClick={() => handleReturnNote(note)}
-                        >
-                          Retour matériel
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                </Accordion>
-              );
-            })
           )}
+          
+          <Button 
+            variant="outline" 
+            size="sm" 
+            icon={<Filter size={16} />}
+            onClick={() => setShowFilters(true)}
+            className="font-bold"
+          >
+            FILTRES
+            {Object.keys(activeFilters).length > 0 && (
+              <span className="ml-1 px-1.5 py-0.5 text-xs bg-primary-100 dark:bg-primary-900 text-primary-600 dark:text-primary-300 rounded-full font-black">
+                {Object.keys(activeFilters).length}
+              </span>
+            )}
+          </Button>
+          
+          <Button 
+            variant="outline"
+            size="sm" 
+            icon={<RefreshCw size={16} />}
+            onClick={fetchData}
+            className="font-bold"
+          >
+            ACTUALISER
+          </Button>
         </div>
-      ) : (
-        /* Vue par matériel */
-        <Card>
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-              <thead className="bg-gray-50 dark:bg-gray-800">
-                <tr>
-                  <th 
-                    className="px-6 py-3 text-left cursor-pointer group"
-                    onClick={() => handleSort('equipment_name')}
-                  >
-                    <div className="flex items-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Matériel
-                      <ArrowUpDown size={14} className="ml-1 opacity-0 group-hover:opacity-100" />
-                    </div>
-                  </th>
-                  <th 
-                    className="px-6 py-3 text-left cursor-pointer group"
-                    onClick={() => handleSort('note_number')}
-                  >
-                    <div className="flex items-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Bon de sortie
-                      <ArrowUpDown size={14} className="ml-1 opacity-0 group-hover:opacity-100" />
-                    </div>
-                  </th>
-                  <th 
-                    className="px-6 py-3 text-left cursor-pointer group"
-                    onClick={() => handleSort('user_name')}
-                  >
-                    <div className="flex items-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Utilisateur
-                      <ArrowUpDown size={14} className="ml-1 opacity-0 group-hover:opacity-100" />
-                    </div>
-                  </th>
-                  <th 
-                    className="px-6 py-3 text-left cursor-pointer group"
-                    onClick={() => handleSort('checkout_date')}
-                  >
-                    <div className="flex items-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Date de sortie
-                      <ArrowUpDown size={14} className="ml-1 opacity-0 group-hover:opacity-100" />
-                    </div>
-                  </th>
-                  <th 
-                    className="px-6 py-3 text-left cursor-pointer group"
-                    onClick={() => handleSort('due_date')}
-                  >
-                    <div className="flex items-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Date de retour prévue
-                      <ArrowUpDown size={14} className="ml-1 opacity-0 group-hover:opacity-100" />
-                    </div>
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Date de retour effective
-                  </th>
-                  <th 
-                    className="px-6 py-3 text-left cursor-pointer group"
-                    onClick={() => handleSort('status')}
-                  >
-                    <div className="flex items-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Statut
-                      <ArrowUpDown size={14} className="ml-1 opacity-0 group-hover:opacity-100" />
-                    </div>
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
-                {filteredCheckouts.length === 0 ? (
-                  <tr>
-                    <td colSpan={8} className="px-6 py-12 text-center">
-                      <Package size={48} className="mx-auto text-gray-400 mb-4" />
-                      <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-                        Aucune sortie de matériel
-                      </h3>
-                      <p className="text-gray-500 dark:text-gray-400">
-                        {searchTerm || statusFilter 
-                          ? 'Aucune sortie ne correspond aux critères de recherche.'
-                          : 'Aucune sortie de matériel pour le moment.'
-                        }
-                      </p>
-                    </td>
-                  </tr>
-                ) : (
-                  filteredCheckouts.map((checkout) => {
-                    const isOverdue = checkout.status === 'overdue';
-                    
-                    return (
-                      <tr key={checkout.id} className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div>
-                            <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                              {checkout.equipment.name}
-                            </div>
-                            <div className="text-sm text-gray-500 dark:text-gray-400">
-                              {checkout.equipment.serial_number}
-                              {checkout.equipment.article_number && ` • ${checkout.equipment.article_number}`}
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
-                          {checkout.delivery_notes?.note_number || '-'}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div>
-                            <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                              {checkout.users.first_name} {checkout.users.last_name}
-                            </div>
-                            <div className="text-sm text-gray-500 dark:text-gray-400">
-                              {checkout.users.department}
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                          {format(new Date(checkout.checkout_date), 'dd/MM/yyyy')}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                          <div className={isOverdue ? 'text-red-600 dark:text-red-400 font-medium' : ''}>
-                            {format(new Date(checkout.due_date), 'dd/MM/yyyy')}
-                            {isOverdue && (
-                              <AlertTriangle size={14} className="inline ml-1" />
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                          {checkout.return_date
-                            ? format(new Date(checkout.return_date), 'dd/MM/yyyy')
-                            : '-'}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <Badge variant={getStatusBadgeVariant(checkout.status, isOverdue)}>
-                            {getStatusLabel(checkout.status, isOverdue)}
-                          </Badge>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right">
-                          {(checkout.status === 'active' || checkout.status === 'overdue') && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              icon={<ArrowLeft size={14} />}
-                              onClick={() => handleDirectReturn(checkout)}
-                            >
-                              Retour
-                            </Button>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
-        </Card>
+      </div>
+
+      {/* Stats */}
+      {currentView === 'delivery_notes' && (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+          <Card className="flex items-center p-3">
+            <div className="rounded-full bg-primary-100 dark:bg-primary-900/50 p-2 mr-3">
+              <FileText size={20} className="text-primary-600 dark:text-primary-300" />
+            </div>
+            <div>
+              <p className="text-gray-500 dark:text-gray-400 text-xs font-medium uppercase tracking-wide">Total</p>
+              <p className="text-xl font-bold text-gray-800 dark:text-white">
+                {deliveryNotes.length}
+              </p>
+            </div>
+          </Card>
+          
+          <Card className="flex items-center p-3">
+            <div className="rounded-full bg-success-100 dark:bg-success-900/50 p-2 mr-3">
+              <CheckCircle size={20} className="text-success-600 dark:text-success-300" />
+            </div>
+            <div>
+              <p className="text-gray-500 dark:text-gray-400 text-xs font-medium uppercase tracking-wide">Actifs</p>
+              <p className="text-xl font-bold text-gray-800 dark:text-white">
+                {deliveryNotes.filter(n => n.status === 'active').length}
+              </p>
+            </div>
+          </Card>
+          
+          <Card className="flex items-center p-3">
+            <div className="rounded-full bg-warning-100 dark:bg-warning-900/50 p-2 mr-3">
+              <Clock size={20} className="text-warning-600 dark:text-warning-300" />
+            </div>
+            <div>
+              <p className="text-gray-500 dark:text-gray-400 text-xs font-medium uppercase tracking-wide">Partiels</p>
+              <p className="text-xl font-bold text-gray-800 dark:text-white">
+                {deliveryNotes.filter(n => n.status === 'partial').length}
+              </p>
+            </div>
+          </Card>
+          
+          <Card className="flex items-center p-3">
+            <div className="rounded-full bg-danger-100 dark:bg-danger-900/50 p-2 mr-3">
+              <AlertTriangle size={20} className="text-danger-600 dark:text-danger-300" />
+            </div>
+            <div>
+              <p className="text-gray-500 dark:text-gray-400 text-xs font-medium uppercase tracking-wide">En retard</p>
+              <p className="text-xl font-bold text-gray-800 dark:text-white">
+                {deliveryNotes.filter(n => n.status === 'overdue').length}
+              </p>
+            </div>
+          </Card>
+        </div>
       )}
 
-      {/* QR Code Modal */}
-      <Modal
-        isOpen={showQRModal}
-        onClose={() => setShowQRModal(false)}
-        title="QR CODE BON DE SORTIE"
-        size="sm"
-      >
-        {selectedNoteForQR && (
-          <div className="flex flex-col items-center">
-            <div className="mb-4 text-center">
-              <h3 className="text-lg font-bold text-gray-900 dark:text-white">
-                Bon N° {selectedNoteForQR.noteNumber}
-              </h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                Utilisez ce QR code pour scanner et effectuer les retours
+      {currentView === 'checkouts' && (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+          <Card className="flex items-center p-3">
+            <div className="rounded-full bg-primary-100 dark:bg-primary-900/50 p-2 mr-3">
+              <Package size={20} className="text-primary-600 dark:text-primary-300" />
+            </div>
+            <div>
+              <p className="text-gray-500 dark:text-gray-400 text-xs font-medium uppercase tracking-wide">Total</p>
+              <p className="text-xl font-bold text-gray-800 dark:text-white">
+                {checkouts.length}
               </p>
             </div>
-            
-            <div className="bg-white p-4 rounded-lg shadow-md">
-              <div id="qrCodeElement" className="w-48 h-48"></div>
+          </Card>
+          
+          <Card className="flex items-center p-3">
+            <div className="rounded-full bg-success-100 dark:bg-success-900/50 p-2 mr-3">
+              <CheckCircle size={20} className="text-success-600 dark:text-success-300" />
             </div>
-            
-            <div className="mt-4 text-center">
-              <p className="text-xs text-gray-500 dark:text-gray-400 font-mono">
-                {selectedNoteForQR.qrCode || `DN-${selectedNoteForQR.noteNumber}`}
+            <div>
+              <p className="text-gray-500 dark:text-gray-400 text-xs font-medium uppercase tracking-wide">Actifs</p>
+              <p className="text-xl font-bold text-gray-800 dark:text-white">
+                {checkouts.filter(c => c.status === 'active').length}
               </p>
             </div>
-            
-            <Button
-              variant="primary"
-              size="lg"
-              icon={<Printer size={18} />}
-              onClick={() => handlePrintNote(selectedNoteForQR)}
-              className="mt-6 w-full"
-            >
-              IMPRIMER LE BON COMPLET
-            </Button>
-          </div>
-        )}
-      </Modal>
+          </Card>
+          
+          <Card className="flex items-center p-3">
+            <div className="rounded-full bg-danger-100 dark:bg-danger-900/50 p-2 mr-3">
+              <AlertTriangle size={20} className="text-danger-600 dark:text-danger-300" />
+            </div>
+            <div>
+              <p className="text-gray-500 dark:text-gray-400 text-xs font-medium uppercase tracking-wide">En retard</p>
+              <p className="text-xl font-bold text-gray-800 dark:text-white">
+                {checkouts.filter(c => c.status === 'overdue').length}
+              </p>
+            </div>
+          </Card>
+          
+          <Card className="flex items-center p-3">
+            <div className="rounded-full bg-gray-100 dark:bg-gray-700 p-2 mr-3">
+              <LogIn size={20} className="text-gray-600 dark:text-gray-300" />
+            </div>
+            <div>
+              <p className="text-gray-500 dark:text-gray-400 text-xs font-medium uppercase tracking-wide">Retournés</p>
+              <p className="text-xl font-bold text-gray-800 dark:text-white">
+                {checkouts.filter(c => c.status === 'returned').length}
+              </p>
+            </div>
+          </Card>
+        </div>
+      )}
 
-      {/* Return Modal */}
-      <ReturnModal
-        isOpen={showReturnModal}
-        onClose={handleReturnModalClose}
-        initialNoteId={selectedNoteId}
+      {/* Content */}
+      {currentView === 'delivery_notes' ? (
+        renderDeliveryNotesView()
+      ) : (
+        viewMode === 'list' ? renderCheckoutsListView() : renderCheckoutsGridView()
+      )}
+
+      {/* Modals */}
+      <CheckoutModal
+        isOpen={showCheckoutModal}
+        onClose={handleCloseCheckoutModal}
       />
 
-      {/* Direct Return Modal */}
+      <ReturnModal
+        isOpen={showReturnModal}
+        onClose={handleCloseReturnModal}
+      />
+
       {selectedCheckout && (
         <DirectReturnModal
           isOpen={showDirectReturnModal}
-          onClose={() => {
-            setShowDirectReturnModal(false);
-            setSelectedCheckout(null);
-            // Refresh data after closing modal
-            setTimeout(() => fetchCheckouts(), 500);
-          }}
+          onClose={handleCloseDirectReturnModal}
           checkout={selectedCheckout}
         />
       )}
+
+      <FilterPanel
+        isOpen={showFilters}
+        onClose={() => setShowFilters(false)}
+        options={filterOptions}
+        onApplyFilters={setActiveFilters}
+      />
     </div>
   );
 };

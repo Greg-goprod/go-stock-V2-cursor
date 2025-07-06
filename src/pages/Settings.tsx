@@ -1,12 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Card from '../components/common/Card';
-import AccordionCard from '../components/common/AccordionCard';
 import Button from '../components/common/Button';
-import ConfirmModal from '../components/common/ConfirmModal';
-import { useTheme } from '../contexts/ThemeContext';
-import { useLanguage } from '../contexts/LanguageContext';
-import { Sun, Moon, Languages, Plus, Pencil, Trash2, Tag, UserCheck, Save, X, Upload, Download, Settings as SettingsIcon, Image, Building2, Palette, Layers, Wrench } from 'lucide-react';
-import ColorPicker from '../components/common/ColorPicker';
+import Accordion from '../components/common/Accordion';
 import CategoryModal from '../components/categories/CategoryModal';
 import SupplierModal from '../components/suppliers/SupplierModal';
 import GroupModal from '../components/groups/GroupModal';
@@ -15,13 +10,44 @@ import DepartmentModal from '../components/departments/DepartmentModal';
 import StatusModal from '../components/settings/StatusModal';
 import MaintenanceTypeModal from '../components/settings/MaintenanceTypeModal';
 import ExcelImport from '../components/import/ExcelImport';
-import { Category, Supplier, EquipmentGroup, EquipmentSubgroup, SystemSetting, Department, StatusConfig, MaintenanceType } from '../types';
+import { 
+  Plus, 
+  Edit, 
+  Trash2, 
+  Settings as SettingsIcon, 
+  Tag, 
+  Building2, 
+  Users, 
+  Layers,
+  Palette,
+  Wrench,
+  Upload,
+  Download,
+  Globe,
+  Moon,
+  Sun,
+  Languages,
+  Truck,
+  Package
+} from 'lucide-react';
+import { useLanguage } from '../contexts/LanguageContext';
+import { useTheme } from '../contexts/ThemeContext';
 import { supabase } from '../lib/supabase';
 import toast from 'react-hot-toast';
+import { 
+  Category, 
+  Supplier, 
+  EquipmentGroup, 
+  EquipmentSubgroup, 
+  Department, 
+  StatusConfig, 
+  MaintenanceType,
+  SystemSetting 
+} from '../types';
 
 const Settings: React.FC = () => {
-  const { theme, toggleTheme } = useTheme();
   const { language, setLanguage, t } = useLanguage();
+  const { theme, toggleTheme } = useTheme();
   
   // Data states
   const [categories, setCategories] = useState<Category[]>([]);
@@ -32,1346 +58,910 @@ const Settings: React.FC = () => {
   const [statusConfigs, setStatusConfigs] = useState<StatusConfig[]>([]);
   const [maintenanceTypes, setMaintenanceTypes] = useState<MaintenanceType[]>([]);
   const [systemSettings, setSystemSettings] = useState<SystemSetting[]>([]);
-  const [loading, setLoading] = useState(true);
-
+  
   // Modal states
   const [showCategoryModal, setShowCategoryModal] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState<Category | undefined>();
   const [showSupplierModal, setShowSupplierModal] = useState(false);
-  const [selectedSupplier, setSelectedSupplier] = useState<Supplier | undefined>();
   const [showGroupModal, setShowGroupModal] = useState(false);
-  const [selectedGroup, setSelectedGroup] = useState<EquipmentGroup | undefined>();
   const [showSubgroupModal, setShowSubgroupModal] = useState(false);
-  const [selectedSubgroup, setSelectedSubgroup] = useState<EquipmentSubgroup | undefined>();
   const [showDepartmentModal, setShowDepartmentModal] = useState(false);
-  const [selectedDepartment, setSelectedDepartment] = useState<Department | undefined>();
   const [showStatusModal, setShowStatusModal] = useState(false);
-  const [selectedStatus, setSelectedStatus] = useState<StatusConfig | undefined>();
   const [showMaintenanceTypeModal, setShowMaintenanceTypeModal] = useState(false);
-  const [selectedMaintenanceType, setSelectedMaintenanceType] = useState<MaintenanceType | undefined>();
-  const [showExcelImport, setShowExcelImport] = useState(false);
-
-  // Delete confirmation states
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [deleteItem, setDeleteItem] = useState<{
-    type: 'category' | 'supplier' | 'group' | 'subgroup' | 'department' | 'status' | 'maintenanceType';
-    item: any;
-  } | null>(null);
-
-  // Settings states
-  const [articlePrefix, setArticlePrefix] = useState('GOMAT');
-  const [isEditingPrefix, setIsEditingPrefix] = useState(false);
-  const [tempPrefix, setTempPrefix] = useState('GOMAT');
+  const [showImportModal, setShowImportModal] = useState(false);
+  
+  // Edit states
+  const [editingCategory, setEditingCategory] = useState<Category | undefined>();
+  const [editingSupplier, setEditingSupplier] = useState<Supplier | undefined>();
+  const [editingGroup, setEditingGroup] = useState<EquipmentGroup | undefined>();
+  const [editingSubgroup, setEditingSubgroup] = useState<EquipmentSubgroup | undefined>();
+  const [editingDepartment, setEditingDepartment] = useState<Department | undefined>();
+  const [editingStatus, setEditingStatus] = useState<StatusConfig | undefined>();
+  const [editingMaintenanceType, setEditingMaintenanceType] = useState<MaintenanceType | undefined>();
+  
+  // Loading states
+  const [loading, setLoading] = useState(true);
+  const [articlePrefix, setArticlePrefix] = useState('');
   const [companyLogo, setCompanyLogo] = useState('');
-  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
 
   useEffect(() => {
-    fetchData();
+    fetchAllData();
   }, []);
 
-  const fetchData = async () => {
+  const fetchAllData = async () => {
     try {
       setLoading(true);
-      
-      // Fetch all data in parallel
-      const [categoriesRes, suppliersRes, groupsRes, subgroupsRes, statusRes, maintenanceTypesRes, settingsRes] = await Promise.all([
-        supabase.from('categories').select('*').order('name'),
-        supabase.from('suppliers').select('*').order('name'),
-        supabase.from('equipment_groups').select('*').order('name'),
-        supabase.from('equipment_subgroups').select('*, equipment_groups(id, name, color)').order('name'),
-        supabase.from('status_configs').select('*').order('name'),
-        supabase.from('maintenance_types').select('*').order('name'),
-        supabase.from('system_settings').select('*')
+      await Promise.all([
+        fetchCategories(),
+        fetchSuppliers(),
+        fetchGroups(),
+        fetchSubgroups(),
+        fetchDepartments(),
+        fetchStatusConfigs(),
+        fetchMaintenanceTypes(),
+        fetchSystemSettings()
       ]);
-
-      if (categoriesRes.error) throw categoriesRes.error;
-      if (suppliersRes.error) throw suppliersRes.error;
-      if (groupsRes.error) throw groupsRes.error;
-      if (subgroupsRes.error) throw subgroupsRes.error;
-      if (statusRes.error) throw statusRes.error;
-      if (maintenanceTypesRes.error) throw maintenanceTypesRes.error;
-      if (settingsRes.error) throw settingsRes.error;
-
-      setCategories(categoriesRes.data || []);
-      setSuppliers(suppliersRes.data || []);
-      setGroups(groupsRes.data || []);
-      setSystemSettings(settingsRes.data || []);
-
-      // Transform subgroups data
-      const transformedSubgroups: EquipmentSubgroup[] = subgroupsRes.data?.map(sg => ({
-        id: sg.id,
-        name: sg.name,
-        description: sg.description,
-        color: sg.color,
-        groupId: sg.group_id,
-        createdAt: sg.created_at
-      })) || [];
-      setSubgroups(transformedSubgroups);
-
-      // Transform maintenance types
-      const transformedMaintenanceTypes: MaintenanceType[] = maintenanceTypesRes.data?.map(mt => ({
-        id: mt.id,
-        name: mt.name,
-        description: mt.description,
-        color: mt.color,
-        createdAt: mt.created_at
-      })) || [];
-      setMaintenanceTypes(transformedMaintenanceTypes);
-
-      // Set status configs with defaults if none exist
-      if (!statusRes.data || statusRes.data.length === 0) {
-        const defaultStatuses: StatusConfig[] = [
-          { id: 'available', name: 'Disponible', color: '#10b981' },
-          { id: 'checked-out', name: 'Emprunté', color: '#f59e0b' },
-          { id: 'maintenance', name: 'En maintenance', color: '#3b82f6' },
-          { id: 'retired', name: 'Retiré', color: '#ef4444' }
-        ];
-        setStatusConfigs(defaultStatuses);
-        
-        // Insert default statuses into database
-        await supabase.from('status_configs').insert(defaultStatuses);
-      } else {
-        setStatusConfigs(statusRes.data);
-      }
-
-      // Fetch departments from users table (unique departments)
-      const { data: usersData, error: usersError } = await supabase
-        .from('users')
-        .select('department')
-        .order('department');
-
-      if (usersError) throw usersError;
-
-      // Create departments list from unique user departments
-      const uniqueDepartments = Array.from(new Set(usersData?.map(u => u.department).filter(Boolean) || []));
-      const departmentsList: Department[] = uniqueDepartments.map((dept, index) => ({
-        id: `dept-${index}`,
-        name: dept,
-        description: `Département ${dept}`,
-        color: '#64748b',
-        createdAt: new Date().toISOString()
-      }));
-
-      setDepartments(departmentsList);
-
-      // Set article prefix
-      const prefixSetting = settingsRes.data?.find(s => s.id === 'article_prefix');
-      if (prefixSetting) {
-        setArticlePrefix(prefixSetting.value);
-        setTempPrefix(prefixSetting.value);
-      }
-
-      // Set company logo
-      const logoSetting = settingsRes.data?.find(s => s.id === 'company_logo');
-      if (logoSetting) {
-        setCompanyLogo(logoSetting.value);
-      }
-
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error fetching data:', error);
-      toast.error(t('error'));
+      toast.error('Erreur lors du chargement des données');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleEditCategory = (category: Category) => {
-    setSelectedCategory(category);
-    setShowCategoryModal(true);
+  const fetchCategories = async () => {
+    const { data, error } = await supabase
+      .from('categories')
+      .select('*')
+      .order('name');
+    
+    if (error) throw error;
+    setCategories(data || []);
   };
 
-  const handleAddCategory = () => {
-    setSelectedCategory(undefined);
-    setShowCategoryModal(true);
+  const fetchSuppliers = async () => {
+    const { data, error } = await supabase
+      .from('suppliers')
+      .select('*')
+      .order('name');
+    
+    if (error) throw error;
+    setSuppliers(data || []);
   };
 
-  const handleDeleteCategory = (category: Category) => {
-    setDeleteItem({ type: 'category', item: category });
-    setShowDeleteConfirm(true);
+  const fetchGroups = async () => {
+    const { data, error } = await supabase
+      .from('equipment_groups')
+      .select('*')
+      .order('name');
+    
+    if (error) throw error;
+    setGroups(data || []);
   };
 
-  const handleEditSupplier = (supplier: Supplier) => {
-    setSelectedSupplier(supplier);
-    setShowSupplierModal(true);
+  const fetchSubgroups = async () => {
+    const { data, error } = await supabase
+      .from('equipment_subgroups')
+      .select('*')
+      .order('name');
+    
+    if (error) throw error;
+    
+    const transformedSubgroups: EquipmentSubgroup[] = data?.map(sg => ({
+      id: sg.id,
+      name: sg.name,
+      description: sg.description,
+      color: sg.color,
+      groupId: sg.group_id,
+      createdAt: sg.created_at
+    })) || [];
+    
+    setSubgroups(transformedSubgroups);
   };
 
-  const handleAddSupplier = () => {
-    setSelectedSupplier(undefined);
-    setShowSupplierModal(true);
+  const fetchDepartments = async () => {
+    const { data, error } = await supabase
+      .from('departments')
+      .select('*')
+      .order('name');
+    
+    if (error) throw error;
+    setDepartments(data || []);
   };
 
-  const handleDeleteSupplier = (supplier: Supplier) => {
-    setDeleteItem({ type: 'supplier', item: supplier });
-    setShowDeleteConfirm(true);
+  const fetchStatusConfigs = async () => {
+    const { data, error } = await supabase
+      .from('status_configs')
+      .select('*')
+      .order('name');
+    
+    if (error) throw error;
+    setStatusConfigs(data || []);
   };
 
-  const handleEditGroup = (group: EquipmentGroup) => {
-    setSelectedGroup(group);
-    setShowGroupModal(true);
+  const fetchMaintenanceTypes = async () => {
+    const { data, error } = await supabase
+      .from('maintenance_types')
+      .select('*')
+      .order('name');
+    
+    if (error) throw error;
+    setMaintenanceTypes(data || []);
   };
 
-  const handleAddGroup = () => {
-    setSelectedGroup(undefined);
-    setShowGroupModal(true);
-  };
-
-  const handleDeleteGroup = (group: EquipmentGroup) => {
-    setDeleteItem({ type: 'group', item: group });
-    setShowDeleteConfirm(true);
-  };
-
-  const handleEditSubgroup = (subgroup: EquipmentSubgroup) => {
-    setSelectedSubgroup(subgroup);
-    setShowSubgroupModal(true);
-  };
-
-  const handleAddSubgroup = () => {
-    setSelectedSubgroup(undefined);
-    setShowSubgroupModal(true);
-  };
-
-  const handleDeleteSubgroup = (subgroup: EquipmentSubgroup) => {
-    setDeleteItem({ type: 'subgroup', item: subgroup });
-    setShowDeleteConfirm(true);
-  };
-
-  const handleEditDepartment = (department: Department) => {
-    setSelectedDepartment(department);
-    setShowDepartmentModal(true);
-  };
-
-  const handleAddDepartment = () => {
-    setSelectedDepartment(undefined);
-    setShowDepartmentModal(true);
-  };
-
-  const handleDeleteDepartment = (department: Department) => {
-    setDeleteItem({ type: 'department', item: department });
-    setShowDeleteConfirm(true);
-  };
-
-  const handleEditStatus = (status: StatusConfig) => {
-    setSelectedStatus(status);
-    setShowStatusModal(true);
-  };
-
-  const handleAddStatus = () => {
-    setSelectedStatus(undefined);
-    setShowStatusModal(true);
-  };
-
-  const handleDeleteStatus = (status: StatusConfig) => {
-    setDeleteItem({ type: 'status', item: status });
-    setShowDeleteConfirm(true);
-  };
-
-  const handleEditMaintenanceType = (type: MaintenanceType) => {
-    setSelectedMaintenanceType(type);
-    setShowMaintenanceTypeModal(true);
-  };
-
-  const handleAddMaintenanceType = () => {
-    setSelectedMaintenanceType(undefined);
-    setShowMaintenanceTypeModal(true);
-  };
-
-  const handleDeleteMaintenanceType = (type: MaintenanceType) => {
-    setDeleteItem({ type: 'maintenanceType', item: type });
-    setShowDeleteConfirm(true);
-  };
-
-  const handleDeleteConfirm = async () => {
-    if (!deleteItem) return;
-
-    try {
-      const { type, item } = deleteItem;
-
-      switch (type) {
-        case 'category':
-          const { error: categoryError } = await supabase
-            .from('categories')
-            .delete()
-            .eq('id', item.id);
-          if (categoryError) throw categoryError;
-          setCategories(prev => prev.filter(c => c.id !== item.id));
-          break;
-
-        case 'supplier':
-          const { error: supplierError } = await supabase
-            .from('suppliers')
-            .delete()
-            .eq('id', item.id);
-          if (supplierError) throw supplierError;
-          setSuppliers(prev => prev.filter(s => s.id !== item.id));
-          break;
-
-        case 'group':
-          // Check if any subgroups are using this group
-          const { data: subgroupsWithGroup, error: subgroupCheckError } = await supabase
-            .from('equipment_subgroups')
-            .select('id')
-            .eq('group_id', item.id);
-
-          if (subgroupCheckError) throw subgroupCheckError;
-
-          if (subgroupsWithGroup && subgroupsWithGroup.length > 0) {
-            toast.error(`Impossible de supprimer le groupe "${item.name}" car ${subgroupsWithGroup.length} sous-groupe(s) l'utilisent encore.`);
-            return;
-          }
-
-          // Check if any equipment is using this group
-          const { data: equipmentWithGroup, error: equipmentCheckError } = await supabase
-            .from('equipment')
-            .select('id')
-            .eq('group_id', item.id);
-
-          if (equipmentCheckError) throw equipmentCheckError;
-
-          if (equipmentWithGroup && equipmentWithGroup.length > 0) {
-            toast.error(`Impossible de supprimer le groupe "${item.name}" car ${equipmentWithGroup.length} équipement(s) l'utilisent encore.`);
-            return;
-          }
-
-          const { error: groupError } = await supabase
-            .from('equipment_groups')
-            .delete()
-            .eq('id', item.id);
-          if (groupError) throw groupError;
-          setGroups(prev => prev.filter(g => g.id !== item.id));
-          break;
-
-        case 'subgroup':
-          // Check if any equipment is using this subgroup
-          const { data: equipmentWithSubgroup, error: equipmentSubgroupError } = await supabase
-            .from('equipment')
-            .select('id')
-            .eq('subgroup_id', item.id);
-
-          if (equipmentSubgroupError) throw equipmentSubgroupError;
-
-          if (equipmentWithSubgroup && equipmentWithSubgroup.length > 0) {
-            toast.error(`Impossible de supprimer le sous-groupe "${item.name}" car ${equipmentWithSubgroup.length} équipement(s) l'utilisent encore.`);
-            return;
-          }
-
-          const { error: subgroupError } = await supabase
-            .from('equipment_subgroups')
-            .delete()
-            .eq('id', item.id);
-          if (subgroupError) throw subgroupError;
-          setSubgroups(prev => prev.filter(sg => sg.id !== item.id));
-          break;
-
-        case 'department':
-          // Check if any users are using this department
-          const { data: usersWithDept, error: checkError } = await supabase
-            .from('users')
-            .select('id')
-            .eq('department', item.name);
-
-          if (checkError) throw checkError;
-
-          if (usersWithDept && usersWithDept.length > 0) {
-            toast.error(`Impossible de supprimer le département "${item.name}" car ${usersWithDept.length} utilisateur(s) l'utilisent encore.`);
-            return;
-          }
-
-          setDepartments(prev => prev.filter(d => d.name !== item.name));
-          break;
-
-        case 'status':
-          // Check if any equipment is using this status
-          const { data: equipmentWithStatus, error: equipmentError } = await supabase
-            .from('equipment')
-            .select('id')
-            .eq('status', item.id);
-
-          if (equipmentError) throw equipmentError;
-
-          if (equipmentWithStatus && equipmentWithStatus.length > 0) {
-            toast.error(`Impossible de supprimer le statut "${item.name}" car ${equipmentWithStatus.length} équipement(s) l'utilisent encore.`);
-            return;
-          }
-
-          const { error: statusError } = await supabase
-            .from('status_configs')
-            .delete()
-            .eq('id', item.id);
-          if (statusError) throw statusError;
-          setStatusConfigs(prev => prev.filter(s => s.id !== item.id));
-          break;
-
-        case 'maintenanceType':
-          // Check if any maintenance records are using this type
-          const { data: maintenanceWithType, error: maintenanceError } = await supabase
-            .from('equipment_maintenance')
-            .select('id')
-            .eq('maintenance_type_id', item.id);
-
-          if (maintenanceError) throw maintenanceError;
-
-          if (maintenanceWithType && maintenanceWithType.length > 0) {
-            toast.error(`Impossible de supprimer le type de maintenance "${item.name}" car ${maintenanceWithType.length} maintenance(s) l'utilisent encore.`);
-            return;
-          }
-
-          const { error: typeError } = await supabase
-            .from('maintenance_types')
-            .delete()
-            .eq('id', item.id);
-          if (typeError) throw typeError;
-          setMaintenanceTypes(prev => prev.filter(mt => mt.id !== item.id));
-          break;
-      }
-
-      toast.success('Élément supprimé avec succès');
-    } catch (error: any) {
-      console.error('Error deleting item:', error);
-      toast.error(error.message || 'Erreur lors de la suppression');
+  const fetchSystemSettings = async () => {
+    const { data, error } = await supabase
+      .from('system_settings')
+      .select('*');
+    
+    if (error) throw error;
+    setSystemSettings(data || []);
+    
+    // Set specific settings
+    const prefixSetting = data?.find(s => s.id === 'article_prefix');
+    if (prefixSetting) {
+      setArticlePrefix(prefixSetting.value);
+    }
+    
+    const logoSetting = data?.find(s => s.id === 'company_logo');
+    if (logoSetting) {
+      setCompanyLogo(logoSetting.value);
     }
   };
 
-  const handleSavePrefix = async () => {
-    if (tempPrefix.length > 5) {
-      toast.error('Le préfixe ne peut pas dépasser 5 caractères');
-      return;
-    }
-
+  const updateSystemSetting = async (id: string, value: string, description?: string) => {
     try {
       const { error } = await supabase
         .from('system_settings')
         .upsert({
-          id: 'article_prefix',
-          value: tempPrefix,
-          description: 'Préfixe pour les numéros d\'articles (5 caractères max)'
+          id,
+          value,
+          description,
+          updated_at: new Date().toISOString()
         });
 
       if (error) throw error;
-
-      setArticlePrefix(tempPrefix);
-      setIsEditingPrefix(false);
-      toast.success(t('saved'));
+      
+      await fetchSystemSettings();
+      toast.success('Paramètre mis à jour avec succès');
     } catch (error: any) {
-      console.error('Error saving prefix:', error);
-      toast.error(error.message || t('error'));
+      console.error('Error updating system setting:', error);
+      toast.error('Erreur lors de la mise à jour du paramètre');
     }
   };
 
-  const handleLogoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    // Vérifier le type de fichier
-    if (!file.type.startsWith('image/')) {
-      toast.error('Veuillez sélectionner un fichier image');
-      return;
-    }
-
-    // Vérifier la taille (max 2MB)
-    if (file.size > 2 * 1024 * 1024) {
-      toast.error('Le fichier ne doit pas dépasser 2MB');
-      return;
-    }
-
-    try {
-      setIsUploadingLogo(true);
-
-      // Convertir l'image en base64
-      const reader = new FileReader();
-      reader.onload = async (e) => {
-        const base64String = e.target?.result as string;
-        
-        try {
-          // Sauvegarder le logo en base64 dans les paramètres système
-          const { error } = await supabase
-            .from('system_settings')
-            .upsert({
-              id: 'company_logo',
-              value: base64String,
-              description: 'Logo de l\'entreprise (base64)'
-            });
-
-          if (error) throw error;
-
-          setCompanyLogo(base64String);
-          toast.success('Logo uploadé avec succès');
-        } catch (error: any) {
-          console.error('Error saving logo:', error);
-          toast.error('Erreur lors de la sauvegarde du logo');
-        } finally {
-          setIsUploadingLogo(false);
-        }
-      };
-
-      reader.onerror = () => {
-        toast.error('Erreur lors de la lecture du fichier');
-        setIsUploadingLogo(false);
-      };
-
-      reader.readAsDataURL(file);
-    } catch (error: any) {
-      console.error('Error uploading logo:', error);
-      toast.error('Erreur lors de l\'upload du logo');
-      setIsUploadingLogo(false);
-    }
-  };
-
-  const handleRemoveLogo = async () => {
+  const handleDeleteItem = async (type: string, id: string) => {
     try {
       const { error } = await supabase
-        .from('system_settings')
+        .from(type)
         .delete()
-        .eq('id', 'company_logo');
+        .eq('id', id);
 
       if (error) throw error;
-
-      setCompanyLogo('');
-      toast.success('Logo supprimé avec succès');
+      
+      toast.success('Élément supprimé avec succès');
+      fetchAllData();
     } catch (error: any) {
-      console.error('Error removing logo:', error);
-      toast.error('Erreur lors de la suppression du logo');
+      console.error('Error deleting item:', error);
+      toast.error('Erreur lors de la suppression');
     }
   };
 
-  const handleCloseCategoryModal = () => {
-    setShowCategoryModal(false);
-    setSelectedCategory(undefined);
-    fetchData(); // Refresh data
-  };
+  const exportData = async () => {
+    try {
+      // Export all configuration data
+      const exportData = {
+        categories,
+        suppliers,
+        groups,
+        subgroups,
+        departments,
+        statusConfigs,
+        maintenanceTypes,
+        systemSettings,
+        exportDate: new Date().toISOString()
+      };
 
-  const handleCloseSupplierModal = () => {
-    setShowSupplierModal(false);
-    setSelectedSupplier(undefined);
-    fetchData(); // Refresh data
-  };
-
-  const handleCloseGroupModal = () => {
-    setShowGroupModal(false);
-    setSelectedGroup(undefined);
-    fetchData(); // Refresh data
-  };
-
-  const handleCloseSubgroupModal = () => {
-    setShowSubgroupModal(false);
-    setSelectedSubgroup(undefined);
-    fetchData(); // Refresh data
-  };
-
-  const handleCloseDepartmentModal = () => {
-    setShowDepartmentModal(false);
-    setSelectedDepartment(undefined);
-    fetchData(); // Refresh data
-  };
-
-  const handleCloseStatusModal = () => {
-    setShowStatusModal(false);
-    setSelectedStatus(undefined);
-    fetchData(); // Refresh data
-  };
-
-  const handleCloseMaintenanceTypeModal = () => {
-    setShowMaintenanceTypeModal(false);
-    setSelectedMaintenanceType(undefined);
-    fetchData(); // Refresh data
-  };
-
-  const getDeleteMessage = () => {
-    if (!deleteItem) return '';
-    
-    const { type, item } = deleteItem;
-    
-    switch (type) {
-      case 'category':
-        return `Êtes-vous sûr de vouloir supprimer la catégorie "${item.name}" ? Cette action est irréversible.`;
-      case 'supplier':
-        return `Êtes-vous sûr de vouloir supprimer le fournisseur "${item.name}" ? Cette action est irréversible.`;
-      case 'group':
-        return `Êtes-vous sûr de vouloir supprimer le groupe "${item.name}" ? Cette action est irréversible.`;
-      case 'subgroup':
-        return `Êtes-vous sûr de vouloir supprimer le sous-groupe "${item.name}" ? Cette action est irréversible.`;
-      case 'department':
-        return `Êtes-vous sûr de vouloir supprimer le département "${item.name}" ? Cette action est irréversible.`;
-      case 'status':
-        return `Êtes-vous sûr de vouloir supprimer le statut "${item.name}" ? Cette action est irréversible.`;
-      case 'maintenanceType':
-        return `Êtes-vous sûr de vouloir supprimer le type de maintenance "${item.name}" ? Cette action est irréversible.`;
-      default:
-        return 'Êtes-vous sûr de vouloir supprimer cet élément ?';
+      const blob = new Blob([JSON.stringify(exportData, null, 2)], {
+        type: 'application/json'
+      });
+      
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `go-mat-config-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      toast.success('Configuration exportée avec succès');
+    } catch (error) {
+      console.error('Error exporting data:', error);
+      toast.error('Erreur lors de l\'export');
     }
-  };
-
-  const getGroupName = (groupId: string) => {
-    const group = groups.find(g => g.id === groupId);
-    return group?.name || 'Groupe inconnu';
-  };
-
-  const getGroupColor = (groupId: string) => {
-    const group = groups.find(g => g.id === groupId);
-    return group?.color || '#64748b';
   };
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-gray-500 dark:text-gray-400 font-medium">{t('loading')}</div>
+        <div className="text-gray-500 dark:text-gray-400">Chargement des paramètres...</div>
       </div>
     );
   }
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
-      <h1 className="text-3xl font-black text-gray-800 dark:text-white tracking-tight uppercase">
-        PARAMÈTRES
-      </h1>
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-black text-gray-800 dark:text-white tracking-tight uppercase">PARAMÈTRES</h1>
+          <p className="text-gray-600 dark:text-gray-400 mt-1 font-medium">
+            Configuration du système et gestion des données de référence
+          </p>
+        </div>
+        
+        <div className="flex gap-3">
+          <Button
+            variant="outline"
+            icon={<Upload size={18} />}
+            onClick={() => setShowImportModal(true)}
+            className="font-bold"
+          >
+            IMPORTER EXCEL
+          </Button>
+          <Button
+            variant="outline"
+            icon={<Download size={18} />}
+            onClick={exportData}
+            className="font-bold"
+          >
+            EXPORTER CONFIG
+          </Button>
+        </div>
+      </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="space-y-6">
-          {/* Language Settings - Simple Card */}
+      {/* Paramètres système */}
+      <Accordion
+        title="PARAMÈTRES SYSTÈME"
+        icon={<SettingsIcon size={20} className="text-blue-600 dark:text-blue-400" />}
+        defaultOpen={true}
+      >
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Langue et thème */}
           <Card>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-primary-100 dark:bg-primary-900/50">
-                  <Languages className="w-5 h-5 text-primary-600 dark:text-primary-400" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-black text-gray-800 dark:text-white uppercase tracking-wide">
-                    LANGUE
-                  </h3>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">
-                    {language === 'fr' ? 'Français' : language === 'en' ? 'English' : 'Deutsch'}
-                  </p>
-                </div>
-              </div>
+            <div className="p-4 space-y-4">
+              <h3 className="font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                <Globe size={18} />
+                INTERFACE
+              </h3>
+              
               <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Langue
+                </label>
                 <select
                   value={language}
-                  onChange={(e) => setLanguage(e.target.value as 'fr' | 'en' | 'de')}
-                  className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-700 dark:text-gray-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 font-medium"
+                  onChange={(e) => setLanguage(e.target.value as any)}
+                  className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm"
                 >
                   <option value="fr">Français</option>
                   <option value="en">English</option>
                   <option value="de">Deutsch</option>
                 </select>
               </div>
-            </div>
-          </Card>
-
-          {/* Theme Settings - Simple Card */}
-          <Card>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-primary-100 dark:bg-primary-900/50">
-                  {theme === 'dark' ? (
-                    <Moon className="w-5 h-5 text-primary-600 dark:text-primary-400" />
-                  ) : (
-                    <Sun className="w-5 h-5 text-primary-600 dark:text-primary-400" />
-                  )}
-                </div>
-                <div>
-                  <h3 className="text-lg font-black text-gray-800 dark:text-white uppercase tracking-wide">
-                    THÈME
-                  </h3>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">
-                    {theme === 'dark' ? 'SOMBRE' : 'CLAIR'}
-                  </p>
-                </div>
-              </div>
+              
               <div>
-                <button
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Thème
+                </label>
+                <Button
+                  variant="outline"
                   onClick={toggleTheme}
-                  className="inline-flex items-center justify-center rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2 text-sm font-bold text-gray-700 dark:text-gray-200 shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-primary-500 uppercase tracking-wide"
+                  icon={theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+                  className="w-full justify-center"
                 >
-                  {theme === 'dark' ? (
-                    <Sun className="w-4 h-4 mr-2" />
-                  ) : (
-                    <Moon className="w-4 h-4 mr-2" />
-                  )}
-                  {theme === 'dark' ? 'CLAIR' : 'SOMBRE'}
-                </button>
+                  {theme === 'dark' ? 'Mode clair' : 'Mode sombre'}
+                </Button>
               </div>
             </div>
           </Card>
 
-          {/* Company Logo - Simple Card */}
+          {/* Paramètres de l'entreprise */}
           <Card>
-            <div className="space-y-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-primary-100 dark:bg-primary-900/50">
-                  <Image className="w-5 h-5 text-primary-600 dark:text-primary-400" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-black text-gray-800 dark:text-white uppercase tracking-wide">
-                    LOGO DE L'ENTREPRISE
-                  </h3>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">
-                    Apparaît sur les bons de sortie et dans l'interface
-                  </p>
-                </div>
-              </div>
-
-              {companyLogo && (
-                <div className="flex items-center gap-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                  <img
-                    src={companyLogo}
-                    alt="Logo de l'entreprise"
-                    className="max-h-16 max-w-32 object-contain bg-white rounded border"
+            <div className="p-4 space-y-4">
+              <h3 className="font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                <Building2 size={18} />
+                ENTREPRISE
+              </h3>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Préfixe des articles
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={articlePrefix}
+                    onChange={(e) => setArticlePrefix(e.target.value)}
+                    maxLength={5}
+                    className="flex-1 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm"
+                    placeholder="Ex: MAT"
                   />
-                  <div className="flex-1">
-                    <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">
-                      Logo actuel
-                    </p>
-                  </div>
                   <Button
-                    variant="danger"
+                    variant="primary"
                     size="sm"
-                    onClick={handleRemoveLogo}
-                    className="font-bold"
+                    onClick={() => updateSystemSetting('article_prefix', articlePrefix, 'Préfixe utilisé pour générer les numéros d\'articles')}
                   >
-                    SUPPRIMER
+                    SAUVER
                   </Button>
                 </div>
-              )}
-
-              <div className="flex gap-3">
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleLogoUpload}
-                  className="hidden"
-                  id="logo-upload"
-                  disabled={isUploadingLogo}
-                />
-                <label
-                  htmlFor="logo-upload"
-                  className={`inline-flex items-center justify-center rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2 text-sm font-bold text-gray-700 dark:text-gray-200 shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-primary-500 cursor-pointer uppercase tracking-wide ${
-                    isUploadingLogo ? 'opacity-50 cursor-not-allowed' : ''
-                  }`}
-                >
-                  <Upload className="w-4 h-4 mr-2" />
-                  {isUploadingLogo ? 'UPLOAD EN COURS...' : companyLogo ? 'CHANGER LE LOGO' : 'UPLOADER UN LOGO'}
-                </label>
-                <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center font-medium">
-                  Formats: JPG, PNG, GIF • Max: 2MB
-                </div>
-              </div>
-            </div>
-          </Card>
-
-          {/* System Settings - Accordion */}
-          <AccordionCard
-            title="PARAMÈTRES SYSTÈME"
-            icon={<SettingsIcon className="w-5 h-5 text-primary-600 dark:text-primary-400" />}
-            defaultOpen={false}
-          >
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-black text-gray-700 dark:text-gray-300 mb-2 uppercase tracking-wide">
-                  PRÉFIXE ARTICLE
-                </label>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mb-2 font-medium">
-                  Préfixe pour les numéros d'articles (5 caractères max)
+                <p className="text-xs text-gray-500 mt-1">
+                  Préfixe utilisé pour générer les numéros d'articles (5 caractères max)
                 </p>
-                
-                {isEditingPrefix ? (
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={tempPrefix}
-                      onChange={(e) => setTempPrefix(e.target.value.toUpperCase())}
-                      maxLength={5}
-                      className="flex-1 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 font-bold"
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Logo de l'entreprise (URL)
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="url"
+                    value={companyLogo}
+                    onChange={(e) => setCompanyLogo(e.target.value)}
+                    className="flex-1 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm"
+                    placeholder="https://example.com/logo.png"
+                  />
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={() => updateSystemSetting('company_logo', companyLogo, 'URL du logo de l\'entreprise')}
+                  >
+                    SAUVER
+                  </Button>
+                </div>
+                {companyLogo && (
+                  <div className="mt-2">
+                    <img
+                      src={companyLogo}
+                      alt="Logo de l'entreprise"
+                      className="max-h-12 max-w-32 object-contain"
+                      onError={() => toast.error('Impossible de charger le logo')}
                     />
-                    <Button
-                      variant="success"
-                      size="sm"
-                      icon={<Save size={14} />}
-                      onClick={handleSavePrefix}
-                    />
-                    <Button
-                      variant="danger"
-                      size="sm"
-                      icon={<X size={14} />}
-                      onClick={() => {
-                        setIsEditingPrefix(false);
-                        setTempPrefix(articlePrefix);
-                      }}
-                    />
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                    <span className="font-mono text-lg font-black text-gray-900 dark:text-gray-100">
-                      {articlePrefix}
-                    </span>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      icon={<Pencil size={14} />}
-                      onClick={() => setIsEditingPrefix(true)}
-                      className="font-bold"
-                    >
-                      MODIFIER
-                    </Button>
                   </div>
                 )}
               </div>
             </div>
-          </AccordionCard>
-
-          {/* Import Excel - Simple Card */}
-          <Card>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-primary-100 dark:bg-primary-900/50">
-                  <Upload className="w-5 h-5 text-primary-600 dark:text-primary-400" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-black text-gray-800 dark:text-white uppercase tracking-wide">
-                    IMPORT EXCEL
-                  </h3>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">
-                    Importer du matériel depuis un fichier Excel
-                  </p>
-                </div>
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  variant="primary"
-                  size="sm"
-                  icon={<Upload size={16} />}
-                  onClick={() => setShowExcelImport(true)}
-                  className="font-bold"
-                >
-                  IMPORTER
-                </Button>
-              </div>
-            </div>
           </Card>
         </div>
+      </Accordion>
 
+      {/* Catégories */}
+      <Accordion
+        title={`CATÉGORIES (${categories.length})`}
+        icon={<Tag size={20} className="text-green-600 dark:text-green-400" />}
+        defaultOpen={false}
+      >
+        <div className="flex justify-between items-center mb-4">
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            Gérez les catégories de matériel pour organiser votre inventaire
+          </p>
+          <Button
+            variant="primary"
+            size="sm"
+            icon={<Plus size={16} />}
+            onClick={() => {
+              setEditingCategory(undefined);
+              setShowCategoryModal(true);
+            }}
+          >
+            AJOUTER
+          </Button>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+          {categories.map(category => (
+            <div key={category.id} className="border rounded-lg p-3 hover:shadow-md transition-shadow">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div
+                    className="w-4 h-4 rounded-full"
+                    style={{ backgroundColor: category.color }}
+                  />
+                  <span className="font-medium text-gray-900 dark:text-white">
+                    {category.name}
+                  </span>
+                </div>
+                <div className="flex gap-1">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    icon={<Edit size={14} />}
+                    onClick={() => {
+                      setEditingCategory(category);
+                      setShowCategoryModal(true);
+                    }}
+                  />
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    icon={<Trash2 size={14} />}
+                    onClick={() => handleDeleteItem('categories', category.id)}
+                  />
+                </div>
+              </div>
+              {category.description && (
+                <p className="text-xs text-gray-500 mt-1">{category.description}</p>
+              )}
+            </div>
+          ))}
+        </div>
+      </Accordion>
+
+      {/* Fournisseurs */}
+      <Accordion
+        title={`FOURNISSEURS (${suppliers.length})`}
+        icon={<Truck size={20} className="text-purple-600 dark:text-purple-400" />}
+        defaultOpen={false}
+      >
+        <div className="flex justify-between items-center mb-4">
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            Gérez vos fournisseurs et leurs informations de contact
+          </p>
+          <Button
+            variant="primary"
+            size="sm"
+            icon={<Plus size={16} />}
+            onClick={() => {
+              setEditingSupplier(undefined);
+              setShowSupplierModal(true);
+            }}
+          >
+            AJOUTER
+          </Button>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+          {suppliers.map(supplier => (
+            <div key={supplier.id} className="border rounded-lg p-3 hover:shadow-md transition-shadow">
+              <div className="flex items-center justify-between mb-2">
+                <span className="font-medium text-gray-900 dark:text-white">
+                  {supplier.name}
+                </span>
+                <div className="flex gap-1">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    icon={<Edit size={14} />}
+                    onClick={() => {
+                      setEditingSupplier(supplier);
+                      setShowSupplierModal(true);
+                    }}
+                  />
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    icon={<Trash2 size={14} />}
+                    onClick={() => handleDeleteItem('suppliers', supplier.id)}
+                  />
+                </div>
+              </div>
+              <div className="text-xs text-gray-500 space-y-1">
+                {supplier.contactPerson && <p>Contact: {supplier.contactPerson}</p>}
+                {supplier.email && <p>Email: {supplier.email}</p>}
+                {supplier.phone && <p>Tél: {supplier.phone}</p>}
+              </div>
+            </div>
+          ))}
+        </div>
+      </Accordion>
+
+      {/* Groupes et sous-groupes */}
+      <Accordion
+        title={`GROUPES ET SOUS-GROUPES (${groups.length} groupes, ${subgroups.length} sous-groupes)`}
+        icon={<Layers size={20} className="text-indigo-600 dark:text-indigo-400" />}
+        defaultOpen={false}
+      >
         <div className="space-y-6">
-          {/* Status Configurations - Accordion */}
-          <AccordionCard
-            title="STATUTS DU MATÉRIEL"
-            icon={<Palette className="w-5 h-5 text-primary-600 dark:text-primary-400" />}
-            defaultOpen={false}
-          >
-            <div className="space-y-4">
-              <div className="flex justify-end">
-                <Button 
-                  variant="primary" 
-                  size="sm" 
-                  icon={<Plus size={16} />}
-                  onClick={handleAddStatus}
-                  className="font-bold"
-                >
-                  AJOUTER STATUT
-                </Button>
-              </div>
-              <div className="space-y-2 max-h-48 overflow-y-auto">
-                {statusConfigs.map((status) => (
-                  <div
-                    key={status.id}
-                    className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div
-                        className="w-4 h-4 rounded-full"
-                        style={{ backgroundColor: status.color }}
-                      />
-                      <div>
-                        <h4 className="font-black text-gray-800 dark:text-white">
-                          {status.name}
-                        </h4>
-                        <p className="text-sm text-gray-500 dark:text-gray-400 font-mono">
-                          {status.color}
-                        </p>
-                      </div>
-                      <span 
-                        className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium text-white"
-                        style={{ backgroundColor: status.color }}
-                      >
-                        {status.name}
-                      </span>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        icon={<Pencil size={16} />}
-                        onClick={() => handleEditStatus(status)}
-                      />
-                      <Button
-                        variant="danger"
-                        size="sm"
-                        icon={<Trash2 size={16} />}
-                        onClick={() => handleDeleteStatus(status)}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
+          {/* Groupes */}
+          <div>
+            <div className="flex justify-between items-center mb-4">
+              <h4 className="font-bold text-gray-900 dark:text-white">Groupes d'équipements</h4>
+              <Button
+                variant="primary"
+                size="sm"
+                icon={<Plus size={16} />}
+                onClick={() => {
+                  setEditingGroup(undefined);
+                  setShowGroupModal(true);
+                }}
+              >
+                AJOUTER GROUPE
+              </Button>
             </div>
-          </AccordionCard>
-
-          {/* Maintenance Types - Accordion */}
-          <AccordionCard
-            title="TYPES DE MAINTENANCE/PANNE"
-            icon={<Wrench className="w-5 h-5 text-primary-600 dark:text-primary-400" />}
-            defaultOpen={false}
-          >
-            <div className="space-y-4">
-              <div className="flex justify-end">
-                <Button 
-                  variant="primary" 
-                  size="sm" 
-                  icon={<Plus size={16} />}
-                  onClick={handleAddMaintenanceType}
-                  className="font-bold"
-                >
-                  AJOUTER TYPE
-                </Button>
-              </div>
-              <div className="space-y-2 max-h-48 overflow-y-auto">
-                {maintenanceTypes.map((type) => (
-                  <div
-                    key={type.id}
-                    className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div
-                        className="w-4 h-4 rounded-full"
-                        style={{ backgroundColor: type.color }}
-                      />
-                      <div>
-                        <h4 className="font-black text-gray-800 dark:text-white">
-                          {type.name}
-                        </h4>
-                        {type.description && (
-                          <p className="text-sm text-gray-500 dark:text-gray-400">
-                            {type.description}
-                          </p>
-                        )}
-                      </div>
-                      <span 
-                        className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium text-white"
-                        style={{ backgroundColor: type.color }}
-                      >
-                        {type.name}
-                      </span>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        icon={<Pencil size={16} />}
-                        onClick={() => handleEditMaintenanceType(type)}
-                      />
-                      <Button
-                        variant="danger"
-                        size="sm"
-                        icon={<Trash2 size={16} />}
-                        onClick={() => handleDeleteMaintenanceType(type)}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </AccordionCard>
-
-          {/* Categories - Accordion */}
-          <AccordionCard
-            title="CATÉGORIES"
-            icon={<Tag className="w-5 h-5 text-primary-600 dark:text-primary-400" />}
-            defaultOpen={false}
-          >
-            <div className="space-y-4">
-              <div className="flex justify-end">
-                <Button 
-                  variant="primary" 
-                  size="sm" 
-                  icon={<Plus size={16} />}
-                  onClick={handleAddCategory}
-                  className="font-bold"
-                >
-                  AJOUTER CATÉGORIE
-                </Button>
-              </div>
-              <div className="space-y-2 max-h-48 overflow-y-auto">
-                {categories.map((category) => (
-                  <div
-                    key={category.id}
-                    className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg"
-                  >
-                    <div>
-                      <h4 className="font-black text-gray-800 dark:text-white">
-                        {category.name}
-                      </h4>
-                      {category.description && (
-                        <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">
-                          {category.description}
-                        </p>
-                      )}
-                    </div>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        icon={<Pencil size={16} />}
-                        onClick={() => handleEditCategory(category)}
-                      />
-                      <Button
-                        variant="danger"
-                        size="sm"
-                        icon={<Trash2 size={16} />}
-                        onClick={() => handleDeleteCategory(category)}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </AccordionCard>
-
-          {/* Groups - Accordion */}
-          <AccordionCard
-            title="GROUPES"
-            icon={<UserCheck className="w-5 h-5 text-primary-600 dark:text-primary-400" />}
-            defaultOpen={false}
-          >
-            <div className="space-y-4">
-              <div className="flex justify-end">
-                <Button 
-                  variant="primary" 
-                  size="sm" 
-                  icon={<Plus size={16} />}
-                  onClick={handleAddGroup}
-                  className="font-bold"
-                >
-                  AJOUTER GROUPE
-                </Button>
-              </div>
-              <div className="space-y-2 max-h-48 overflow-y-auto">
-                {groups.map((group) => (
-                  <div
-                    key={group.id}
-                    className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg"
-                  >
-                    <div className="flex items-center gap-3">
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {groups.map(group => (
+                <div key={group.id} className="border rounded-lg p-3 hover:shadow-md transition-shadow">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
                       <div
                         className="w-4 h-4 rounded-full"
                         style={{ backgroundColor: group.color }}
                       />
-                      <div>
-                        <h4 className="font-black text-gray-800 dark:text-white">
-                          {group.name}
-                        </h4>
-                        {group.description && (
-                          <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">
-                            {group.description}
-                          </p>
-                        )}
-                      </div>
+                      <span className="font-medium text-gray-900 dark:text-white">
+                        {group.name}
+                      </span>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex gap-1">
                       <Button
                         variant="outline"
                         size="sm"
-                        icon={<Pencil size={16} />}
-                        onClick={() => handleEditGroup(group)}
+                        icon={<Edit size={14} />}
+                        onClick={() => {
+                          setEditingGroup(group);
+                          setShowGroupModal(true);
+                        }}
                       />
                       <Button
                         variant="danger"
                         size="sm"
-                        icon={<Trash2 size={16} />}
-                        onClick={() => handleDeleteGroup(group)}
+                        icon={<Trash2 size={14} />}
+                        onClick={() => handleDeleteItem('equipment_groups', group.id)}
                       />
                     </div>
                   </div>
-                ))}
-              </div>
-            </div>
-          </AccordionCard>
-
-          {/* Subgroups - Accordion */}
-          <AccordionCard
-            title="SOUS-GROUPES"
-            icon={<Layers className="w-5 h-5 text-primary-600 dark:text-primary-400" />}
-            defaultOpen={false}
-          >
-            <div className="space-y-4">
-              <div className="flex justify-end">
-                <Button 
-                  variant="primary" 
-                  size="sm" 
-                  icon={<Plus size={16} />}
-                  onClick={handleAddSubgroup}
-                  className="font-bold"
-                  disabled={groups.length === 0}
-                >
-                  AJOUTER SOUS-GROUPE
-                </Button>
-              </div>
-              {groups.length === 0 ? (
-                <div className="text-center py-4">
-                  <Layers size={32} className="mx-auto text-gray-400 mb-2" />
-                  <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">
-                    Créez d'abord des groupes pour pouvoir ajouter des sous-groupes.
+                  {group.description && (
+                    <p className="text-xs text-gray-500 mt-1">{group.description}</p>
+                  )}
+                  <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                    {subgroups.filter(sg => sg.groupId === group.id).length} sous-groupe(s)
                   </p>
                 </div>
-              ) : (
-                <div className="space-y-2 max-h-48 overflow-y-auto">
-                  {subgroups.length === 0 ? (
-                    <div className="text-center py-4">
-                      <Layers size={32} className="mx-auto text-gray-400 mb-2" />
-                      <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">
-                        Aucun sous-groupe créé pour le moment.
-                      </p>
-                    </div>
-                  ) : (
-                    subgroups.map((subgroup) => (
-                      <div
-                        key={subgroup.id}
-                        className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg"
-                      >
-                        <div className="flex items-center gap-3">
+              ))}
+            </div>
+          </div>
+
+          {/* Sous-groupes */}
+          <div>
+            <div className="flex justify-between items-center mb-4">
+              <h4 className="font-bold text-gray-900 dark:text-white">Sous-groupes</h4>
+              <Button
+                variant="primary"
+                size="sm"
+                icon={<Plus size={16} />}
+                onClick={() => {
+                  setEditingSubgroup(undefined);
+                  setShowSubgroupModal(true);
+                }}
+                disabled={groups.length === 0}
+              >
+                AJOUTER SOUS-GROUPE
+              </Button>
+            </div>
+            
+            {groups.length === 0 ? (
+              <p className="text-sm text-gray-500 italic">
+                Créez d'abord un groupe pour pouvoir ajouter des sous-groupes
+              </p>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {subgroups.map(subgroup => {
+                  const parentGroup = groups.find(g => g.id === subgroup.groupId);
+                  return (
+                    <div key={subgroup.id} className="border rounded-lg p-3 hover:shadow-md transition-shadow">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
                           <div className="flex items-center gap-1">
                             <div
                               className="w-3 h-3 rounded-full"
-                              style={{ backgroundColor: getGroupColor(subgroup.groupId) }}
+                              style={{ backgroundColor: parentGroup?.color || '#64748b' }}
                             />
                             <div
                               className="w-4 h-4 rounded-full"
                               style={{ backgroundColor: subgroup.color }}
                             />
                           </div>
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <h4 className="font-black text-gray-800 dark:text-white">
-                                {subgroup.name}
-                              </h4>
-                              <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">
-                                → {getGroupName(subgroup.groupId)}
-                              </span>
-                            </div>
-                            {subgroup.description && (
-                              <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">
-                                {subgroup.description}
-                              </p>
-                            )}
-                          </div>
+                          <span className="font-medium text-gray-900 dark:text-white">
+                            {subgroup.name}
+                          </span>
                         </div>
-                        <div className="flex gap-2">
+                        <div className="flex gap-1">
                           <Button
                             variant="outline"
                             size="sm"
-                            icon={<Pencil size={16} />}
-                            onClick={() => handleEditSubgroup(subgroup)}
+                            icon={<Edit size={14} />}
+                            onClick={() => {
+                              setEditingSubgroup(subgroup);
+                              setShowSubgroupModal(true);
+                            }}
                           />
                           <Button
                             variant="danger"
                             size="sm"
-                            icon={<Trash2 size={16} />}
-                            onClick={() => handleDeleteSubgroup(subgroup)}
+                            icon={<Trash2 size={14} />}
+                            onClick={() => handleDeleteItem('equipment_subgroups', subgroup.id)}
                           />
                         </div>
                       </div>
-                    ))
-                  )}
+                      <p className="text-xs text-gray-500 mt-1">
+                        Groupe: {parentGroup?.name}
+                      </p>
+                      {subgroup.description && (
+                        <p className="text-xs text-gray-500 mt-1">{subgroup.description}</p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      </Accordion>
+
+      {/* Départements */}
+      <Accordion
+        title={`DÉPARTEMENTS (${departments.length})`}
+        icon={<Building2 size={20} className="text-orange-600 dark:text-orange-400" />}
+        defaultOpen={false}
+      >
+        <div className="flex justify-between items-center mb-4">
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            Gérez les départements de votre organisation
+          </p>
+          <Button
+            variant="primary"
+            size="sm"
+            icon={<Plus size={16} />}
+            onClick={() => {
+              setEditingDepartment(undefined);
+              setShowDepartmentModal(true);
+            }}
+          >
+            AJOUTER
+          </Button>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+          {departments.map(department => (
+            <div key={department.id} className="border rounded-lg p-3 hover:shadow-md transition-shadow">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div
+                    className="w-4 h-4 rounded-full"
+                    style={{ backgroundColor: department.color }}
+                  />
+                  <span className="font-medium text-gray-900 dark:text-white">
+                    {department.name}
+                  </span>
                 </div>
+                <div className="flex gap-1">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    icon={<Edit size={14} />}
+                    onClick={() => {
+                      setEditingDepartment(department);
+                      setShowDepartmentModal(true);
+                    }}
+                  />
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    icon={<Trash2 size={14} />}
+                    onClick={() => handleDeleteItem('departments', department.id)}
+                  />
+                </div>
+              </div>
+              {department.description && (
+                <p className="text-xs text-gray-500 mt-1">{department.description}</p>
               )}
             </div>
-          </AccordionCard>
-
-          {/* Departments - Accordion */}
-          <AccordionCard
-            title="DÉPARTEMENTS"
-            icon={<Building2 className="w-5 h-5 text-primary-600 dark:text-primary-400" />}
-            defaultOpen={false}
-          >
-            <div className="space-y-4">
-              <div className="flex justify-end">
-                <Button 
-                  variant="primary" 
-                  size="sm" 
-                  icon={<Plus size={16} />}
-                  onClick={handleAddDepartment}
-                  className="font-bold"
-                >
-                  AJOUTER DÉPARTEMENT
-                </Button>
-              </div>
-              <div className="space-y-2 max-h-48 overflow-y-auto">
-                {departments.length === 0 ? (
-                  <div className="text-center py-4">
-                    <Building2 size={32} className="mx-auto text-gray-400 mb-2" />
-                    <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">
-                      Aucun département trouvé. Les départements sont créés automatiquement lors de l'ajout d'utilisateurs.
-                    </p>
-                  </div>
-                ) : (
-                  departments.map((department) => (
-                    <div
-                      key={department.id}
-                      className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div
-                          className="w-4 h-4 rounded-full"
-                          style={{ backgroundColor: department.color }}
-                        />
-                        <div>
-                          <h4 className="font-black text-gray-800 dark:text-white">
-                            {department.name}
-                          </h4>
-                          {department.description && (
-                            <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">
-                              {department.description}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          icon={<Pencil size={16} />}
-                          onClick={() => handleEditDepartment(department)}
-                        />
-                        <Button
-                          variant="danger"
-                          size="sm"
-                          icon={<Trash2 size={16} />}
-                          onClick={() => handleDeleteDepartment(department)}
-                        />
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          </AccordionCard>
-
-          {/* Suppliers - Accordion */}
-          <AccordionCard
-            title="FOURNISSEURS"
-            icon={<UserCheck className="w-5 h-5 text-primary-600 dark:text-primary-400" />}
-            defaultOpen={false}
-          >
-            <div className="space-y-4">
-              <div className="flex justify-end">
-                <Button 
-                  variant="primary" 
-                  size="sm" 
-                  icon={<Plus size={16} />}
-                  onClick={handleAddSupplier}
-                  className="font-bold"
-                >
-                  AJOUTER FOURNISSEUR
-                </Button>
-              </div>
-              <div className="space-y-2 max-h-48 overflow-y-auto">
-                {suppliers.map((supplier) => (
-                  <div
-                    key={supplier.id}
-                    className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg"
-                  >
-                    <div>
-                      <h4 className="font-black text-gray-800 dark:text-white">
-                        {supplier.name}
-                      </h4>
-                      <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">
-                        {supplier.contactPerson} • {supplier.phone}
-                      </p>
-                      <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">
-                        {supplier.email}
-                      </p>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        icon={<Pencil size={16} />}
-                        onClick={() => handleEditSupplier(supplier)}
-                      />
-                      <Button
-                        variant="danger"
-                        size="sm"
-                        icon={<Trash2 size={16} />}
-                        onClick={() => handleDeleteSupplier(supplier)}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </AccordionCard>
+          ))}
         </div>
-      </div>
+      </Accordion>
+
+      {/* Statuts */}
+      <Accordion
+        title={`STATUTS (${statusConfigs.length})`}
+        icon={<Palette size={20} className="text-pink-600 dark:text-pink-400" />}
+        defaultOpen={false}
+      >
+        <div className="flex justify-between items-center mb-4">
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            Personnalisez les statuts et leurs couleurs
+          </p>
+          <Button
+            variant="primary"
+            size="sm"
+            icon={<Plus size={16} />}
+            onClick={() => {
+              setEditingStatus(undefined);
+              setShowStatusModal(true);
+            }}
+          >
+            AJOUTER
+          </Button>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+          {statusConfigs.map(status => (
+            <div key={status.id} className="border rounded-lg p-3 hover:shadow-md transition-shadow">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span 
+                    className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium text-white"
+                    style={{ backgroundColor: status.color }}
+                  >
+                    {status.name}
+                  </span>
+                </div>
+                <div className="flex gap-1">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    icon={<Edit size={14} />}
+                    onClick={() => {
+                      setEditingStatus(status);
+                      setShowStatusModal(true);
+                    }}
+                  />
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    icon={<Trash2 size={14} />}
+                    onClick={() => handleDeleteItem('status_configs', status.id)}
+                  />
+                </div>
+              </div>
+              <p className="text-xs text-gray-500 mt-1 font-mono">
+                ID: {status.id}
+              </p>
+            </div>
+          ))}
+        </div>
+      </Accordion>
+
+      {/* Types de maintenance */}
+      <Accordion
+        title={`TYPES DE MAINTENANCE (${maintenanceTypes.length})`}
+        icon={<Wrench size={20} className="text-yellow-600 dark:text-yellow-400" />}
+        defaultOpen={false}
+      >
+        <div className="flex justify-between items-center mb-4">
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            Gérez les types de maintenance et de pannes
+          </p>
+          <Button
+            variant="primary"
+            size="sm"
+            icon={<Plus size={16} />}
+            onClick={() => {
+              setEditingMaintenanceType(undefined);
+              setShowMaintenanceTypeModal(true);
+            }}
+          >
+            AJOUTER
+          </Button>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+          {maintenanceTypes.map(type => (
+            <div key={type.id} className="border rounded-lg p-3 hover:shadow-md transition-shadow">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div
+                    className="w-4 h-4 rounded-full"
+                    style={{ backgroundColor: type.color }}
+                  />
+                  <span className="font-medium text-gray-900 dark:text-white">
+                    {type.name}
+                  </span>
+                </div>
+                <div className="flex gap-1">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    icon={<Edit size={14} />}
+                    onClick={() => {
+                      setEditingMaintenanceType(type);
+                      setShowMaintenanceTypeModal(true);
+                    }}
+                  />
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    icon={<Trash2 size={14} />}
+                    onClick={() => handleDeleteItem('maintenance_types', type.id)}
+                  />
+                </div>
+              </div>
+              {type.description && (
+                <p className="text-xs text-gray-500 mt-1">{type.description}</p>
+              )}
+            </div>
+          ))}
+        </div>
+      </Accordion>
 
       {/* Modals */}
       <CategoryModal
         isOpen={showCategoryModal}
-        onClose={handleCloseCategoryModal}
-        category={selectedCategory}
-      />
-
-      <DepartmentModal
-        isOpen={showDepartmentModal}
-        onClose={handleCloseDepartmentModal}
-        department={selectedDepartment}
+        onClose={() => {
+          setShowCategoryModal(false);
+          setEditingCategory(undefined);
+          fetchCategories();
+        }}
+        category={editingCategory}
       />
 
       <SupplierModal
         isOpen={showSupplierModal}
-        onClose={handleCloseSupplierModal}
-        supplier={selectedSupplier}
+        onClose={() => {
+          setShowSupplierModal(false);
+          setEditingSupplier(undefined);
+          fetchSuppliers();
+        }}
+        supplier={editingSupplier}
       />
 
       <GroupModal
         isOpen={showGroupModal}
-        onClose={handleCloseGroupModal}
-        group={selectedGroup}
+        onClose={() => {
+          setShowGroupModal(false);
+          setEditingGroup(undefined);
+          fetchGroups();
+        }}
+        group={editingGroup}
       />
 
       <SubgroupModal
         isOpen={showSubgroupModal}
-        onClose={handleCloseSubgroupModal}
-        subgroup={selectedSubgroup}
+        onClose={() => {
+          setShowSubgroupModal(false);
+          setEditingSubgroup(undefined);
+          fetchSubgroups();
+        }}
+        subgroup={editingSubgroup}
         groups={groups}
+      />
+
+      <DepartmentModal
+        isOpen={showDepartmentModal}
+        onClose={() => {
+          setShowDepartmentModal(false);
+          setEditingDepartment(undefined);
+          fetchDepartments();
+        }}
+        department={editingDepartment}
       />
 
       <StatusModal
         isOpen={showStatusModal}
-        onClose={handleCloseStatusModal}
-        status={selectedStatus}
+        onClose={() => {
+          setShowStatusModal(false);
+          setEditingStatus(undefined);
+          fetchStatusConfigs();
+        }}
+        status={editingStatus}
       />
 
       <MaintenanceTypeModal
         isOpen={showMaintenanceTypeModal}
-        onClose={handleCloseMaintenanceTypeModal}
-        maintenanceType={selectedMaintenanceType}
+        onClose={() => {
+          setShowMaintenanceTypeModal(false);
+          setEditingMaintenanceType(undefined);
+          fetchMaintenanceTypes();
+        }}
+        maintenanceType={editingMaintenanceType}
       />
 
       <ExcelImport
-        isOpen={showExcelImport}
-        onClose={() => setShowExcelImport(false)}
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
         onImportComplete={() => {
-          console.log('Import completed');
+          setShowImportModal(false);
+          fetchAllData();
         }}
-      />
-
-      <ConfirmModal
-        isOpen={showDeleteConfirm}
-        onClose={() => {
-          setShowDeleteConfirm(false);
-          setDeleteItem(null);
-        }}
-        onConfirm={handleDeleteConfirm}
-        title="CONFIRMER LA SUPPRESSION"
-        message={getDeleteMessage()}
-        confirmLabel="SUPPRIMER"
-        cancelLabel="ANNULER"
       />
     </div>
   );

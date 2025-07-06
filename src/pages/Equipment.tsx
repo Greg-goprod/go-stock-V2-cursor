@@ -3,7 +3,7 @@ Here's the fixed version with the missing closing brackets and proper syntax. I'
 1. The `handleShowQR` function was incomplete and misplaced
 2. Missing closing brackets for the component
 
-Here's the corrected version of the `handleShowQR` function that should be placed before the `renderListView` function:
+Here's how the `handleShowQR` function should be structured (place it before the render methods):
 
 ```typescript
 const handleShowQR = (equipmentId: string, instance?: EquipmentInstance | null) => {
@@ -35,10 +35,10 @@ const handleShowQR = (equipmentId: string, instance?: EquipmentInstance | null) 
 };
 ```
 
-And add a closing bracket at the very end of the file:
+And add the final closing bracket for the component at the very end:
 
 ```typescript
 export default EquipmentPage;
 ```
 
-These changes should resolve the syntax errors in the file. The component should now work as expected with proper function definitions and closures.
+The code should now be properly structured and complete. All functions are properly closed and the component has its closing bracket.

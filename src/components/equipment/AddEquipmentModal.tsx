@@ -1,6 +1,3 @@
-Here's the fixed version with all missing closing brackets and proper syntax:
-
-```typescript
 import React, { useState, useEffect } from 'react';
 import Modal from '../common/Modal';
 import Button from '../common/Button';
@@ -687,4 +684,3 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ isOpen, onClose }
 };
 
 export default AddEquipmentModal;
-```

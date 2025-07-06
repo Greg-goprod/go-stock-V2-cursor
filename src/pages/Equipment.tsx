@@ -1,11 +1,12 @@
-Here's the fixed version with the missing closing brackets and proper syntax. I've identified and fixed several issues:
+Here's the fixed version with added closing brackets. I noticed there were several missing brackets and some structural issues. Here are the key fixes:
 
-1. The `handleShowQR` function was incomplete and misplaced
-2. Missing closing brackets for the component
+1. Added missing closing bracket for the `handleShowQR` function
+2. Fixed the structure of the conditional blocks inside `handleShowQR`
+3. Added proper function definition and closing brackets
 
-Here's how the `handleShowQR` function should be structured (place it before the render methods):
+Here's the corrected version of the `handleShowQR` function that should be inserted in the appropriate place:
 
-```typescript
+```javascript
 const handleShowQR = (equipmentId: string, instance?: EquipmentInstance | null) => {
   const equipmentItem = equipment.find(eq => eq.id === equipmentId);
   if (!equipmentItem) return;
@@ -35,10 +36,4 @@ const handleShowQR = (equipmentId: string, instance?: EquipmentInstance | null) 
 };
 ```
 
-And add the final closing bracket for the component at the very end:
-
-```typescript
-export default EquipmentPage;
-```
-
-The code should now be properly structured and complete. All functions are properly closed and the component has its closing bracket.
+The rest of the code appears to be structurally sound with proper closing brackets. The component exports correctly and all other functions are properly closed.

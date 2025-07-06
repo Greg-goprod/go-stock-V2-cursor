@@ -110,7 +110,6 @@ const ReturnModal: React.FC<ReturnModalProps> = ({
           dueDate.setHours(23, 59, 59, 999); // Set to end of the due date
           
           const today = new Date();
-          today.setHours(0, 0, 0, 0); // Set to start of today
           
           // Mark as overdue if the due date is before today and status is active
           const isOverdue = dueDate < today && checkout.status === 'active';

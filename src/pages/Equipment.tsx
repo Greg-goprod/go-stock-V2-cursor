@@ -541,8 +541,8 @@ const EquipmentPage: React.FC = () => {
                   <td className="px-4 py-2 whitespace-nowrap">
                     <div className="flex items-center gap-1">
                       <span className={`text-xs font-bold ${
-                        availableCount === 0 ? 'text-red-600 dark:text-red-400' :
-                        availableCount < totalCount ? 'text-yellow-600 dark:text-yellow-400' :
+                        item.status === 'checked-out' || availableCount === 0 ? 'text-red-600 dark:text-red-400' :
+                        item.status === 'maintenance' || availableCount < totalCount ? 'text-yellow-600 dark:text-yellow-400' :
                         'text-green-600 dark:text-green-400'
                       }`}>
                         {availableCount}/{totalCount}
@@ -620,8 +620,8 @@ const EquipmentPage: React.FC = () => {
                 {/* Stock indicator */}
                 <div className="absolute top-1 left-1">
                   <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
-                    availableCount === 0 ? 'bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-200' :
-                    availableCount < totalCount ? 'bg-yellow-100 dark:bg-yellow-900/50 text-yellow-800 dark:text-yellow-200' :
+                    item.status === 'checked-out' || availableCount === 0 ? 'bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-200' :
+                    item.status === 'maintenance' || availableCount < totalCount ? 'bg-yellow-100 dark:bg-yellow-900/50 text-yellow-800 dark:text-yellow-200' :
                     'bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-200'
                   }`}>
                     {availableCount}/{totalCount}

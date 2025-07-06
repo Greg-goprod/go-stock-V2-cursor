@@ -524,7 +524,14 @@ const EditEquipmentModal: React.FC<EditEquipmentModalProps> = ({ isOpen, onClose
                     min="1"
                     required
                     value={formData.total_quantity}
-                    onChange={(e) => setFormData(prev => ({ ...prev, total_quantity: parseInt(e.target.value) || 1 }))}
+                    onChange={(e) => {
+                      const newValue = parseInt(e.target.value) || 1;
+                      setFormData(prev => ({ 
+                        ...prev, 
+                        total_quantity: newValue,
+                        available_quantity: Math.min(prev.available_quantity, newValue)
+                      }));
+                    }}
                     className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
                   />
                 </div>

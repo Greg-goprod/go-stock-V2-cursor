@@ -185,15 +185,16 @@ export default function Equipment() {
               <img 
                 src={eq.imageUrl} 
                 alt={eq.name}
-                className="w-16 h-16 object-cover rounded-lg"
+                className="w-16 h-16 object-cover rounded-lg border border-gray-200 dark:border-gray-700"
                 onError={(e) => {
+                  console.log("Erreur de chargement d'image:", eq.imageUrl);
                   // Replace broken image with tool icon
                   e.currentTarget.style.display = 'none';
                   const parent = e.currentTarget.parentElement;
                   if (parent) {
                     // Create a fallback div with the Tool icon
                     const fallbackDiv = document.createElement('div');
-                    fallbackDiv.className = 'w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center';
+                    fallbackDiv.className = 'w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center border border-gray-200 dark:border-gray-700';
                     
                     // We can't directly insert a React component, so we'll use a simple SVG
                     fallbackDiv.innerHTML = `
@@ -207,7 +208,7 @@ export default function Equipment() {
                 }}
               />
             ) : (
-              <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center">
+              <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center border border-gray-200 dark:border-gray-700">
                 <Tool className="w-6 h-6 text-gray-400" />
               </div>
             )}

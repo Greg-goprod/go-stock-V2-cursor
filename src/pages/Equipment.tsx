@@ -14,7 +14,7 @@ import CheckoutModal from '../components/checkout/CheckoutModal';
 import { ReturnModal } from '../components/checkout/ReturnModal';
 import { FilterPanel } from '../components/common/FilterPanel';
 import ConfirmModal from '../components/common/ConfirmModal';
-import { ExcelImport } from '../components/import/ExcelImport';
+import ExcelImport from '../components/import/ExcelImport';
 import { Plus, QrCode, Wrench, History, LogOut, LogIn, Edit, Trash2, Download, Upload, Search, Filter } from 'lucide-react';
 import { Equipment as EquipmentType, EquipmentInstance } from '../types';
 import { useStatusColors } from '../hooks/useStatusColors';

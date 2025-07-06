@@ -15,7 +15,7 @@ import ReturnModal from '../components/checkout/ReturnModal';
 import FilterPanel from '../components/common/FilterPanel';
 import ConfirmModal from '../components/common/ConfirmModal';
 import ExcelImport from '../components/import/ExcelImport';
-import { Plus, QrCode, Wrench, History, LogOut, LogIn, Edit, Trash2, Download, Upload, Search, Filter, PenTool as Tool } from 'lucide-react';
+import { Plus, QrCode, Wrench, History, LogOut, LogIn, Edit, Trash2, Download, Upload, Search, Filter, Tool } from 'lucide-react';
 import { Equipment as EquipmentType, EquipmentInstance } from '../types';
 import { useStatusColors } from '../hooks/useStatusColors';
 
@@ -184,28 +184,25 @@ export default function Equipment() {
             {eq.imageUrl ? (
               <img 
                 src={eq.imageUrl} 
-                alt={eq.name} 
+                alt={eq.name}
                 className="w-16 h-16 object-cover rounded-lg"
                 onError={(e) => {
                   // Replace broken image with tool icon
                   e.currentTarget.style.display = 'none';
                   const parent = e.currentTarget.parentElement;
                   if (parent) {
-                    const div = document.createElement('div');
-                    div.className = 'w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center';
-                    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-                    svg.setAttribute('width', '24');
-                    svg.setAttribute('height', '24');
-                    svg.setAttribute('viewBox', '0 0 24 24');
-                    svg.setAttribute('fill', 'none');
-                    svg.setAttribute('stroke', 'currentColor');
-                    svg.setAttribute('stroke-width', '2');
-                    svg.setAttribute('stroke-linecap', 'round');
-                    svg.setAttribute('stroke-linejoin', 'round');
-                    svg.setAttribute('class', 'text-gray-400');
-                    svg.innerHTML = '<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path>';
-                    div.appendChild(svg);
-                    parent.appendChild(div);
+                    // Create a fallback div with the Tool icon
+                    const fallbackDiv = document.createElement('div');
+                    fallbackDiv.className = 'w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center';
+                    
+                    // We can't directly insert a React component, so we'll use a simple SVG
+                    fallbackDiv.innerHTML = `
+                      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-400">
+                        <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path>
+                      </svg>
+                    `;
+                    
+                    parent.appendChild(fallbackDiv);
                   }
                 }}
               />

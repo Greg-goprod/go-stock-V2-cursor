@@ -876,13 +876,42 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
                         {user.first_name[0]}{user.last_name[0]}
                       </span>
                     </div>
-                    <div>
-                      <h3 className="font-bold text-gray-900 dark:text-white">
-                        {user.first_name} {user.last_name}
-                      </h3>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">
-                        {user.department} • {user.email}
-                      </p>
+                    <div className="flex items-center gap-2">
+                      {eq.imageUrl ? (
+                        <img 
+                          src={eq.imageUrl} 
+                          alt={eq.name}
+                          className="w-8 h-8 object-cover rounded"
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none';
+                            const parent = e.currentTarget.parentElement;
+                            if (parent) {
+                              const fallbackDiv = document.createElement('div');
+                              fallbackDiv.className = 'w-8 h-8 bg-gray-100 dark:bg-gray-700 rounded flex items-center justify-center';
+                              fallbackDiv.innerHTML = `
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-400">
+                                  <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path>
+                                </svg>
+                              `;
+                              parent.appendChild(fallbackDiv);
+                            }
+                          }}
+                        />
+                      ) : (
+                        <div className="w-8 h-8 bg-gray-100 dark:bg-gray-700 rounded flex items-center justify-center">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-400">
+                            <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path>
+                          </svg>
+                        </div>
+                      )}
+                      <div className="flex-1">
+                        <h4 className="font-medium text-gray-900 dark:text-white text-sm">
+                          {eq.name}
+                        </h4>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          {eq.serialNumber} • Dispo: {eq.availableQuantity}
+                        </p>
+                      </div>
                     </div>
                   </div>
                 </div>

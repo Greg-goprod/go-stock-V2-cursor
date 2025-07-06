@@ -238,18 +238,12 @@ const EquipmentPage: React.FC = () => {
   const handleShowQR = (equipmentId: string, instance?: EquipmentInstance) => {
     const equipmentItem = equipment.find(eq => eq.id === equipmentId);
     if (!equipmentItem) return;
-
-    console.log('Equipment item:', equipmentItem);
-    console.log('QR Type:', equipmentItem.qrType);
-    console.log('Total Quantity:', equipmentItem.totalQuantity);
-
+    
     // Récupérer les instances pour cet équipement
     const equipmentInstances = getEquipmentInstances(equipmentId);
-    console.log('Equipment instances:', equipmentInstances);
-
+    
     // Si c'est un équipement avec QR individuels ET qu'il y a plusieurs instances
-    if (equipmentItem.qrType === 'individual' && equipmentInstances.length > 1) {
-      console.log('Showing multiple QR codes modal');
+    if (equipmentItem.qrType === 'individual' && equipmentItem.totalQuantity > 1) {
       // Afficher la modal avec tous les QR codes
       setSelectedEquipmentForQR(equipmentItem);
       setShowQRCodesModal(true);
@@ -257,8 +251,7 @@ const EquipmentPage: React.FC = () => {
     }
 
     // Si c'est un équipement avec QR individuels mais une seule instance
-    if (equipmentItem.qrType === 'individual' && equipmentInstances.length === 1) {
-      console.log('Showing single QR code for individual equipment');
+    if (equipmentItem.qrType === 'individual' && equipmentItem.totalQuantity === 1) {
       setSelectedEquipment(equipmentId);
       setSelectedInstance(equipmentInstances[0]);
       setShowQRModal(true);
@@ -266,7 +259,6 @@ const EquipmentPage: React.FC = () => {
     }
 
     // Sinon, afficher le QR code unique (batch ou pas d'instances)
-    console.log('Showing single QR code for batch equipment');
     setSelectedEquipment(equipmentId);
     setSelectedInstance(instance || null);
     setShowQRModal(true);

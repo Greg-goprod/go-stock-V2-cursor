@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useAppContext } from '../contexts/AppContext';
+import { useApp } from '../contexts/AppContext';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import Badge from '../components/common/Badge';
@@ -7,11 +7,11 @@ import Modal from '../components/common/Modal';
 import AddEquipmentModal from '../components/equipment/AddEquipmentModal';
 import EditEquipmentModal from '../components/equipment/EditEquipmentModal';
 import QRCodeGenerator from '../components/QRCode/QRCodeGenerator';
-import { QRCodesModal } from '../components/equipment/QRCodesModal';
+import QRCodesModal from '../components/equipment/QRCodesModal';
 import MaintenanceModal from '../components/maintenance/MaintenanceModal';
 import MaintenanceHistoryModal from '../components/maintenance/MaintenanceHistoryModal';
 import CheckoutModal from '../components/checkout/CheckoutModal';
-import { ReturnModal } from '../components/checkout/ReturnModal';
+import ReturnModal from '../components/checkout/ReturnModal';
 import FilterPanel from '../components/common/FilterPanel';
 import ConfirmModal from '../components/common/ConfirmModal';
 import ExcelImport from '../components/import/ExcelImport';
@@ -19,7 +19,7 @@ import { Plus, QrCode, Wrench, History, LogOut, LogIn, Edit, Trash2, Download, U
 import { Equipment as EquipmentType, EquipmentInstance } from '../types';
 import { useStatusColors } from '../hooks/useStatusColors';
 
-export function Equipment() {
+export default function Equipment() {
   const {
     equipment,
     categories,
@@ -31,7 +31,7 @@ export function Equipment() {
     updateEquipment,
     deleteEquipment,
     refreshData
-  } = useAppContext();
+  } = useApp();
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);

@@ -1,6 +1,6 @@
 import React from 'react';
 import Modal from '../common/Modal';
-import QRCodeGenerator from '../QRCode/QRCodeGenerator';
+import QRCodeGenerator from './QRCodeGenerator';
 import { Equipment, EquipmentInstance } from '../../types';
 import { Printer } from 'lucide-react';
 import Button from '../common/Button';

@@ -1,3 +1,6 @@
+Here's the fixed version with all missing closing brackets and proper syntax:
+
+```typescript
 import React, { useState, useEffect } from 'react';
 import Modal from '../common/Modal';
 import Button from '../common/Button';
@@ -40,7 +43,6 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ isOpen, onClose }
     qrType: 'individual' as 'individual' | 'batch',
     totalQuantity: 1
   });
-  const [isGeneratingQRCodes, setIsGeneratingQRCodes] = useState(false);
   const [isGeneratingQRCodes, setIsGeneratingQRCodes] = useState(false);
 
   useEffect(() => {
@@ -168,7 +170,6 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ isOpen, onClose }
   const handleFinalSubmit = async () => {
     setIsLoading(true);
     setIsGeneratingQRCodes(true);
-    setIsGeneratingQRCodes(true);
 
     try {
       // Préparer les données de l'équipement
@@ -222,7 +223,6 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ isOpen, onClose }
       toast.error(error.message || 'Erreur lors de l\'ajout du matériel');
     } finally {
       setIsGeneratingQRCodes(false);
-      setIsGeneratingQRCodes(false);
       setIsLoading(false);
     }
   };
@@ -251,14 +251,6 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ isOpen, onClose }
       }));
     }
   }, [formData.available_quantity, step]);
-
-  // Disable the submit button when generating QR codes
-  const isSubmitDisabled = isLoading || isGeneratingQRCodes;
-  
-  // Get submit button text
-  const getSubmitButtonText = () => {
-    return isGeneratingQRCodes ? 'Génération des QR codes...' : isLoading ? 'Création en cours...' : 'Créer le matériel';
-  };
 
   // Disable the submit button when generating QR codes
   const isSubmitDisabled = isLoading || isGeneratingQRCodes;
@@ -480,9 +472,6 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ isOpen, onClose }
                       const newValue = parseInt(e.target.value) || 1;
                       setFormData(prev => ({ ...prev, available_quantity: newValue }));
                     }}
-                      const newValue = parseInt(e.target.value) || 1;
-                      setFormData(prev => ({ ...prev, available_quantity: newValue }));
-                    }}
                     className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
                   />
                 </div>
@@ -698,3 +687,4 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ isOpen, onClose }
 };
 
 export default AddEquipmentModal;
+```

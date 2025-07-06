@@ -298,6 +298,7 @@ const EditEquipmentModal: React.FC<EditEquipmentModalProps> = ({ isOpen, onClose
 
   const handleFinalSubmit = async () => {
     setIsLoading(true);
+    setIsGeneratingQRCodes(false);
 
     try {
       const dataToSubmit = {
@@ -328,11 +329,13 @@ const EditEquipmentModal: React.FC<EditEquipmentModalProps> = ({ isOpen, onClose
 
       // Si le type de QR est individuel et que la quantité a changé ou le type de QR a changé
       if (quantityData.qrType === 'individual' && (quantityChanged || qrTypeChanged)) {
+        setIsGeneratingQRCodes(true);
         await generateQRCodes(
           equipment.id, 
           equipment.articleNumber || equipment.serialNumber, 
           quantityData.totalQuantity
         );
+        setIsGeneratingQRCodes(false);
       }
 
       toast.success('Matériel modifié avec succès');

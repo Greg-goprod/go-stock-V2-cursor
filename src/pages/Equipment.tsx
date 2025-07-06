@@ -596,7 +596,7 @@ const EquipmentPage: React.FC = () => {
     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3">
       {filteredEquipment.map((item) => {
         const availableCount = item.qrType === 'individual' && (item.totalQuantity || 1) > 1 
-          ? getAvailableInstancesCount(item.id)
+          ? item.availableQuantity || 0
           : item.availableQuantity || 1;
         const totalCount = item.totalQuantity || 1;
 

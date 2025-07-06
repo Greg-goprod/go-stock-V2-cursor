@@ -4,8 +4,6 @@ import QRCodeGenerator from '../QRCode/QRCodeGenerator';
 import { Equipment, EquipmentInstance } from '../../types';
 import { supabase } from '../../lib/supabase';
 import { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
-import { useState, useEffect } from 'react';
 import { RefreshCw } from 'lucide-react';
 
 interface QRCodesModalProps {

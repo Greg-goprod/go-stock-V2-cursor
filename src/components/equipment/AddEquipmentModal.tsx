@@ -166,7 +166,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ isOpen, onClose }
 
   const handleFinalSubmit = async () => {
     setIsLoading(true);
-    setIsGeneratingQRCodes(false);
+    setIsGeneratingQRCodes(true);
 
     try {
       // Préparer les données de l'équipement
@@ -205,7 +205,6 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ isOpen, onClose }
             status: 'available'
           });
         }
-        setIsGeneratingQRCodes(true);
 
         const { error: instancesError } = await supabase
           .from('equipment_instances')
@@ -213,7 +212,6 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ isOpen, onClose }
 
         if (instancesError) throw instancesError;
       }
-      setIsGeneratingQRCodes(false);
 
       toast.success(`Matériel ajouté avec succès${quantityData.totalQuantity > 1 ? ` (${quantityData.totalQuantity} pièces)` : ''}`);
       onClose();

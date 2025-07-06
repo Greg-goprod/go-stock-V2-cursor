@@ -41,6 +41,7 @@ const EditEquipmentModal: React.FC<EditEquipmentModalProps> = ({
   const [groups, setGroups] = useState<EquipmentGroup[]>([]);
   const [subgroups, setSubgroups] = useState<EquipmentSubgroup[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isGeneratingQRCodes, setIsGeneratingQRCodes] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -85,6 +86,46 @@ const EditEquipmentModal: React.FC<EditEquipmentModalProps> = ({
     }
   };
 
+  // Function to generate individual QR codes
+  const generateIndividualQRCodes = async (equipmentId: string, articleNumber: string, quantity: number) => {
+    try {
+      // First, delete existing instances
+      await supabase
+        .from('equipment_instances')
+        .delete()
+        .eq('equipment_id', equipmentId);
+      
+      // Create new instances
+      const instances = [];
+      for (let i = 1; i <= quantity; i++) {
+        instances.push({
+          equipment_id: equipmentId,
+          instance_number: i,
+          qr_code: `${articleNumber}-${String(i).padStart(3, '0')}`,
+          status: 'available'
+        });
+      }
+
+      // Insert new instances
+      const { error: instancesError } = await supabase
+        .from('equipment_instances')
+        .insert(instances);
+
+      if (instancesError) throw instancesError;
+
+      // Reload instances
+      const { data: newInstances } = await supabase
+        .from('equipment_instances')
+        .select('*')
+        .eq('equipment_id', equipmentId)
+        .order('instance_number');
+
+    } catch (error) {
+      console.error('Error generating QR codes:', error);
+      throw error;
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!equipment) return;
@@ -92,6 +133,12 @@ const EditEquipmentModal: React.FC<EditEquipmentModalProps> = ({
     try {
       setIsLoading(true);
 
+      const originalQuantity = equipment.totalQuantity || 1;
+      const newQuantity = formData.total_quantity;
+      const quantityChanged = originalQuantity !== newQuantity;
+      const qrTypeChanged = equipment.qrType !== formData.qr_type;
+
+      // Update equipment status and quantity
       const { error } = await supabase
         .from('equipment')
         .update({
@@ -114,6 +161,16 @@ const EditEquipmentModal: React.FC<EditEquipmentModalProps> = ({
 
       if (error) throw error;
 
+      // If quantity changed or QR type changed to individual, regenerate QR codes
+      if (formData.qr_type === 'individual' && (quantityChanged || qrTypeChanged)) {
+        setIsGeneratingQRCodes(true);
+        await generateIndividualQRCodes(
+          equipment.id, 
+          equipment.articleNumber || '', 
+          formData.total_quantity
+        );
+      }
+
       toast.success('Équipement modifié avec succès');
       onUpdate();
       onClose();
@@ -122,10 +179,19 @@ const EditEquipmentModal: React.FC<EditEquipmentModalProps> = ({
       toast.error(error.message || 'Erreur lors de la modification');
     } finally {
       setIsLoading(false);
+      setIsGeneratingQRCodes(false);
     }
   };
 
   const filteredSubgroups = subgroups.filter(sg => sg.group_id === formData.group_id);
+
+  // Disable the submit button when generating QR codes
+  const isSubmitDisabled = isLoading || isGeneratingQRCodes;
+  
+  // Get submit button text
+  const getSubmitButtonText = () => {
+    return isGeneratingQRCodes ? 'Génération des QR codes...' : isLoading ? 'Modification en cours...' : 'Modifier';
+  };
 
   return (
     <Modal
@@ -366,10 +432,10 @@ const EditEquipmentModal: React.FC<EditEquipmentModalProps> = ({
           <Button
             type="submit"
             variant="primary"
-            disabled={isLoading}
+            disabled={isSubmitDisabled}
             icon={<Save size={18} />}
           >
-            {isLoading ? 'Modification...' : 'Modifier'}
+            {getSubmitButtonText()}
           </Button>
         </div>
       </form>

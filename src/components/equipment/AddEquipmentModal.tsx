@@ -40,6 +40,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ isOpen, onClose }
     qrType: 'individual' as 'individual' | 'batch',
     totalQuantity: 1
   });
+  const [isGeneratingQRCodes, setIsGeneratingQRCodes] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -165,6 +166,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ isOpen, onClose }
 
   const handleFinalSubmit = async () => {
     setIsLoading(true);
+    setIsGeneratingQRCodes(false);
 
     try {
       // Préparer les données de l'équipement
@@ -193,7 +195,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ isOpen, onClose }
       if (equipmentError) throw equipmentError;
 
       // Si c'est un équipement avec QR individuels, créer les instances
-      if (quantityData.qrType === 'individual' && quantityData.totalQuantity > 1) {
+      if (quantityData.qrType === 'individual') {
         const instances = [];
         for (let i = 1; i <= quantityData.totalQuantity; i++) {
           instances.push({
@@ -203,6 +205,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ isOpen, onClose }
             status: 'available'
           });
         }
+        setIsGeneratingQRCodes(true);
 
         const { error: instancesError } = await supabase
           .from('equipment_instances')
@@ -210,6 +213,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ isOpen, onClose }
 
         if (instancesError) throw instancesError;
       }
+      setIsGeneratingQRCodes(false);
 
       toast.success(`Matériel ajouté avec succès${quantityData.totalQuantity > 1 ? ` (${quantityData.totalQuantity} pièces)` : ''}`);
       onClose();
@@ -217,6 +221,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ isOpen, onClose }
       console.error('Error adding equipment:', error);
       toast.error(error.message || 'Erreur lors de l\'ajout du matériel');
     } finally {
+      setIsGeneratingQRCodes(false);
       setIsLoading(false);
     }
   };
@@ -238,13 +243,21 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ isOpen, onClose }
 
   // Synchroniser la quantité totale avec la quantité disponible
   useEffect(() => {
-    if (step === 'quantity') {
+    if (step === 'quantity' && !isGeneratingQRCodes) {
       setQuantityData(prev => ({
         ...prev,
         totalQuantity: formData.available_quantity
       }));
     }
   }, [formData.available_quantity, step]);
+
+  // Disable the submit button when generating QR codes
+  const isSubmitDisabled = isLoading || isGeneratingQRCodes;
+  
+  // Get submit button text
+  const getSubmitButtonText = () => {
+    return isGeneratingQRCodes ? 'Génération des QR codes...' : isLoading ? 'Création en cours...' : 'Créer le matériel';
+  };
 
   const getGroupName = (groupId: string) => {
     const group = groups.find(g => g.id === groupId);
@@ -658,9 +671,9 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ isOpen, onClose }
                   <Button
                     variant="primary"
                     onClick={handleFinalSubmit}
-                    disabled={isLoading}
+                    disabled={isSubmitDisabled}
                   >
-                    {isLoading ? 'Création en cours...' : 'Créer le matériel'}
+                    {getSubmitButtonText()}
                   </Button>
                 </div>
               </div>

@@ -5,12 +5,10 @@ interface StatusBadgeProps {
   status: string;
   availableQuantity?: number;
   totalQuantity?: number;
-  availableQuantity?: number;
-  totalQuantity?: number;
   className?: string;
 }
 
-const StatusBadge: React.FC<StatusBadgeProps> = ({ status, availableQuantity, totalQuantity, className = '' }) => {
+const StatusBadge: React.FC<StatusBadgeProps> = ({ 
   status, 
   availableQuantity, 
   totalQuantity, 

@@ -30,7 +30,6 @@ export function Equipment() {
     addEquipment,
     updateEquipment,
     deleteEquipment,
-    getEquipmentInstances,
     refreshData
   } = useAppContext();
 

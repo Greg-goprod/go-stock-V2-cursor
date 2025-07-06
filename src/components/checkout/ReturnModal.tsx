@@ -107,7 +107,7 @@ const ReturnModal: React.FC<ReturnModalProps> = ({
         const checkouts = note.checkouts?.map(checkout => {
           // Check if the checkout is overdue
           const dueDate = new Date(checkout.due_date);
-          dueDate.setHours(23, 59, 59, 999); // Set to end of the due date
+          dueDate.setHours(23, 59, 59, 999);
           
           const today = new Date();
           today.setHours(0, 0, 0, 0); // Set to start of today

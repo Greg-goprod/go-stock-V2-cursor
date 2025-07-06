@@ -55,49 +55,8 @@ const QRCodesModal: React.FC<QRCodesModalProps> = ({
       setLoading(false);
     }
   };
-
-  const [loading, setLoading] = useState(false);
-  const [allInstances, setAllInstances] = useState<EquipmentInstance[]>(instances);
   
   if (!equipment) return null;
-
-  // Fetch all instances when modal opens
-  useEffect(() => {
-    if (isOpen && equipment && equipment.qrType === 'individual') {
-      fetchAllInstances();
-    }
-  }, [isOpen, equipment]);
-
-  const fetchAllInstances = async () => {
-    try {
-      setLoading(true);
-      
-      // Fetch instances directly from the database
-      const { data, error } = await supabase
-        .from('equipment_instances')
-        .select('*')
-        .eq('equipment_id', equipment.id)
-        .order('instance_number');
-      
-      if (error) throw error;
-      
-      // Transform data to match our interface
-      const transformedInstances: EquipmentInstance[] = data?.map(inst => ({
-        id: inst.id,
-        equipmentId: inst.equipment_id,
-        instanceNumber: inst.instance_number,
-        qrCode: inst.qr_code,
-        status: inst.status as EquipmentInstance['status'],
-        createdAt: inst.created_at
-      })) || [];
-      
-      setAllInstances(transformedInstances);
-    } catch (error) {
-      console.error('Error fetching instances:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const getQRCodeValue = (instance?: EquipmentInstance) => {
     if (instance) {
@@ -162,7 +121,7 @@ const QRCodesModal: React.FC<QRCodesModalProps> = ({
           </div>
         ) : equipment.qrType === 'individual' && instances.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {allInstances.map(instance => (
+            {instances.map(instance => (
               <div key={instance.id} className="flex justify-center">
                 <QRCodeGenerator
                   value={getQRCodeValue(instance)}

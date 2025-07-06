@@ -23,7 +23,7 @@ import {
   FileText,
   Search,
   Eye,
-  Building2
+  Building
 } from 'lucide-react';
 import FilterPanel, { FilterOption } from '../components/common/FilterPanel';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -699,7 +699,7 @@ const Checkouts: React.FC = () => {
                 </span>
               </div>
               <div className="flex items-center gap-2">
-                <Building2 size={14} className="text-gray-400" />
+                <Building size={14} className="text-gray-400" />
                 <span className="text-sm text-gray-600 dark:text-gray-400">
                   {checkout.user.department}
                 </span>

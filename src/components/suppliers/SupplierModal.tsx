@@ -6,7 +6,7 @@ import { useLanguage } from '../../contexts/LanguageContext';
 import { supabase } from '../../lib/supabase';
 import toast from 'react-hot-toast';
 import { Supplier } from '../../types';
-import { Building2, User, Mail, Phone, Globe } from 'lucide-react';
+import { Building, User, Mail, Phone, Globe } from 'lucide-react';
 
 interface SupplierModalProps {
   isOpen: boolean;
@@ -112,7 +112,7 @@ const SupplierModal: React.FC<SupplierModalProps> = ({ isOpen, onClose, supplier
         {/* Informations de base */}
         <Accordion
           title="INFORMATIONS DE BASE"
-          icon={<Building2 size={18} className="text-blue-600 dark:text-blue-400" />}
+          icon={<Building size={18} className="text-blue-600 dark:text-blue-400" />}
           defaultOpen={false}
         >
           <form onSubmit={handleSubmit} className="space-y-4">

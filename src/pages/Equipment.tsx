@@ -15,7 +15,7 @@ import ReturnModal from '../components/checkout/ReturnModal';
 import FilterPanel from '../components/common/FilterPanel';
 import ConfirmModal from '../components/common/ConfirmModal';
 import ExcelImport from '../components/import/ExcelImport';
-import { Plus, QrCode, Wrench, History, LogOut, LogIn, Edit, Trash2, Download, Upload, Search, Filter } from 'lucide-react';
+import { Plus, QrCode, Wrench, History, LogOut, LogIn, Edit, Trash2, Download, Upload, Search, Filter, Tool } from 'lucide-react';
 import { Equipment as EquipmentType, EquipmentInstance } from '../types';
 import { useStatusColors } from '../hooks/useStatusColors';
 
@@ -179,26 +179,61 @@ export default function Equipment() {
 
     return (
       <Card key={eq.id} className="p-6">
-        <div className="flex justify-between items-start mb-4">
-          <div className="flex-1">
-            <h3 className="text-lg font-semibold text-gray-900 mb-1">{eq.name}</h3>
-            {eq.shortTitle && (
-              <p className="text-sm text-gray-600 mb-2">{eq.shortTitle}</p>
+        <div className="flex justify-between items-start mb-4 gap-4">
+          <div className="flex items-start gap-3">
+            {eq.imageUrl ? (
+              <img 
+                src={eq.imageUrl} 
+                alt={eq.name} 
+                className="w-16 h-16 object-cover rounded-lg"
+                onError={(e) => {
+                  // Replace broken image with tool icon
+                  e.currentTarget.style.display = 'none';
+                  const parent = e.currentTarget.parentElement;
+                  if (parent) {
+                    const div = document.createElement('div');
+                    div.className = 'w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center';
+                    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                    svg.setAttribute('width', '24');
+                    svg.setAttribute('height', '24');
+                    svg.setAttribute('viewBox', '0 0 24 24');
+                    svg.setAttribute('fill', 'none');
+                    svg.setAttribute('stroke', 'currentColor');
+                    svg.setAttribute('stroke-width', '2');
+                    svg.setAttribute('stroke-linecap', 'round');
+                    svg.setAttribute('stroke-linejoin', 'round');
+                    svg.setAttribute('class', 'text-gray-400');
+                    svg.innerHTML = '<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path>';
+                    div.appendChild(svg);
+                    parent.appendChild(div);
+                  }
+                }}
+              />
+            ) : (
+              <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center">
+                <Tool className="w-6 h-6 text-gray-400" />
+              </div>
             )}
-            <div className="flex flex-wrap gap-2 mb-2">
-              <Badge variant="outline" color={getStatusColor(eq.status)}>
-                {eq.status}
-              </Badge>
-              {category && (
-                <Badge variant="outline" style={{ backgroundColor: category.color + '20', color: category.color }}>
-                  {category.name}
-                </Badge>
+            <div className="flex-1">
+              <h3 className="text-lg font-semibold text-gray-900 mb-1">{eq.name}</h3>
+              {eq.shortTitle && (
+                <p className="text-sm text-gray-600 mb-2">{eq.shortTitle}</p>
               )}
-              {group && (
-                <Badge variant="outline" style={{ backgroundColor: group.color + '20', color: group.color }}>
-                  {group.name}
+              <div className="flex flex-wrap gap-2 mb-2">
+                <Badge variant="outline" color={getStatusColor(eq.status)}>
+                  {eq.status}
                 </Badge>
-              )}
+                {category && (
+                  <Badge variant="outline" style={{ backgroundColor: category.color + '20', color: category.color }}>
+                    {category.name}
+                  </Badge>
+                )}
+                {group && (
+                  <Badge variant="outline" style={{ backgroundColor: group.color + '20', color: group.color }}>
+                    {group.name}
+                  </Badge>
+                )}
+              </div>
             </div>
           </div>
           <div className="flex gap-2">

@@ -7,7 +7,7 @@ import { useLanguage } from '../../contexts/LanguageContext';
 import { supabase } from '../../lib/supabase';
 import toast from 'react-hot-toast';
 import { Department } from '../../types';
-import { Building2, FileText, Palette } from 'lucide-react';
+import { Building, FileText, Palette } from 'lucide-react';
 
 interface DepartmentModalProps {
   isOpen: boolean;
@@ -103,7 +103,7 @@ const DepartmentModal: React.FC<DepartmentModalProps> = ({ isOpen, onClose, depa
         {/* Informations de base */}
         <Accordion
           title="INFORMATIONS DE BASE"
-          icon={<Building2 size={18} className="text-blue-600 dark:text-blue-400" />}
+          icon={<Building size={18} className="text-blue-600 dark:text-blue-400" />}
           defaultOpen={false}
         >
           <form onSubmit={handleSubmit} className="space-y-4">

@@ -16,7 +16,7 @@ import {
   Trash2, 
   Settings as SettingsIcon, 
   Tag, 
-  Building2, 
+  Building, 
   Users, 
   Layers,
   Palette,
@@ -701,7 +701,7 @@ const Settings: React.FC = () => {
       {/* Départements */}
       <Accordion
         title={`DÉPARTEMENTS (${departments.length})`}
-        icon={<Building2 size={20} className="text-orange-600 dark:text-orange-400" />}
+        icon={<Building size={20} className="text-orange-600 dark:text-orange-400" />}
         defaultOpen={false}
       >
         <div className="flex justify-between items-center mb-4">

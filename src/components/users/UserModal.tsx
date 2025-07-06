@@ -6,7 +6,7 @@ import { useLanguage } from '../../contexts/LanguageContext';
 import { supabase } from '../../lib/supabase';
 import toast from 'react-hot-toast';
 import { User } from '../../types';
-import { User as UserIcon, Mail, Phone, Building2, Shield } from 'lucide-react';
+import { User as UserIcon, Mail, Phone, Building, Shield } from 'lucide-react';
 
 interface UserModalProps {
   isOpen: boolean;
@@ -216,7 +216,7 @@ const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, user }) => {
         {/* Organisation */}
         <Accordion
           title="ORGANISATION"
-          icon={<Building2 size={18} className="text-purple-600 dark:text-purple-400" />}
+          icon={<Building size={18} className="text-purple-600 dark:text-purple-400" />}
           defaultOpen={false}
         >
           <div className="space-y-4">

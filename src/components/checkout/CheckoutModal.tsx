@@ -879,10 +879,10 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
                     <div className="flex items-center gap-2">
                       {eq.imageUrl ? (
                         <img 
-                          src={eq.imageUrl} 
-                        src={eq.imageUrl}
+                          src={eq.imageUrl}
                           className="w-8 h-8 object-cover rounded"
                           onError={(e) => {
+                            console.log("Erreur de chargement d'image dans CheckoutModal:", eq.imageUrl);
                             e.currentTarget.style.display = 'none';
                             const parent = e.currentTarget.parentElement;
                             if (parent) {

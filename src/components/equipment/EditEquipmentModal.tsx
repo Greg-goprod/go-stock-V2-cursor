@@ -2,12 +2,12 @@ import React, { useState, useEffect } from 'react';
 import Modal from '../common/Modal';
 import Button from '../common/Button';
 import Accordion from '../common/Accordion';
-import ColorPicker from '../common/ColorPicker';
+
 import { useLanguage } from '../../contexts/LanguageContext';
 import { supabase } from '../../lib/supabase';
 import toast from 'react-hot-toast';
 import { Equipment, Category, Supplier, EquipmentGroup, EquipmentSubgroup } from '../../types';
-import { Package, QrCode, Copy, AlertTriangle, Info, Settings } from 'lucide-react';
+import { Package, QrCode, Copy, AlertTriangle, Info } from 'lucide-react';
 
 interface EditEquipmentModalProps {
   isOpen: boolean;
@@ -27,7 +27,7 @@ const EditEquipmentModal: React.FC<EditEquipmentModalProps> = ({ isOpen, onClose
   const [step, setStep] = useState<'basic' | 'quantity'>('basic');
   const [currentQrType, setCurrentQrType] = useState<'individual' | 'batch'>('individual');
   const [originalQuantity, setOriginalQuantity] = useState(1);
-  const [instances, setInstances] = useState<any[]>([]);
+  const [instances, setInstances] = useState<Record<string, unknown>[]>([]);
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -188,13 +188,24 @@ const EditEquipmentModal: React.FC<EditEquipmentModalProps> = ({ isOpen, onClose
     try {
       setIsGeneratingQRCodes(true);
       
+      console.log('Début de la génération des QR codes:', {
+        equipmentId,
+        articleNumber,
+        quantity
+      });
+      
       // Delete existing instances
       const { error: deleteError } = await supabase
         .from('equipment_instances')
         .delete()
         .eq('equipment_id', equipmentId);
       
-      if (deleteError) throw deleteError;
+      if (deleteError) {
+        console.error('Erreur lors de la suppression des instances existantes:', deleteError);
+        throw deleteError;
+      }
+      
+      console.log('Instances existantes supprimées');
       
       // Create new instances
       const instances = [];
@@ -207,15 +218,22 @@ const EditEquipmentModal: React.FC<EditEquipmentModalProps> = ({ isOpen, onClose
         });
       }
       
+      console.log(`${instances.length} nouvelles instances créées`);
+      
       // Insert new instances in batches to avoid payload size limits
       const batchSize = 50;
       for (let i = 0; i < instances.length; i += batchSize) {
         const batch = instances.slice(i, i + batchSize);
+        console.log(`Insertion du lot ${i/batchSize + 1}/${Math.ceil(instances.length/batchSize)} (${batch.length} instances)`);
+        
         const { error: insertError } = await supabase
           .from('equipment_instances')
           .insert(batch);
         
-        if (insertError) throw insertError;
+        if (insertError) {
+          console.error('Erreur lors de l\'insertion des instances:', insertError);
+          throw insertError;
+        }
       }
       
       // Fetch the new instances
@@ -225,7 +243,12 @@ const EditEquipmentModal: React.FC<EditEquipmentModalProps> = ({ isOpen, onClose
         .eq('equipment_id', equipmentId)
         .order('instance_number');
       
-      if (fetchError) throw fetchError;
+      if (fetchError) {
+        console.error('Erreur lors de la récupération des nouvelles instances:', fetchError);
+        throw fetchError;
+      }
+      
+      console.log(`${newInstances?.length || 0} instances récupérées après insertion`);
       setInstances(newInstances || []);
       
       toast.success(`${quantity} QR codes générés avec succès`);
@@ -356,7 +379,7 @@ const EditEquipmentModal: React.FC<EditEquipmentModalProps> = ({ isOpen, onClose
     }));
   };
 
-  const handleQuantityChange = (field: string, value: any) => {
+  const handleQuantityChange = (field: string, value: string | number | boolean) => {
     setQuantityData(prev => ({
       ...prev,
       [field]: value
@@ -617,7 +640,7 @@ const EditEquipmentModal: React.FC<EditEquipmentModalProps> = ({ isOpen, onClose
                    Entrez une URL d'image valide et accessible publiquement. Exemple: https://images.pexels.com/photos/1029243/pexels-photo-1029243.jpeg
                  </p>
                 <p className="text-xs text-gray-500 dark:text-gray-400">
-                  Utilisez des sites comme <a href="https://www.pexels.com" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">Pexels</a> ou <a href="https://unsplash.com" target=\"_blank" rel="noopener noreferrer\" className="text-blue-500 hover:underline">Unsplash</a> pour trouver des images libres de droits.
+                  Utilisez des sites comme <a href="https://www.pexels.com" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">Pexels</a> ou <a href="https://unsplash.com" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">Unsplash</a> pour trouver des images libres de droits.
                 </p>
                  {formData.image_url && (
                    <div className="mt-2 p-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800">

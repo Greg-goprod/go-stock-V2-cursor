@@ -1,11 +1,10 @@
-import React, { useRef } from 'react';
-import { QRCodeSVG } from 'qrcode.react';
-import Button from '../common/Button';
+import React from 'react';
 import { Printer } from 'lucide-react';
+import Button from '../common/Button';
 
 interface QRCodeGeneratorProps {
   value: string;
-  title: string;
+  title?: string;
   subtitle?: string;
   size?: number;
   printable?: boolean;
@@ -15,400 +14,121 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
   value,
   title,
   subtitle,
-  size = 128,
-  printable = true,
+  size = 200,
+  printable = false
 }) => {
-  const qrCodeRef = useRef<HTMLDivElement>(null);
+  // Fonction pour générer un QR code avec l'API Google Charts
+  const getQRCodeUrl = (data: string, size: number) => {
+    return `https://chart.googleapis.com/chart?cht=qr&chl=${encodeURIComponent(data)}&chs=${size}x${size}&choe=UTF-8&chld=H|0`;
+  };
 
+  // Fonction pour imprimer le QR code
   const handlePrint = () => {
-    // Créer une image du QR code
-    const svgElement = qrCodeRef.current?.querySelector('svg');
-    if (!svgElement) {
-      console.error('SVG element not found');
-      return;
-    }
-
-    // Convertir le SVG en chaîne
-    const svgData = new XMLSerializer().serializeToString(svgElement);
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
     
-    // Créer un canvas pour convertir le SVG en image
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Impression QR Code - ${title || value}</title>
+          <style>
+            body {
+              font-family: Arial, sans-serif;
+              text-align: center;
+              padding: 20px;
+            }
+            .qr-container {
+              margin: 20px auto;
+              max-width: 300px;
+            }
+            .qr-title {
+              font-size: 18px;
+              font-weight: bold;
+              margin-bottom: 5px;
+            }
+            .qr-subtitle {
+              font-size: 14px;
+              color: #666;
+              margin-bottom: 15px;
+            }
+            .qr-image {
+              width: 100%;
+              max-width: ${size}px;
+              height: auto;
+            }
+            .qr-value {
+              font-size: 12px;
+              color: #999;
+              margin-top: 10px;
+              word-break: break-all;
+            }
+            @media print {
+              .no-print {
+                display: none;
+              }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="qr-container">
+            ${title ? `<div class="qr-title">${title}</div>` : ''}
+            ${subtitle ? `<div class="qr-subtitle">${subtitle}</div>` : ''}
+            <img class="qr-image" src="${getQRCodeUrl(value, size)}" alt="QR Code" />
+            <div class="qr-value">${value}</div>
+          </div>
+          <div class="no-print">
+            <p>Appuyez sur Ctrl+P (ou Cmd+P) pour imprimer, ou utilisez le bouton ci-dessous.</p>
+            <button onclick="window.print()">Imprimer</button>
+          </div>
+          <script>
+            // Imprimer automatiquement
+            window.onload = function() {
+              setTimeout(function() {
+                window.print();
+              }, 500);
+            };
+          </script>
+        </body>
+      </html>
+    `;
     
-    if (!ctx) {
-      console.error('Canvas context not available');
-      return;
-    }
-    
-    // Définir la taille du canvas
-    canvas.width = size * 2;
-    canvas.height = size * 2;
-    
-    // Créer une image à partir du SVG
-    const img = new Image();
-    const blob = new Blob([svgData], {type: 'image/svg+xml'});
-    const url = URL.createObjectURL(blob);
-    
-    img.onload = () => {
-      // Dessiner l'image sur le canvas
-      ctx.fillStyle = 'white';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      
-      // Convertir le canvas en URL de données
-      const dataUrl = canvas.toDataURL('image/png');
-      
-      // Créer le contenu HTML pour l'impression
-      const printContent = `
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <title>Étiquette QR Code - ${title}</title>
-            <meta charset="UTF-8">
-            <style>
-              @page {
-                size: auto;
-                margin: 0mm;
-              }
-              body {
-                margin: 0;
-                padding: 0;
-                font-family: Arial, sans-serif;
-              }
-              .print-container {
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                justify-content: center;
-                padding: 20px;
-              }
-              .print-options {
-                display: flex;
-                flex-direction: column;
-                gap: 20px;
-                margin-bottom: 30px;
-                width: 100%;
-                max-width: 600px;
-              }
-              .option-title {
-                font-size: 16px;
-                font-weight: bold;
-                margin-bottom: 10px;
-              }
-              .option-buttons {
-                display: flex;
-                gap: 10px;
-                flex-wrap: wrap;
-              }
-              .option-button {
-                padding: 10px 15px;
-                background-color: #f0f0f0;
-                border: 1px solid #ddd;
-                border-radius: 5px;
-                cursor: pointer;
-                font-size: 14px;
-              }
-              .option-button:hover {
-                background-color: #e0e0e0;
-              }
-              .option-button.active {
-                background-color: #4CAF50;
-                color: white;
-                border-color: #4CAF50;
-              }
-              .print-actions {
-                display: flex;
-                gap: 10px;
-                margin-top: 20px;
-              }
-              .print-button {
-                padding: 10px 20px;
-                background-color: #4CAF50;
-                color: white;
-                border: none;
-                border-radius: 5px;
-                cursor: pointer;
-                font-size: 16px;
-              }
-              .close-button {
-                padding: 10px 20px;
-                background-color: #f44336;
-                color: white;
-                border: none;
-                border-radius: 5px;
-                cursor: pointer;
-                font-size: 16px;
-              }
-              
-              /* Styles pour les différents formats d'étiquettes */
-              .label {
-                display: none; /* Caché par défaut */
-                margin: 0 auto;
-                background-color: white;
-                box-shadow: 0 0 10px rgba(0,0,0,0.1);
-              }
-              
-              /* Format 40x30mm */
-              .label-40x30 {
-                width: 40mm;
-                height: 30mm;
-                display: flex;
-                align-items: center;
-                padding: 2mm;
-              }
-              .qr-40x30 {
-                width: 26mm;
-                height: 26mm;
-              }
-              .text-40x30 {
-                flex: 1;
-                padding-left: 2mm;
-                overflow: hidden;
-              }
-              .title-40x30 {
-                font-size: 8pt;
-                font-weight: bold;
-                line-height: 1.2;
-                margin-bottom: 1mm;
-                overflow: hidden;
-                text-overflow: ellipsis;
-                max-height: 20mm;
-              }
-              .subtitle-40x30 {
-                font-size: 6pt;
-                color: #666;
-              }
-              
-              /* Format 40x40mm */
-              .label-40x40 {
-                width: 40mm;
-                height: 40mm;
-                padding: 2mm;
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-              }
-              .qr-40x40 {
-                width: 30mm;
-                height: 30mm;
-                margin-bottom: 1mm;
-              }
-              .title-40x40 {
-                font-size: 8pt;
-                font-weight: bold;
-                text-align: center;
-                line-height: 1.2;
-                width: 100%;
-              }
-              .subtitle-40x40 {
-                font-size: 6pt;
-                color: #666;
-                text-align: center;
-              }
-              
-              /* Format 30x20mm */
-              .label-30x20 {
-                width: 30mm;
-                height: 20mm;
-                display: flex;
-                align-items: center;
-                padding: 1mm;
-              }
-              .qr-30x20 {
-                width: 18mm;
-                height: 18mm;
-              }
-              .text-30x20 {
-                flex: 1;
-                padding-left: 1mm;
-                overflow: hidden;
-              }
-              .title-30x20 {
-                font-size: 6pt;
-                font-weight: bold;
-                line-height: 1.1;
-                margin-bottom: 0.5mm;
-                overflow: hidden;
-                text-overflow: ellipsis;
-                max-height: 12mm;
-              }
-              .subtitle-30x20 {
-                font-size: 5pt;
-                color: #666;
-              }
-              
-              /* Format rond 40mm */
-              .label-round-40 {
-                width: 40mm;
-                height: 40mm;
-                border-radius: 50%;
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                justify-content: center;
-                padding: 2mm;
-              }
-              .qr-round-40 {
-                width: 25mm;
-                height: 25mm;
-              }
-              .title-round-40 {
-                font-size: 6pt;
-                font-weight: bold;
-                text-align: center;
-                margin-top: 1mm;
-                width: 90%;
-              }
-              
-              @media print {
-                .print-options, .print-actions {
-                  display: none;
-                }
-                body {
-                  margin: 0;
-                  padding: 0;
-                }
-                .print-container {
-                  padding: 0;
-                }
-              }
-            </style>
-          </head>
-          <body>
-            <div class="print-container">
-              <div class="print-options">
-                <div>
-                  <div class="option-title">Format d'étiquette:</div>
-                  <div class="option-buttons" id="format-buttons">
-                    <button class="option-button active" data-format="40x30">40x30mm (Standard)</button>
-                    <button class="option-button" data-format="40x40">40x40mm (Carré)</button>
-                    <button class="option-button" data-format="30x20">30x20mm (Petit)</button>
-                    <button class="option-button" data-format="round-40">Rond 40mm</button>
-                  </div>
-                </div>
-                
-                <div class="print-actions">
-                  <button class="print-button" onclick="window.print()">Imprimer</button>
-                  <button class="close-button" onclick="window.close()">Fermer</button>
-                </div>
-              </div>
-              
-              <!-- Format 40x30mm -->
-              <div class="label label-40x30" id="label-40x30">
-                <img src="${dataUrl}" class="qr-40x30" alt="QR Code" />
-                <div class="text-40x30">
-                  <div class="title-40x30">${title}</div>
-                  ${subtitle ? `<div class="subtitle-40x30">${subtitle}</div>` : ''}
-                </div>
-              </div>
-              
-              <!-- Format 40x40mm -->
-              <div class="label label-40x40" id="label-40x40" style="display: none;">
-                <img src="${dataUrl}" class="qr-40x40" alt="QR Code" />
-                <div class="title-40x40">${title}</div>
-                ${subtitle ? `<div class="subtitle-40x40">${subtitle}</div>` : ''}
-              </div>
-              
-              <!-- Format 30x20mm -->
-              <div class="label label-30x20" id="label-30x20" style="display: none;">
-                <img src="${dataUrl}" class="qr-30x20" alt="QR Code" />
-                <div class="text-30x20">
-                  <div class="title-30x20">${title}</div>
-                  ${subtitle ? `<div class="subtitle-30x20">${subtitle}</div>` : ''}
-                </div>
-              </div>
-              
-              <!-- Format rond 40mm -->
-              <div class="label label-round-40" id="label-round-40" style="display: none;">
-                <img src="${dataUrl}" class="qr-round-40" alt="QR Code" />
-                <div class="title-round-40">${title}</div>
-              </div>
-            </div>
-            
-            <script>
-              // Afficher le format 40x30mm par défaut
-              document.getElementById('label-40x30').style.display = 'flex';
-              
-              // Gérer les boutons de format
-              const formatButtons = document.querySelectorAll('#format-buttons .option-button');
-              formatButtons.forEach(button => {
-                button.addEventListener('click', function() {
-                  // Masquer tous les formats
-                  document.querySelectorAll('.label').forEach(label => {
-                    label.style.display = 'none';
-                  });
-                  
-                  // Afficher le format sélectionné
-                  const format = this.getAttribute('data-format');
-                  document.getElementById('label-' + format).style.display = 
-                    format === '40x30' || format === '30x20' ? 'flex' : 
-                    format === '40x40' || format === 'round-40' ? 'flex' : 'none';
-                  
-                  // Mettre à jour la classe active
-                  formatButtons.forEach(btn => btn.classList.remove('active'));
-                  this.classList.add('active');
-                });
-              });
-            </script>
-          </body>
-        </html>
-      `;
-      
-      // Ouvrir dans une nouvelle fenêtre
-      const printWindow = window.open('', '_blank', 'width=800,height=600');
-      if (!printWindow) {
-        alert('Impossible d\'ouvrir la fenêtre d\'impression. Vérifiez que les popups ne sont pas bloquées.');
-        return;
-      }
-      
-      printWindow.document.open();
-      printWindow.document.write(printContent);
-      printWindow.document.close();
-      
-      // Libérer l'URL
-      URL.revokeObjectURL(url);
-    };
-    
-    img.src = url;
+    printWindow.document.open();
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
   };
 
   return (
-    <div className="flex flex-col items-center p-4 border rounded-lg bg-white dark:bg-gray-800">
-      <div className="mb-4" ref={qrCodeRef} data-qr-value={value}>
-        <QRCodeSVG 
-          value={value} 
-          size={size}
-          bgColor="#ffffff"
-          fgColor="#000000"
-          level="M"
-          includeMargin={true}
+    <div className="flex flex-col items-center p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm">
+      {title && <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-1">{title}</h3>}
+      {subtitle && <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">{subtitle}</p>}
+      
+      <div className="bg-white p-2 rounded-lg shadow-sm">
+        <img
+          src={getQRCodeUrl(value, size)}
+          alt="QR Code"
+          className="w-full h-auto"
+          style={{ maxWidth: `${size}px` }}
         />
       </div>
-      <h3 className="mt-3 font-black text-gray-800 dark:text-gray-100 text-center uppercase tracking-wide">
-        {title}
-      </h3>
-      {subtitle && (
-        <p className="text-sm text-gray-600 dark:text-gray-400 text-center font-medium">
-          {subtitle}
-        </p>
-      )}
-      <div className="text-xs text-gray-500 dark:text-gray-500 mt-2 font-mono bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">
+      
+      <div className="mt-2 text-xs text-gray-500 dark:text-gray-400 text-center max-w-full overflow-hidden text-ellipsis">
         {value}
       </div>
       
       {printable && (
-        <Button 
-          variant="primary" 
-          size="sm" 
-          icon={<Printer size={16} />}
+        <Button
+          variant="outline"
+          size="sm"
           onClick={handlePrint}
-          className="mt-4 font-bold"
+          className="mt-4"
         >
-          IMPRIMER ÉTIQUETTE
+          <Printer className="w-4 h-4 mr-2" />
+          Imprimer
         </Button>
       )}
     </div>
   );
 };
 
-export default QRCodeGenerator;
+export default QRCodeGenerator; 

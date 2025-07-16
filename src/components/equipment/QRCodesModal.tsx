@@ -22,6 +22,10 @@ const QRCodesModal: React.FC<QRCodesModalProps> = ({
 
   useEffect(() => {
     if (isOpen && equipment) {
+      console.log('=== QRCodesModal - useEffect triggered ===');
+      console.log('Equipment ID:', equipment.id);
+      console.log('Equipment QR Type:', equipment.qrType);
+      console.log('Equipment Total Quantity:', equipment.totalQuantity);
       fetchInstances();
     }
   }, [isOpen, equipment]);
@@ -30,13 +34,38 @@ const QRCodesModal: React.FC<QRCodesModalProps> = ({
     try {
       setLoading(true);
       
+      console.log('Récupération des instances pour l\'équipement:', equipment.id);
+      
+      if (!supabase) {
+        console.error('Supabase client is not initialized');
+        return;
+      }
+      
       const { data, error } = await supabase
         .from('equipment_instances')
         .select('*')
         .eq('equipment_id', equipment.id)
         .order('instance_number');
       
-      if (error) throw error;
+      if (error) {
+        console.error('Erreur lors de la récupération des instances:', error);
+        throw error;
+      }
+      
+      console.log('Instances récupérées (données brutes):', data);
+      console.log('Nombre d\'instances récupérées:', data?.length || 0);
+      
+      // Si aucune instance n'est trouvée, nous allons les créer
+      if (!data || data.length === 0) {
+        console.log('Aucune instance trouvée, vérification si nous devons en créer...');
+        
+        // Vérifier si c'est un équipement de type individual avec une quantité > 1
+        if (equipment.qrType === 'individual' && (equipment.totalQuantity || 0) > 0) {
+          console.log('Création automatique des instances pour l\'équipement existant');
+          await createInstancesForExistingEquipment();
+          return; // fetchInstances sera rappelé après la création
+        }
+      }
       
       // Transform data to match our interface
       const transformedInstances: EquipmentInstance[] = data?.map(inst => ({
@@ -48,10 +77,66 @@ const QRCodesModal: React.FC<QRCodesModalProps> = ({
         createdAt: inst.created_at
       })) || [];
       
+      console.log('Instances transformées:', transformedInstances);
+      
       setInstances(transformedInstances);
     } catch (error) {
       console.error('Error fetching equipment instances:', error);
     } finally {
+      setLoading(false);
+    }
+  };
+  
+  // Fonction pour créer les instances pour un équipement existant
+  const createInstancesForExistingEquipment = async () => {
+    try {
+      console.log('Création des instances pour l\'équipement existant:', equipment.id);
+      
+      if (!supabase) {
+        console.error('Supabase client is not initialized');
+        return;
+      }
+      
+      // Utiliser le numéro d'article s'il existe, sinon utiliser le numéro de série
+      const baseCode = equipment.articleNumber || equipment.serialNumber;
+      const totalQuantity = equipment.totalQuantity || 1;
+      
+      console.log('Code de base pour QR:', baseCode);
+      console.log('Quantité totale à créer:', totalQuantity);
+      
+      const instances = [];
+      for (let i = 1; i <= totalQuantity; i++) {
+        instances.push({
+          equipment_id: equipment.id,
+          instance_number: i,
+          qr_code: `${baseCode}-${String(i).padStart(3, '0')}`,
+          status: 'available'
+        });
+      }
+      
+      console.log('Instances à créer:', instances);
+      
+      // Insérer les instances par lots pour éviter les limites de taille de payload
+      const batchSize = 50;
+      for (let i = 0; i < instances.length; i += batchSize) {
+        const batch = instances.slice(i, i + batchSize);
+        const { error: instancesError } = await supabase
+          .from('equipment_instances')
+          .insert(batch);
+
+        if (instancesError) {
+          console.error('Erreur lors de l\'insertion des instances:', instancesError);
+          throw instancesError;
+        }
+      }
+      
+      console.log('Instances créées avec succès, rafraîchissement des données');
+      
+      // Récupérer les instances nouvellement créées
+      fetchInstances();
+      
+    } catch (error) {
+      console.error('Erreur lors de la création des instances:', error);
       setLoading(false);
     }
   };

@@ -143,6 +143,7 @@ const Checkouts: React.FC = () => {
       const dueDate = new Date(checkout.due_date);
       dueDate.setHours(23, 59, 59, 999);
       const today = new Date();
+      today.setHours(0, 0, 0, 0); // Set to start of today
       const isOverdue = dueDate < today && checkout.status === 'active';
 
       return {
@@ -201,6 +202,7 @@ const Checkouts: React.FC = () => {
         const dueDate = new Date(checkout.due_date);
         dueDate.setHours(23, 59, 59, 999);
         const today = new Date();
+        today.setHours(0, 0, 0, 0); // Set to start of today
         const isOverdue = dueDate < today && checkout.status === 'active';
 
         return {

@@ -69,7 +69,9 @@ const Notifications: React.FC = () => {
       setLoading(true);
       const generatedNotifications: NotificationItem[] = [];
 
-      // 1. Récupérer les emprunts en retard
+      // 1. Récupérer les emprunts en retard (à partir du jour suivant la date prévue)
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
       const { data: overdueCheckouts, error: overdueError } = await supabase
         .from('checkouts')
         .select(`
@@ -78,7 +80,7 @@ const Notifications: React.FC = () => {
           users(first_name, last_name)
         `)
         .eq('status', 'active')
-        .lt('due_date', new Date().toISOString());
+        .lt('due_date', today.toISOString());
 
       if (overdueError) throw overdueError;
 

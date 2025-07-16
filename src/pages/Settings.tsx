@@ -1,971 +1,622 @@
 import React, { useState, useEffect } from 'react';
-import Card from '../components/common/Card';
+import { useApp } from '../contexts/AppContext';
+
 import Button from '../components/common/Button';
 import Accordion from '../components/common/Accordion';
+import Badge from '../components/common/Badge';
+import { Settings as SettingsIcon, Plus, Edit, Trash2, RefreshCw, AlertTriangle, Building2, Package, Users, Tag, FolderTree, Layers } from 'lucide-react';
+import MaintenanceTypeModal from '../components/maintenance/MaintenanceTypeModal';
+import StatusModal from '../components/settings/StatusModal';
 import CategoryModal from '../components/categories/CategoryModal';
 import SupplierModal from '../components/suppliers/SupplierModal';
+import DepartmentModal from '../components/departments/DepartmentModal';
 import GroupModal from '../components/groups/GroupModal';
 import SubgroupModal from '../components/subgroups/SubgroupModal';
-import DepartmentModal from '../components/departments/DepartmentModal';
-import StatusModal from '../components/settings/StatusModal';
-import MaintenanceTypeModal from '../components/settings/MaintenanceTypeModal';
-import ExcelImport from '../components/import/ExcelImport';
-import { 
-  Plus, 
-  Edit, 
-  Trash2, 
-  Settings as SettingsIcon, 
-  Tag, 
-  Building, 
-  Users, 
-  Layers,
-  Palette,
-  Wrench,
-  Upload,
-  Download,
-  Globe,
-  Moon,
-  Sun,
-  Languages,
-  Truck,
-  Package,
-  Building2
-} from 'lucide-react';
-import { useLanguage } from '../contexts/LanguageContext';
-import { useTheme } from '../contexts/ThemeContext';
+import { SystemResetModal } from '../components/admin/SystemResetModal';
+import ConfirmModal from '../components/common/ConfirmModal';
 import { supabase } from '../lib/supabase';
 import toast from 'react-hot-toast';
-import { 
-  Category, 
-  Supplier, 
-  EquipmentGroup, 
-  EquipmentSubgroup, 
-  Department, 
-  StatusConfig, 
-  MaintenanceType,
-  SystemSetting 
-} from '../types';
 
-const Settings: React.FC = () => {
-  const { language, setLanguage, t } = useLanguage();
-  const { theme, toggleTheme } = useTheme();
+interface MaintenanceType {
+  id: string;
+  name: string;
+  description?: string;
+  color: string;
+}
+
+interface StatusConfig {
+  id: string;
+  name: string;
+  color: string;
+}
+
+interface Category {
+  id: string;
+  name: string;
+  description?: string;
+  color: string;
+}
+
+interface Supplier {
+  id: string;
+  name: string;
+  contact_person?: string;
+  email?: string;
+  phone?: string;
+  website?: string;
+}
+
+interface Department {
+  id: string;
+  name: string;
+  description?: string;
+  color: string;
+}
+
+interface Group {
+  id: string;
+  name: string;
+  description?: string;
+  color: string;
+}
+
+interface Subgroup {
+  id: string;
+  name: string;
+  description?: string;
+  color: string;
+  group_id: string;
+  group?: Group;
+}
+
+export default function Settings() {
+  const { refreshData } = useApp();
   
-  // Data states
+  const [maintenanceTypes, setMaintenanceTypes] = useState<MaintenanceType[]>([]);
+  const [statusConfigs, setStatusConfigs] = useState<StatusConfig[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-  const [groups, setGroups] = useState<EquipmentGroup[]>([]);
-  const [subgroups, setSubgroups] = useState<EquipmentSubgroup[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
-  const [statusConfigs, setStatusConfigs] = useState<StatusConfig[]>([]);
-  const [maintenanceTypes, setMaintenanceTypes] = useState<MaintenanceType[]>([]);
-  const [systemSettings, setSystemSettings] = useState<SystemSetting[]>([]);
+  const [groups, setGroups] = useState<Group[]>([]);
+  const [subgroups, setSubgroups] = useState<Subgroup[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   
-  // Modal states
+  const [showMaintenanceTypeModal, setShowMaintenanceTypeModal] = useState(false);
+  const [showStatusModal, setShowStatusModal] = useState(false);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [showSupplierModal, setShowSupplierModal] = useState(false);
+  const [showDepartmentModal, setShowDepartmentModal] = useState(false);
   const [showGroupModal, setShowGroupModal] = useState(false);
   const [showSubgroupModal, setShowSubgroupModal] = useState(false);
-  const [showDepartmentModal, setShowDepartmentModal] = useState(false);
-  const [showStatusModal, setShowStatusModal] = useState(false);
-  const [showMaintenanceTypeModal, setShowMaintenanceTypeModal] = useState(false);
-  const [showImportModal, setShowImportModal] = useState(false);
+  const [showSystemResetModal, setShowSystemResetModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   
-  // Edit states
-  const [editingCategory, setEditingCategory] = useState<Category | undefined>();
-  const [editingSupplier, setEditingSupplier] = useState<Supplier | undefined>();
-  const [editingGroup, setEditingGroup] = useState<EquipmentGroup | undefined>();
-  const [editingSubgroup, setEditingSubgroup] = useState<EquipmentSubgroup | undefined>();
-  const [editingDepartment, setEditingDepartment] = useState<Department | undefined>();
-  const [editingStatus, setEditingStatus] = useState<StatusConfig | undefined>();
-  const [editingMaintenanceType, setEditingMaintenanceType] = useState<MaintenanceType | undefined>();
-  
-  // Loading states
-  const [loading, setLoading] = useState(true);
-  const [articlePrefix, setArticlePrefix] = useState('');
-  const [companyLogo, setCompanyLogo] = useState('');
+  const [selectedMaintenanceType, setSelectedMaintenanceType] = useState<MaintenanceType | null>(null);
+  const [selectedStatus, setSelectedStatus] = useState<StatusConfig | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
+  const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
+  const [selectedDepartment, setSelectedDepartment] = useState<Department | null>(null);
+  const [selectedGroup, setSelectedGroup] = useState<Group | null>(null);
+  const [selectedSubgroup, setSelectedSubgroup] = useState<Subgroup | null>(null);
+  const [deleteType, setDeleteType] = useState<'maintenanceType' | 'status' | 'category' | 'supplier' | 'department' | 'group' | 'subgroup' | null>(null);
+  const [deleteItem, setDeleteItem] = useState<any>(null);
 
   useEffect(() => {
-    fetchAllData();
+    fetchData();
   }, []);
 
-  const fetchAllData = async () => {
+  const fetchData = async () => {
     try {
-      setLoading(true);
-      await Promise.all([
-        fetchCategories(),
-        fetchSuppliers(),
-        fetchGroups(),
-        fetchSubgroups(),
-        fetchDepartments(),
-        fetchStatusConfigs(),
-        fetchMaintenanceTypes(),
-        fetchSystemSettings()
-      ]);
+      setIsLoading(true);
+      console.log('🔄 Chargement des paramètres...');
+      
+      // Charger chaque table une par une pour identifier les problèmes
+      const loadData = async (tableName: string, setter: Function) => {
+        try {
+          const { data, error } = await supabase!
+            .from(tableName)
+            .select('*')
+            .order('name');
+          
+          if (error) {
+            console.error(`❌ Erreur ${tableName}:`, error);
+            return [];
+          }
+          
+          console.log(`✅ ${tableName}:`, data?.length || 0, 'éléments');
+          setter(data || []);
+          return data || [];
+        } catch (err) {
+          console.error(`❌ Exception ${tableName}:`, err);
+          return [];
+        }
+      };
+
+             // Charger les données principales
+       await Promise.all([
+         loadData('categories', setCategories),
+         loadData('suppliers', setSuppliers),
+         loadData('departments', setDepartments),
+         loadData('equipment_groups', setGroups)
+       ]);
+
+      // Charger les maintenance types (peut être une table différente)
+      try {
+        const { data: maintenanceData, error: maintenanceError } = await supabase!
+          .from('maintenance_types')
+          .select('*')
+          .order('name');
+        
+        if (!maintenanceError) {
+          console.log('✅ maintenance_types:', maintenanceData?.length || 0, 'éléments');
+          setMaintenanceTypes(maintenanceData || []);
+        } else {
+          console.log('⚠️ maintenance_types non disponible:', maintenanceError.message);
+        }
+               } catch {
+           console.log('⚠️ maintenance_types non disponible');
+         }
+
+      // Charger les status configs
+      try {
+        const { data: statusData, error: statusError } = await supabase!
+          .from('status_configs')
+          .select('*')
+          .order('name');
+        
+        if (!statusError) {
+          console.log('✅ status_configs:', statusData?.length || 0, 'éléments');
+          setStatusConfigs(statusData || []);
+        } else {
+          console.log('⚠️ status_configs non disponible:', statusError.message);
+        }
+      } catch (err) {
+        console.log('⚠️ status_configs non disponible');
+      }
+
+      // Charger les sous-groupes avec leurs groupes
+      try {
+        const { data: subgroupData, error: subgroupError } = await supabase!
+          .from('equipment_subgroups')
+          .select('*, equipment_groups(*)')
+          .order('name');
+        
+        if (!subgroupError && subgroupData) {
+          console.log('✅ equipment_subgroups:', subgroupData.length, 'éléments');
+          setSubgroups(subgroupData.map(sub => ({
+            id: sub.id,
+            name: sub.name,
+            description: sub.description,
+            color: sub.color,
+            group_id: sub.group_id,
+            group: sub.equipment_groups
+          })));
+        } else {
+          console.log('⚠️ equipment_subgroups non disponible:', subgroupError?.message);
+        }
+      } catch {
+        console.log('⚠️ equipment_subgroups non disponible');
+      }
+
     } catch (error) {
-      console.error('Error fetching data:', error);
-      toast.error('Erreur lors du chargement des données');
+      console.error('❌ Erreur générale lors du chargement:', error);
+      toast.error('Erreur lors du chargement des paramètres');
     } finally {
-      setLoading(false);
+      setIsLoading(false);
+      console.log('✅ Chargement terminé');
     }
   };
 
-  const fetchCategories = async () => {
-    const { data, error } = await supabase
-      .from('categories')
-      .select('*')
-      .order('name');
-    
-    if (error) throw error;
-    setCategories(data || []);
-  };
-
-  const fetchSuppliers = async () => {
-    const { data, error } = await supabase
-      .from('suppliers')
-      .select('*')
-      .order('name');
-    
-    if (error) throw error;
-    setSuppliers(data || []);
-  };
-
-  const fetchGroups = async () => {
-    const { data, error } = await supabase
-      .from('equipment_groups')
-      .select('*')
-      .order('name');
-    
-    if (error) throw error;
-    setGroups(data || []);
-  };
-
-  const fetchSubgroups = async () => {
-    const { data, error } = await supabase
-      .from('equipment_subgroups')
-      .select('*')
-      .order('name');
-    
-    if (error) throw error;
-    
-    const transformedSubgroups: EquipmentSubgroup[] = data?.map(sg => ({
-      id: sg.id,
-      name: sg.name,
-      description: sg.description,
-      color: sg.color,
-      groupId: sg.group_id,
-      createdAt: sg.created_at
-    })) || [];
-    
-    setSubgroups(transformedSubgroups);
-  };
-
-  const fetchDepartments = async () => {
-    const { data, error } = await supabase
-      .from('departments')
-      .select('*')
-      .order('name');
-    
-    if (error) throw error;
-    setDepartments(data || []);
-  };
-
-  const fetchStatusConfigs = async () => {
-    const { data, error } = await supabase
-      .from('status_configs')
-      .select('*')
-      .order('name');
-    
-    if (error) throw error;
-    setStatusConfigs(data || []);
-  };
-
-  const fetchMaintenanceTypes = async () => {
-    const { data, error } = await supabase
-      .from('maintenance_types')
-      .select('*')
-      .order('name');
-    
-    if (error) throw error;
-    setMaintenanceTypes(data || []);
-  };
-
-  const fetchSystemSettings = async () => {
-    const { data, error } = await supabase
-      .from('system_settings')
-      .select('*');
-    
-    if (error) throw error;
-    setSystemSettings(data || []);
-    
-    // Set specific settings
-    const prefixSetting = data?.find(s => s.id === 'article_prefix');
-    if (prefixSetting) {
-      setArticlePrefix(prefixSetting.value);
+  // Handlers pour chaque type d'élément
+  const createHandlers = (
+    type: string,
+    items: any[],
+    setItems: Function,
+    setSelected: Function,
+    setShowModal: Function
+  ) => ({
+    add: () => {
+      setSelected(null);
+      setShowModal(true);
+    },
+    edit: (item: any) => {
+      setSelected(item);
+      setShowModal(true);
+    },
+    delete: (item: any) => {
+      setDeleteType(type as any);
+      setDeleteItem(item);
+      setShowDeleteModal(true);
+    },
+    save: (newItem: any) => {
+      if (selectedCategory || selectedSupplier || selectedDepartment || selectedGroup || selectedSubgroup || selectedMaintenanceType || selectedStatus) {
+        // Update existing
+        setItems((prev: any[]) => 
+          prev.map((item: any) => {
+            const selected = 
+              (type === 'category' && selectedCategory && item.id === selectedCategory.id) ||
+              (type === 'supplier' && selectedSupplier && item.id === selectedSupplier.id) ||
+              (type === 'department' && selectedDepartment && item.id === selectedDepartment.id) ||
+              (type === 'group' && selectedGroup && item.id === selectedGroup.id) ||
+              (type === 'subgroup' && selectedSubgroup && item.id === selectedSubgroup.id) ||
+              (type === 'maintenanceType' && selectedMaintenanceType && item.id === selectedMaintenanceType.id) ||
+              (type === 'status' && selectedStatus && item.id === selectedStatus.id);
+            
+            return selected ? { ...item, ...newItem } : item;
+          })
+        );
+      } else {
+        // Add new
+        setItems((prev: any[]) => [...prev, newItem]);
+      }
+      setSelected(null);
+      setShowModal(false);
     }
-    
-    const logoSetting = data?.find(s => s.id === 'company_logo');
-    if (logoSetting) {
-      setCompanyLogo(logoSetting.value);
-    }
-  };
+  });
 
-  const updateSystemSetting = async (id: string, value: string, description?: string) => {
+  const categoryHandlers = createHandlers('category', categories, setCategories, setSelectedCategory, setShowCategoryModal);
+  const supplierHandlers = createHandlers('supplier', suppliers, setSuppliers, setSelectedSupplier, setShowSupplierModal);
+  const departmentHandlers = createHandlers('department', departments, setDepartments, setSelectedDepartment, setShowDepartmentModal);
+  const groupHandlers = createHandlers('group', groups, setGroups, setSelectedGroup, setShowGroupModal);
+  const subgroupHandlers = createHandlers('subgroup', subgroups, setSubgroups, setSelectedSubgroup, setShowSubgroupModal);
+  const maintenanceTypeHandlers = createHandlers('maintenanceType', maintenanceTypes, setMaintenanceTypes, setSelectedMaintenanceType, setShowMaintenanceTypeModal);
+  const statusHandlers = createHandlers('status', statusConfigs, setStatusConfigs, setSelectedStatus, setShowStatusModal);
+
+  const confirmDelete = async () => {
+    if (!deleteType || !deleteItem) return;
+
     try {
-      const { error } = await supabase
-        .from('system_settings')
-        .upsert({
-          id,
-          value,
-          description,
-          updated_at: new Date().toISOString()
-        });
+      const tableMap = {
+        category: 'categories',
+        supplier: 'suppliers', 
+        department: 'departments',
+        group: 'equipment_groups',
+        subgroup: 'equipment_subgroups',
+        maintenanceType: 'maintenance_types',
+        status: 'status_configs'
+      };
 
-      if (error) throw error;
-      
-      await fetchSystemSettings();
-      toast.success('Paramètre mis à jour avec succès');
-    } catch (error: any) {
-      console.error('Error updating system setting:', error);
-      toast.error('Erreur lors de la mise à jour du paramètre');
-    }
-  };
-
-  const handleDeleteItem = async (type: string, id: string) => {
-    try {
-      const { error } = await supabase
-        .from(type)
+      const tableName = tableMap[deleteType];
+      const { error } = await supabase!
+        .from(tableName)
         .delete()
-        .eq('id', id);
+        .eq('id', deleteItem.id);
 
       if (error) throw error;
-      
+
+      // Update local state
+      const setterMap = {
+        category: setCategories,
+        supplier: setSuppliers,
+        department: setDepartments,
+        group: setGroups,
+        subgroup: setSubgroups,
+        maintenanceType: setMaintenanceTypes,
+        status: setStatusConfigs
+      };
+
+      setterMap[deleteType]((prev: any[]) => prev.filter((item: any) => item.id !== deleteItem.id));
       toast.success('Élément supprimé avec succès');
-      fetchAllData();
+
     } catch (error: any) {
       console.error('Error deleting item:', error);
       toast.error('Erreur lors de la suppression');
+    } finally {
+      setShowDeleteModal(false);
+      setDeleteType(null);
+      setDeleteItem(null);
     }
   };
 
-  const exportData = async () => {
-    try {
-      // Export all configuration data
-      const exportData = {
-        categories,
-        suppliers,
-        groups,
-        subgroups,
-        departments,
-        statusConfigs,
-        maintenanceTypes,
-        systemSettings,
-        exportDate: new Date().toISOString()
-      };
+  const renderItemsList = (items: any[], onEdit: Function, onDelete: Function) => (
+    <div className="space-y-2">
+      {items.length === 0 ? (
+        <p className="text-gray-500 dark:text-gray-400 text-sm italic p-2">
+          Aucun élément configuré
+        </p>
+      ) : (
+        items.map(item => (
+          <div key={item.id} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-700 rounded">
+            <div className="flex items-center gap-2">
+              {item.color && (
+                <div
+                  className="w-3 h-3 rounded-full"
+                  style={{ backgroundColor: item.color }}
+                />
+              )}
+              <span className="font-medium text-sm">{item.name}</span>
+              {item.description && (
+                <span className="text-xs text-gray-500">• {item.description}</span>
+              )}
+              {item.group && (
+                <span className="text-xs text-gray-500">• Groupe: {item.group.name}</span>
+              )}
+            </div>
+            <div className="flex gap-1">
+                             <Button
+                 variant="outline"
+                 size="sm"
+                 onClick={() => onEdit(item)}
+                 className="p-1"
+               >
+                 <Edit className="w-3 h-3" />
+               </Button>
+               <Button
+                 variant="outline"
+                 size="sm"
+                 onClick={() => onDelete(item)}
+                 className="p-1 text-red-600 hover:text-red-700"
+               >
+                 <Trash2 className="w-3 h-3" />
+               </Button>
+            </div>
+          </div>
+        ))
+      )}
+    </div>
+  );
 
-      const blob = new Blob([JSON.stringify(exportData, null, 2)], {
-        type: 'application/json'
-      });
-      
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `go-mat-config-${new Date().toISOString().split('T')[0]}.json`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      
-      toast.success('Configuration exportée avec succès');
-    } catch (error) {
-      console.error('Error exporting data:', error);
-      toast.error('Erreur lors de l\'export');
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-gray-500 dark:text-gray-400">Chargement des paramètres...</div>
+  const renderAccordion = (
+    title: string,
+    icon: React.ReactNode,
+    items: any[],
+    onAdd: Function,
+    onEdit: Function,
+    onDelete: Function,
+    colorClass: string = "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
+  ) => (
+    <Accordion
+      title={title}
+      icon={icon}
+      badge={
+                 <Badge 
+           className={`${colorClass} text-xs px-2 py-1`}
+         >
+           {items.length}
+         </Badge>
+      }
+      className="bg-white dark:bg-gray-800"
+    >
+      <div className="space-y-3">
+        <div className="flex justify-end">
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={() => onAdd()}
+          >
+            <Plus className="w-4 h-4 mr-1" />
+            Ajouter
+          </Button>
+        </div>
+        {renderItemsList(items, onEdit, onDelete)}
       </div>
-    );
-  }
+    </Accordion>
+  );
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-black text-gray-800 dark:text-white tracking-tight uppercase">PARAMÈTRES</h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-1 font-medium">
-            Configuration du système et gestion des données de référence
-          </p>
-        </div>
-        
-        <div className="flex gap-3">
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Paramètres</h1>
+        <div className="flex gap-2">
           <Button
             variant="outline"
-            icon={<Upload size={18} />}
-            onClick={() => setShowImportModal(true)}
-            className="font-bold"
+            onClick={() => {
+              fetchData();
+              refreshData();
+            }}
+            disabled={isLoading}
           >
-            IMPORTER EXCEL
+            <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+            Actualiser
           </Button>
           <Button
-            variant="outline"
-            icon={<Download size={18} />}
-            onClick={exportData}
-            className="font-bold"
+            variant="danger"
+            onClick={() => setShowSystemResetModal(true)}
           >
-            EXPORTER CONFIG
+            <AlertTriangle className="w-4 h-4 mr-2" />
+            Réinitialiser
           </Button>
         </div>
       </div>
 
-      {/* Paramètres système */}
-      <Accordion
-        title="PARAMÈTRES SYSTÈME"
-        icon={<SettingsIcon size={20} className="text-blue-600 dark:text-blue-400" />}
-        defaultOpen={true}
-      >
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Langue et thème */}
-          <Card>
-            <div className="p-4 space-y-4">
-              <h3 className="font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                <Globe size={18} />
-                INTERFACE
-              </h3>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Langue
-                </label>
-                <select
-                  value={language}
-                  onChange={(e) => setLanguage(e.target.value as any)}
-                  className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm"
-                >
-                  <option value="fr">Français</option>
-                  <option value="en">English</option>
-                  <option value="de">Deutsch</option>
-                </select>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Thème
-                </label>
-                <Button
-                  variant="outline"
-                  onClick={toggleTheme}
-                  icon={theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
-                  className="w-full justify-center"
-                >
-                  {theme === 'dark' ? 'Mode clair' : 'Mode sombre'}
-                </Button>
-              </div>
-            </div>
-          </Card>
+      {/* Loading state */}
+      {isLoading && (
+        <div className="flex justify-center items-center h-40">
+          <RefreshCw className="w-8 h-8 animate-spin text-gray-400" />
+          <span className="ml-2 text-gray-600 dark:text-gray-400">Chargement des paramètres...</span>
+        </div>
+      )}
 
-          {/* Paramètres de l'entreprise */}
-          <Card>
-            <div className="p-4 space-y-4">
-              <h3 className="font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                <Building2 size={18} />
-                ENTREPRISE
-              </h3>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Préfixe des articles
-                </label>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={articlePrefix}
-                    onChange={(e) => setArticlePrefix(e.target.value)}
-                    maxLength={5}
-                    className="flex-1 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm"
-                    placeholder="Ex: MAT"
-                  />
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    onClick={() => updateSystemSetting('article_prefix', articlePrefix, 'Préfixe utilisé pour générer les numéros d\'articles')}
-                  >
-                    SAUVER
-                  </Button>
-                </div>
-                <p className="text-xs text-gray-500 mt-1">
-                  Préfixe utilisé pour générer les numéros d'articles (5 caractères max)
-                </p>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Logo de l'entreprise (URL)
-                </label>
-                <div className="flex gap-2">
-                  <input
-                    type="url"
-                    value={companyLogo}
-                    onChange={(e) => setCompanyLogo(e.target.value)}
-                    className="flex-1 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm"
-                    placeholder="https://example.com/logo.png"
-                  />
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    onClick={() => updateSystemSetting('company_logo', companyLogo, 'URL du logo de l\'entreprise')}
-                  >
-                    SAUVER
-                  </Button>
-                </div>
-                {companyLogo && (
-                  <div className="mt-2">
-                    <img
-                      src={companyLogo}
-                      alt="Logo de l'entreprise"
-                      className="max-h-12 max-w-32 object-contain"
-                      onError={() => toast.error('Impossible de charger le logo')}
-                    />
-                  </div>
-                )}
-              </div>
-            </div>
-          </Card>
-        </div>
-      </Accordion>
+      {/* Content in 2 columns */}
+      {!isLoading && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Colonne 1 */}
+          <div className="space-y-4">
+            {renderAccordion(
+              "Catégories",
+              <Tag className="w-5 h-5 text-blue-600" />,
+              categories,
+              categoryHandlers.add,
+              categoryHandlers.edit,
+              categoryHandlers.delete,
+              "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
+            )}
 
-      {/* Catégories */}
-      <Accordion
-        title={`CATÉGORIES (${categories.length})`}
-        icon={<Tag size={20} className="text-green-600 dark:text-green-400" />}
-        defaultOpen={false}
-      >
-        <div className="flex justify-between items-center mb-4">
-          <p className="text-sm text-gray-600 dark:text-gray-400">
-            Gérez les catégories de matériel pour organiser votre inventaire
-          </p>
-          <Button
-            variant="primary"
-            size="sm"
-            icon={<Plus size={16} />}
-            onClick={() => {
-              setEditingCategory(undefined);
-              setShowCategoryModal(true);
-            }}
-          >
-            AJOUTER
-          </Button>
-        </div>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-          {categories.map(category => (
-            <div key={category.id} className="border rounded-lg p-3 hover:shadow-md transition-shadow">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div
-                    className="w-4 h-4 rounded-full"
-                    style={{ backgroundColor: category.color }}
-                  />
-                  <span className="font-medium text-gray-900 dark:text-white">
-                    {category.name}
-                  </span>
-                </div>
-                <div className="flex gap-1">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    icon={<Edit size={14} />}
-                    onClick={() => {
-                      setEditingCategory(category);
-                      setShowCategoryModal(true);
-                    }}
-                  />
-                  <Button
-                    variant="danger"
-                    size="sm"
-                    icon={<Trash2 size={14} />}
-                    onClick={() => handleDeleteItem('categories', category.id)}
-                  />
-                </div>
-              </div>
-              {category.description && (
-                <p className="text-xs text-gray-500 mt-1">{category.description}</p>
-              )}
-            </div>
-          ))}
-        </div>
-      </Accordion>
+            {renderAccordion(
+              "Départements", 
+              <Users className="w-5 h-5 text-purple-600" />,
+              departments,
+              departmentHandlers.add,
+              departmentHandlers.edit,
+              departmentHandlers.delete,
+              "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200"
+            )}
 
-      {/* Fournisseurs */}
-      <Accordion
-        title={`FOURNISSEURS (${suppliers.length})`}
-        icon={<Truck size={20} className="text-purple-600 dark:text-purple-400" />}
-        defaultOpen={false}
-      >
-        <div className="flex justify-between items-center mb-4">
-          <p className="text-sm text-gray-600 dark:text-gray-400">
-            Gérez vos fournisseurs et leurs informations de contact
-          </p>
-          <Button
-            variant="primary"
-            size="sm"
-            icon={<Plus size={16} />}
-            onClick={() => {
-              setEditingSupplier(undefined);
-              setShowSupplierModal(true);
-            }}
-          >
-            AJOUTER
-          </Button>
-        </div>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-          {suppliers.map(supplier => (
-            <div key={supplier.id} className="border rounded-lg p-3 hover:shadow-md transition-shadow">
-              <div className="flex items-center justify-between mb-2">
-                <span className="font-medium text-gray-900 dark:text-white">
-                  {supplier.name}
-                </span>
-                <div className="flex gap-1">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    icon={<Edit size={14} />}
-                    onClick={() => {
-                      setEditingSupplier(supplier);
-                      setShowSupplierModal(true);
-                    }}
-                  />
-                  <Button
-                    variant="danger"
-                    size="sm"
-                    icon={<Trash2 size={14} />}
-                    onClick={() => handleDeleteItem('suppliers', supplier.id)}
-                  />
-                </div>
-              </div>
-              <div className="text-xs text-gray-500 space-y-1">
-                {supplier.contactPerson && <p>Contact: {supplier.contactPerson}</p>}
-                {supplier.email && <p>Email: {supplier.email}</p>}
-                {supplier.phone && <p>Tél: {supplier.phone}</p>}
-              </div>
-            </div>
-          ))}
-        </div>
-      </Accordion>
+            {renderAccordion(
+              "Groupes",
+              <FolderTree className="w-5 h-5 text-orange-600" />,
+              groups,
+              groupHandlers.add,
+              groupHandlers.edit,
+              groupHandlers.delete,
+              "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200"
+            )}
 
-      {/* Groupes et sous-groupes */}
-      <Accordion
-        title={`GROUPES ET SOUS-GROUPES (${groups.length} groupes, ${subgroups.length} sous-groupes)`}
-        icon={<Layers size={20} className="text-indigo-600 dark:text-indigo-400" />}
-        defaultOpen={false}
-      >
-        <div className="space-y-6">
-          {/* Groupes */}
-          <div>
-            <div className="flex justify-between items-center mb-4">
-              <h4 className="font-bold text-gray-900 dark:text-white">Groupes d'équipements</h4>
-              <Button
-                variant="primary"
-                size="sm"
-                icon={<Plus size={16} />}
-                onClick={() => {
-                  setEditingGroup(undefined);
-                  setShowGroupModal(true);
-                }}
-              >
-                AJOUTER GROUPE
-              </Button>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-              {groups.map(group => (
-                <div key={group.id} className="border rounded-lg p-3 hover:shadow-md transition-shadow">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div
-                        className="w-4 h-4 rounded-full"
-                        style={{ backgroundColor: group.color }}
-                      />
-                      <span className="font-medium text-gray-900 dark:text-white">
-                        {group.name}
-                      </span>
-                    </div>
-                    <div className="flex gap-1">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        icon={<Edit size={14} />}
-                        onClick={() => {
-                          setEditingGroup(group);
-                          setShowGroupModal(true);
-                        }}
-                      />
-                      <Button
-                        variant="danger"
-                        size="sm"
-                        icon={<Trash2 size={14} />}
-                        onClick={() => handleDeleteItem('equipment_groups', group.id)}
-                      />
-                    </div>
-                  </div>
-                  {group.description && (
-                    <p className="text-xs text-gray-500 mt-1">{group.description}</p>
-                  )}
-                  <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
-                    {subgroups.filter(sg => sg.groupId === group.id).length} sous-groupe(s)
-                  </p>
-                </div>
-              ))}
-            </div>
+            {renderAccordion(
+              "Types de maintenance",
+              <Package className="w-5 h-5 text-yellow-600" />,
+              maintenanceTypes,
+              maintenanceTypeHandlers.add,
+              maintenanceTypeHandlers.edit,
+              maintenanceTypeHandlers.delete,
+              "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200"
+            )}
           </div>
 
-          {/* Sous-groupes */}
-          <div>
-            <div className="flex justify-between items-center mb-4">
-              <h4 className="font-bold text-gray-900 dark:text-white">Sous-groupes</h4>
-              <Button
-                variant="primary"
-                size="sm"
-                icon={<Plus size={16} />}
-                onClick={() => {
-                  setEditingSubgroup(undefined);
-                  setShowSubgroupModal(true);
-                }}
-                disabled={groups.length === 0}
-              >
-                AJOUTER SOUS-GROUPE
-              </Button>
-            </div>
-            
-            {groups.length === 0 ? (
-              <p className="text-sm text-gray-500 italic">
-                Créez d'abord un groupe pour pouvoir ajouter des sous-groupes
-              </p>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                {subgroups.map(subgroup => {
-                  const parentGroup = groups.find(g => g.id === subgroup.groupId);
-                  return (
-                    <div key={subgroup.id} className="border rounded-lg p-3 hover:shadow-md transition-shadow">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <div className="flex items-center gap-1">
-                            <div
-                              className="w-3 h-3 rounded-full"
-                              style={{ backgroundColor: parentGroup?.color || '#64748b' }}
-                            />
-                            <div
-                              className="w-4 h-4 rounded-full"
-                              style={{ backgroundColor: subgroup.color }}
-                            />
-                          </div>
-                          <span className="font-medium text-gray-900 dark:text-white">
-                            {subgroup.name}
-                          </span>
-                        </div>
-                        <div className="flex gap-1">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            icon={<Edit size={14} />}
-                            onClick={() => {
-                              setEditingSubgroup(subgroup);
-                              setShowSubgroupModal(true);
-                            }}
-                          />
-                          <Button
-                            variant="danger"
-                            size="sm"
-                            icon={<Trash2 size={14} />}
-                            onClick={() => handleDeleteItem('equipment_subgroups', subgroup.id)}
-                          />
-                        </div>
-                      </div>
-                      <p className="text-xs text-gray-500 mt-1">
-                        Groupe: {parentGroup?.name}
-                      </p>
-                      {subgroup.description && (
-                        <p className="text-xs text-gray-500 mt-1">{subgroup.description}</p>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
+          {/* Colonne 2 */}
+          <div className="space-y-4">
+            {renderAccordion(
+              "Fournisseurs",
+              <Building2 className="w-5 h-5 text-green-600" />,
+              suppliers,
+              supplierHandlers.add,
+              supplierHandlers.edit,
+              supplierHandlers.delete,
+              "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+            )}
+
+            {renderAccordion(
+              "Sous-groupes",
+              <Layers className="w-5 h-5 text-cyan-600" />,
+              subgroups,
+              subgroupHandlers.add,
+              subgroupHandlers.edit,
+              subgroupHandlers.delete,
+              "bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-200"
+            )}
+
+            {renderAccordion(
+              "Statuts",
+              <SettingsIcon className="w-5 h-5 text-gray-600" />,
+              statusConfigs,
+              statusHandlers.add,
+              statusHandlers.edit,
+              statusHandlers.delete,
+              "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200"
             )}
           </div>
         </div>
-      </Accordion>
-
-      {/* Départements */}
-      <Accordion
-        title={`DÉPARTEMENTS (${departments.length})`}
-        icon={<Building size={20} className="text-orange-600 dark:text-orange-400" />}
-        defaultOpen={false}
-      >
-        <div className="flex justify-between items-center mb-4">
-          <p className="text-sm text-gray-600 dark:text-gray-400">
-            Gérez les départements de votre organisation
-          </p>
-          <Button
-            variant="primary"
-            size="sm"
-            icon={<Plus size={16} />}
-            onClick={() => {
-              setEditingDepartment(undefined);
-              setShowDepartmentModal(true);
-            }}
-          >
-            AJOUTER
-          </Button>
-        </div>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-          {departments.map(department => (
-            <div key={department.id} className="border rounded-lg p-3 hover:shadow-md transition-shadow">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div
-                    className="w-4 h-4 rounded-full"
-                    style={{ backgroundColor: department.color }}
-                  />
-                  <span className="font-medium text-gray-900 dark:text-white">
-                    {department.name}
-                  </span>
-                </div>
-                <div className="flex gap-1">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    icon={<Edit size={14} />}
-                    onClick={() => {
-                      setEditingDepartment(department);
-                      setShowDepartmentModal(true);
-                    }}
-                  />
-                  <Button
-                    variant="danger"
-                    size="sm"
-                    icon={<Trash2 size={14} />}
-                    onClick={() => handleDeleteItem('departments', department.id)}
-                  />
-                </div>
-              </div>
-              {department.description && (
-                <p className="text-xs text-gray-500 mt-1">{department.description}</p>
-              )}
-            </div>
-          ))}
-        </div>
-      </Accordion>
-
-      {/* Statuts */}
-      <Accordion
-        title={`STATUTS (${statusConfigs.length})`}
-        icon={<Palette size={20} className="text-pink-600 dark:text-pink-400" />}
-        defaultOpen={false}
-      >
-        <div className="flex justify-between items-center mb-4">
-          <p className="text-sm text-gray-600 dark:text-gray-400">
-            Personnalisez les statuts et leurs couleurs
-          </p>
-          <Button
-            variant="primary"
-            size="sm"
-            icon={<Plus size={16} />}
-            onClick={() => {
-              setEditingStatus(undefined);
-              setShowStatusModal(true);
-            }}
-          >
-            AJOUTER
-          </Button>
-        </div>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-          {statusConfigs.map(status => (
-            <div key={status.id} className="border rounded-lg p-3 hover:shadow-md transition-shadow">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span 
-                    className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium text-white"
-                    style={{ backgroundColor: status.color }}
-                  >
-                    {status.name}
-                  </span>
-                </div>
-                <div className="flex gap-1">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    icon={<Edit size={14} />}
-                    onClick={() => {
-                      setEditingStatus(status);
-                      setShowStatusModal(true);
-                    }}
-                  />
-                  <Button
-                    variant="danger"
-                    size="sm"
-                    icon={<Trash2 size={14} />}
-                    onClick={() => handleDeleteItem('status_configs', status.id)}
-                  />
-                </div>
-              </div>
-              <p className="text-xs text-gray-500 mt-1 font-mono">
-                ID: {status.id}
-              </p>
-            </div>
-          ))}
-        </div>
-      </Accordion>
-
-      {/* Types de maintenance */}
-      <Accordion
-        title={`TYPES DE MAINTENANCE (${maintenanceTypes.length})`}
-        icon={<Wrench size={20} className="text-yellow-600 dark:text-yellow-400" />}
-        defaultOpen={false}
-      >
-        <div className="flex justify-between items-center mb-4">
-          <p className="text-sm text-gray-600 dark:text-gray-400">
-            Gérez les types de maintenance et de pannes
-          </p>
-          <Button
-            variant="primary"
-            size="sm"
-            icon={<Plus size={16} />}
-            onClick={() => {
-              setEditingMaintenanceType(undefined);
-              setShowMaintenanceTypeModal(true);
-            }}
-          >
-            AJOUTER
-          </Button>
-        </div>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-          {maintenanceTypes.map(type => (
-            <div key={type.id} className="border rounded-lg p-3 hover:shadow-md transition-shadow">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div
-                    className="w-4 h-4 rounded-full"
-                    style={{ backgroundColor: type.color }}
-                  />
-                  <span className="font-medium text-gray-900 dark:text-white">
-                    {type.name}
-                  </span>
-                </div>
-                <div className="flex gap-1">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    icon={<Edit size={14} />}
-                    onClick={() => {
-                      setEditingMaintenanceType(type);
-                      setShowMaintenanceTypeModal(true);
-                    }}
-                  />
-                  <Button
-                    variant="danger"
-                    size="sm"
-                    icon={<Trash2 size={14} />}
-                    onClick={() => handleDeleteItem('maintenance_types', type.id)}
-                  />
-                </div>
-              </div>
-              {type.description && (
-                <p className="text-xs text-gray-500 mt-1">{type.description}</p>
-              )}
-            </div>
-          ))}
-        </div>
-      </Accordion>
+      )}
 
       {/* Modals */}
-      <CategoryModal
-        isOpen={showCategoryModal}
-        onClose={() => {
-          setShowCategoryModal(false);
-          setEditingCategory(undefined);
-          fetchCategories();
-        }}
-        category={editingCategory}
-      />
+      {showCategoryModal && (
+        <CategoryModal
+          isOpen={showCategoryModal}
+          onClose={() => {
+            setShowCategoryModal(false);
+            setSelectedCategory(null);
+            fetchData(); // Refresh data after modal close
+          }}
+          category={selectedCategory || undefined}
+        />
+      )}
 
-      <SupplierModal
-        isOpen={showSupplierModal}
-        onClose={() => {
-          setShowSupplierModal(false);
-          setEditingSupplier(undefined);
-          fetchSuppliers();
-        }}
-        supplier={editingSupplier}
-      />
+      {showSupplierModal && (
+        <SupplierModal
+          isOpen={showSupplierModal}
+          onClose={() => {
+            setShowSupplierModal(false);
+            setSelectedSupplier(null);
+            fetchData(); // Refresh data after modal close
+          }}
+          supplier={selectedSupplier as any}
+        />
+      )}
 
-      <GroupModal
-        isOpen={showGroupModal}
-        onClose={() => {
-          setShowGroupModal(false);
-          setEditingGroup(undefined);
-          fetchGroups();
-        }}
-        group={editingGroup}
-      />
+      {showDepartmentModal && (
+        <DepartmentModal
+          isOpen={showDepartmentModal}
+          onClose={() => {
+            setShowDepartmentModal(false);
+            setSelectedDepartment(null);
+            fetchData(); // Refresh data after modal close
+          }}
+          department={selectedDepartment as any}
+        />
+      )}
 
-      <SubgroupModal
-        isOpen={showSubgroupModal}
-        onClose={() => {
-          setShowSubgroupModal(false);
-          setEditingSubgroup(undefined);
-          fetchSubgroups();
-        }}
-        subgroup={editingSubgroup}
-        groups={groups}
-      />
+      {showGroupModal && (
+        <GroupModal
+          isOpen={showGroupModal}
+          onClose={() => {
+            setShowGroupModal(false);
+            setSelectedGroup(null);
+            fetchData(); // Refresh data after modal close
+          }}
+          group={selectedGroup as any}
+        />
+      )}
 
-      <DepartmentModal
-        isOpen={showDepartmentModal}
-        onClose={() => {
-          setShowDepartmentModal(false);
-          setEditingDepartment(undefined);
-          fetchDepartments();
-        }}
-        department={editingDepartment}
-      />
+      {showSubgroupModal && (
+        <SubgroupModal
+          isOpen={showSubgroupModal}
+          onClose={() => {
+            setShowSubgroupModal(false);
+            setSelectedSubgroup(null);
+            fetchData(); // Refresh data after modal close
+          }}
+          subgroup={selectedSubgroup as any}
+          groups={groups as any}
+        />
+      )}
 
-      <StatusModal
-        isOpen={showStatusModal}
-        onClose={() => {
-          setShowStatusModal(false);
-          setEditingStatus(undefined);
-          fetchStatusConfigs();
-        }}
-        status={editingStatus}
-      />
+      {showMaintenanceTypeModal && (
+        <MaintenanceTypeModal
+          isOpen={showMaintenanceTypeModal}
+          onClose={() => {
+            setShowMaintenanceTypeModal(false);
+            setSelectedMaintenanceType(null);
+            fetchData(); // Refresh data after modal close
+          }}
+          maintenanceType={selectedMaintenanceType as any}
+        />
+      )}
 
-      <MaintenanceTypeModal
-        isOpen={showMaintenanceTypeModal}
-        onClose={() => {
-          setShowMaintenanceTypeModal(false);
-          setEditingMaintenanceType(undefined);
-          fetchMaintenanceTypes();
-        }}
-        maintenanceType={editingMaintenanceType}
-      />
+      {showStatusModal && (
+        <StatusModal
+          isOpen={showStatusModal}
+          onClose={() => {
+            setShowStatusModal(false);
+            setSelectedStatus(null);
+            fetchData(); // Refresh data after modal close
+          }}
+          status={selectedStatus || undefined}
+        />
+      )}
 
-      <ExcelImport
-        isOpen={showImportModal}
-        onClose={() => setShowImportModal(false)}
-        onImportComplete={() => {
-          setShowImportModal(false);
-          fetchAllData();
-        }}
-      />
+      {showSystemResetModal && (
+        <SystemResetModal
+          isOpen={showSystemResetModal}
+          onClose={() => setShowSystemResetModal(false)}
+        />
+      )}
+
+      {showDeleteModal && (
+        <ConfirmModal
+          isOpen={showDeleteModal}
+          onClose={() => {
+            setShowDeleteModal(false);
+            setDeleteType(null);
+            setDeleteItem(null);
+          }}
+          onConfirm={confirmDelete}
+          title="Supprimer l'élément"
+          message={`Êtes-vous sûr de vouloir supprimer "${deleteItem?.name}" ? Cette action est irréversible.`}
+          confirmLabel="Supprimer"
+          cancelLabel="Annuler"
+        />
+      )}
     </div>
   );
-};
-
-export default Settings;
+} 

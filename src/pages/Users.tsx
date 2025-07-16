@@ -64,32 +64,105 @@ const Users: React.FC = () => {
     if (!userToDelete) return;
 
     try {
-      // Check if user has active checkouts
+      // Check if user has any blocking checkouts (active, overdue, or lost)
       const { data: checkouts, error: checkoutError } = await supabase
         .from('checkouts')
-        .select('id')
+        .select('id, status')
         .eq('user_id', userToDelete.id)
-        .eq('status', 'active');
+        .in('status', ['active', 'overdue', 'lost']);
 
-      if (checkoutError) throw checkoutError;
+      if (checkoutError) {
+        console.error('Error checking active checkouts:', {
+          message: checkoutError.message,
+          code: checkoutError.code,
+          details: checkoutError.details,
+          hint: checkoutError.hint
+        });
+        throw checkoutError;
+      }
 
       if (checkouts && checkouts.length > 0) {
-        toast.error('Impossible de supprimer un utilisateur ayant des emprunts actifs');
+        const activeCount = checkouts.filter(c => c.status === 'active').length;
+        const overdueCount = checkouts.filter(c => c.status === 'overdue').length;
+        const lostCount = checkouts.filter(c => c.status === 'lost').length;
+        
+        let errorMessage = 'Impossible de supprimer cet utilisateur car il a ';
+        const issues = [];
+        
+        if (activeCount > 0) issues.push(`${activeCount} emprunt(s) actif(s)`);
+        if (overdueCount > 0) issues.push(`${overdueCount} emprunt(s) en retard`);
+        if (lostCount > 0) issues.push(`${lostCount} matériel(s) perdu(s)`);
+        
+        errorMessage += issues.join(', ') + '. Veuillez d\'abord traiter tous les retours.';
+        
+        toast.error(errorMessage);
+        setShowDeleteConfirm(false);
+        setUserToDelete(null);
         return;
       }
 
+      // Supprimer les données liées en premier
+      // 1. Supprimer tous les checkouts retournés de cet utilisateur
+      const { error: checkoutsDeleteError } = await supabase
+        .from('checkouts')
+        .delete()
+        .eq('user_id', userToDelete.id)
+        .eq('status', 'returned');
+
+      if (checkoutsDeleteError) {
+        console.error('Error deleting returned checkouts:', checkoutsDeleteError);
+        throw checkoutsDeleteError;
+      }
+
+      // 2. Supprimer les bons de sortie complètement retournés
+      const { error: deliveryNotesDeleteError } = await supabase
+        .from('delivery_notes')
+        .delete()
+        .eq('user_id', userToDelete.id)
+        .eq('status', 'returned');
+
+      if (deliveryNotesDeleteError) {
+        console.error('Error deleting returned delivery notes:', deliveryNotesDeleteError);
+        throw deliveryNotesDeleteError;
+      }
+
+      // 3. Maintenant supprimer l'utilisateur
       const { error } = await supabase
         .from('users')
         .delete()
         .eq('id', userToDelete.id);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error deleting user:', {
+          message: error.message,
+          code: error.code,
+          details: error.details,
+          hint: error.hint
+        });
+        throw error;
+      }
 
       setUsers(prev => prev.filter(user => user.id !== userToDelete.id));
       toast.success('Utilisateur supprimé avec succès');
+      setShowDeleteConfirm(false);
+      setUserToDelete(null);
     } catch (error: any) {
-      console.error('Error deleting user:', error);
-      toast.error(error.message || 'Erreur lors de la suppression');
+      console.error('Error deleting user:', error?.message || JSON.stringify(error) || error);
+      
+      // Message d'erreur plus spécifique selon le type d'erreur
+      let errorMessage = 'Erreur lors de la suppression';
+      
+      if (error?.code === '23503') {
+        errorMessage = 'Impossible de supprimer cet utilisateur car il est lié à d\'autres données';
+      } else if (error?.code === 'PGRST116') {
+        errorMessage = 'Utilisateur non trouvé';
+      } else if (error?.message) {
+        errorMessage = error.message;
+      }
+      
+      toast.error(errorMessage);
+      setShowDeleteConfirm(false);
+      setUserToDelete(null);
     }
   };
 

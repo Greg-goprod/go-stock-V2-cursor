@@ -185,13 +185,15 @@ const Dashboard: React.FC = () => {
         });
       }
 
-      // Fetch overdue checkouts
+      // Fetch overdue checkouts (from the day after due date)
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
       const { data: overdueCheckouts, error: overdueError } = await fetchWithTimeout(
         supabase
           .from('checkouts')
           .select('id')
           .eq('status', 'active')
-          .lt('due_date', new Date().toISOString())
+          .lt('due_date', today.toISOString())
       ) as any;
 
       if (overdueError) {
@@ -652,7 +654,11 @@ const Dashboard: React.FC = () => {
                 </thead>
                 <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
                   {recentCheckouts.map(checkout => {
-                    const isOverdue = new Date(checkout.due_date) < new Date();
+                    const dueDate = new Date(checkout.due_date);
+                    dueDate.setHours(23, 59, 59, 999);
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    const isOverdue = dueDate < today;
                     
                     return (
                       <tr key={checkout.id} className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">

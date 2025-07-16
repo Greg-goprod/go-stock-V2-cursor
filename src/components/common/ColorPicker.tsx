@@ -238,7 +238,7 @@ const ColorPicker: React.FC<ColorPickerProps> = ({ color, onChange }) => {
   const ColorPickerContent = () => (
     <div 
       ref={pickerRef}
-      className="fixed bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 p-3 flex flex-wrap gap-2"
+      className="fixed bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 p-3 flex flex-wrap gap-2 color-picker-portal"
       style={{ 
         top: pickerPosition.top,
         left: pickerPosition.left,
@@ -261,7 +261,8 @@ const ColorPicker: React.FC<ColorPickerProps> = ({ color, onChange }) => {
             <button
               className={`w-8 h-8 rounded-full flex items-center justify-center hover:scale-110 transition-transform relative ${isUsed ? 'ring-2 ring-offset-2 ring-gray-300 dark:ring-gray-600' : ''}`}
               style={{ backgroundColor: c }}
-              onClick={() => {
+              onClick={(e) => {
+                e.stopPropagation(); // Empêcher la propagation de l'événement
                 onChange(c);
                 setIsOpen(false);
               }}
@@ -304,7 +305,10 @@ const ColorPicker: React.FC<ColorPickerProps> = ({ color, onChange }) => {
         type="button"
         className="w-8 h-8 rounded-full border border-gray-300 dark:border-gray-600 shadow-sm"
         style={{ backgroundColor: color }}
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={(e) => {
+          e.stopPropagation();
+          setIsOpen(!isOpen);
+        }}
         aria-label="Choisir une couleur"
       />
 

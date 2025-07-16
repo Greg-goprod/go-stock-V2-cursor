@@ -20,7 +20,10 @@ const Modal: React.FC<ModalProps> = ({
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (modalRef.current && !modalRef.current.contains(event.target as Node)) {
+      // Vérifier si le clic est sur un élément du ColorPicker
+      const isColorPickerClick = (event.target as Element).closest('.color-picker-portal');
+      
+      if (modalRef.current && !modalRef.current.contains(event.target as Node) && !isColorPickerClick) {
         onClose();
       }
     };

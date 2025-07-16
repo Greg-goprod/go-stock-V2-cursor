@@ -15,10 +15,8 @@ import ReturnModal from '../components/checkout/ReturnModal';
 import FilterPanel from '../components/common/FilterPanel';
 import ConfirmModal from '../components/common/ConfirmModal';
 import ExcelImport from '../components/import/ExcelImport';
-import { Plus, QrCode, Wrench, History, LogOut, LogIn, Edit, Trash2, Download, Upload, Search, Filter, PenTool as Tool } from 'lucide-react';
+import { Plus, QrCode, Wrench, History, LogOut, LogIn, Edit, Trash2, Download, Upload, Search, Filter, PenTool as Tool, Grid3X3, List } from 'lucide-react';
 import { Equipment as EquipmentType, EquipmentInstance } from '../types';
-import { useStatusColors } from '../hooks/useStatusColors';
-
 export default function Equipment() {
   const {
     equipment,
@@ -27,6 +25,7 @@ export default function Equipment() {
     equipmentGroups,
     equipmentSubgroups,
     equipmentInstances,
+    checkouts,
     addEquipment,
     updateEquipment,
     deleteEquipment,
@@ -48,6 +47,7 @@ export default function Equipment() {
   const [selectedInstance, setSelectedInstance] = useState<EquipmentInstance | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [showFilters, setShowFilters] = useState(false);
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [filters, setFilters] = useState({
     status: '',
     category: '',
@@ -56,14 +56,139 @@ export default function Equipment() {
     subgroup: ''
   });
 
-  const { getStatusColor } = useStatusColors();
+  // Fonction pour calculer la disponibilité : disponible = stock - (emprunts + maintenance + perdu)
+  const getAvailableQuantity = (eq: EquipmentType): number => {
+    const totalQuantity = eq.totalQuantity || 1;
+    
+    // Debug spécifique pour les transpalettes et le trepied
+    const isDebugItem = eq.name.includes('Trepied laser petit') || eq.name.toLowerCase().includes('transpalette');
+    
+    if (isDebugItem) {
+      console.log(`=== DEBUG ${eq.name} ===`);
+      console.log('Équipement complet:', JSON.stringify(eq, null, 2));
+      console.log('Statut:', eq.status);
+      console.log('Type QR:', eq.qrType);
+      console.log('Quantité totale:', totalQuantity);
+    }
+    
+    // Compter les emprunts actifs (sans date de retour)
+    const activeCheckouts = checkouts.filter(checkout => 
+      checkout.equipment_id === eq.id && 
+      !checkout.return_date && 
+      checkout.status === 'active'
+    ).length;
+    
+    if (isDebugItem) {
+      console.log('Emprunts actifs:', activeCheckouts);
+      console.log('Détail des emprunts:', checkouts.filter(checkout => 
+        checkout.equipment_id === eq.id && 
+        !checkout.return_date && 
+        checkout.status === 'active'
+      ));
+    }
+    
+    // Si tous les équipements sont empruntés, forcer la disponibilité à 0
+    if (activeCheckouts >= totalQuantity) {
+      if (isDebugItem) {
+        console.log('Tous les équipements sont empruntés, disponibilité forcée à 0');
+        console.log('=== FIN DEBUG ===');
+      }
+      return 0;
+    }
+    
+    // Si le statut est "checked-out", forcer la disponibilité à 0
+    if (eq.status === 'checked-out') {
+      if (isDebugItem) {
+        console.log('Statut checked-out, disponibilité forcée à 0');
+        console.log('=== FIN DEBUG ===');
+      }
+      return 0;
+    }
+    
+    // Pour les équipements de type batch
+    if (eq.qrType === 'batch') {
+      let inMaintenance = 0;
+      let lost = 0;
+      
+      // Si le statut global est maintenance ou perdu, tout le stock est concerné
+      if (eq.status === 'maintenance') {
+        inMaintenance = totalQuantity;
+      } else if (eq.status === 'lost') {
+        lost = totalQuantity;
+      }
+      
+      if (isDebugItem) {
+        console.log('Type batch - En maintenance:', inMaintenance, 'Perdus:', lost);
+      }
+      
+      const available = Math.max(0, totalQuantity - activeCheckouts - inMaintenance - lost);
+      if (isDebugItem) {
+        console.log('Disponible calculé:', available);
+        console.log('=== FIN DEBUG ===');
+      }
+      return available;
+    }
+    
+    // Pour les équipements de type individual
+    else if (eq.qrType === 'individual') {
+      const instances = getEquipmentInstances(eq.id);
+      const inMaintenance = instances.filter(instance => instance.status === 'maintenance').length;
+      const lost = instances.filter(instance => instance.status === 'lost').length;
+      
+      if (isDebugItem) {
+        console.log('Type individual - Instances:', instances);
+        console.log('En maintenance:', inMaintenance, 'Perdus:', lost);
+      }
+      
+      const available = Math.max(0, totalQuantity - activeCheckouts - inMaintenance - lost);
+      if (isDebugItem) {
+        console.log('Disponible calculé:', available);
+        console.log('=== FIN DEBUG ===');
+      }
+      return available;
+    }
+    
+    // Pour les équipements simples (sans type QR spécifié)
+    else {
+      // Si le statut est maintenance ou perdu, l'équipement n'est pas disponible
+      if (['maintenance', 'lost', 'retired'].includes(eq.status)) {
+        if (isDebugItem) {
+          console.log('Type simple - Équipement indisponible car en statut:', eq.status);
+          console.log('Disponible calculé: 0');
+          console.log('=== FIN DEBUG ===');
+        }
+        return 0;
+      }
+      
+      // Sinon, calculer la disponibilité normale
+      const inMaintenance = eq.status === 'maintenance' ? 1 : 0;
+      const lost = eq.status === 'lost' ? 1 : 0;
+      
+      if (isDebugItem) {
+        console.log('Type simple - En maintenance:', inMaintenance, 'Perdus:', lost);
+      }
+      
+      const available = Math.max(0, totalQuantity - activeCheckouts - inMaintenance - lost);
+      if (isDebugItem) {
+        console.log('Disponible calculé:', available);
+        console.log('=== FIN DEBUG ===');
+      }
+      return available;
+    }
+  };
 
   const handleShowQR = (equipmentId: string, instance?: EquipmentInstance | null) => {
     const equipmentItem = equipment.find(eq => eq.id === equipmentId);
     if (!equipmentItem) return;
 
+    console.log('=== DEBUG QR CODE ===');
+    console.log('Equipment:', equipmentItem);
+    console.log('QR Type:', equipmentItem.qrType);
+    console.log('Total Quantity:', equipmentItem.totalQuantity || 1);
+    
     // Si c'est un équipement avec QR individuels et plusieurs quantités
     if (equipmentItem.qrType === 'individual' && (equipmentItem.totalQuantity || 1) > 1) {
+      console.log('Affichage QRCodesModal (multiple QR codes)');
       setSelectedEquipmentForQR(equipmentItem);
       setShowQRCodesModal(true);
       return;
@@ -73,14 +198,17 @@ export default function Equipment() {
     if (equipmentItem.qrType === 'individual' && (equipmentItem.totalQuantity || 1) === 1) {
       // Récupérer l'instance si elle existe
       const equipmentInstances = getEquipmentInstances(equipmentId);
+      console.log('Instances pour équipement unique:', equipmentInstances);
       const singleInstance = equipmentInstances.length > 0 ? equipmentInstances[0] : null;
       
       setSelectedEquipment(equipmentId);
       setSelectedInstance(singleInstance);
       setShowQRModal(true);
+      console.log('Affichage QRModal (single QR code avec instance)');
       return;
     }
 
+    console.log('Affichage QRModal (single QR code sans instance)');
     setSelectedEquipment(equipmentId);
     setSelectedInstance(instance || null);
     setShowQRModal(true);
@@ -134,8 +262,8 @@ export default function Equipment() {
         `"${eq.name}"`,
         `"${eq.serialNumber}"`,
         `"${eq.status}"`,
-        `"${categories.find(c => c.id === eq.categoryId)?.name || ''}"`,
-        `"${suppliers.find(s => s.id === eq.supplierId)?.name || ''}"`,
+        `"${categories.find(c => c.id === eq.category)?.name || ''}"`,
+        `"${suppliers.find(s => s.id === eq.supplier)?.name || ''}"`,
         `"${eq.location || ''}"`,
         `"${eq.addedDate ? new Date(eq.addedDate).toLocaleDateString() : ''}"`
       ].join(','))
@@ -153,15 +281,19 @@ export default function Equipment() {
   };
 
   const filteredEquipment = equipment.filter(eq => {
+    // Debug pour vérifier les URLs d'images
+    console.log(`Équipement: ${eq.name}, Image URL:`, eq.imageUrl);
+    console.log("Données équipement complètes:", eq);
+    
     const matchesSearch = eq.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          eq.serialNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          (eq.articleNumber && eq.articleNumber.toLowerCase().includes(searchTerm.toLowerCase()));
     
     const matchesStatus = !filters.status || eq.status === filters.status;
-    const matchesCategory = !filters.category || eq.categoryId === filters.category;
-    const matchesSupplier = !filters.supplier || eq.supplierId === filters.supplier;
-    const matchesGroup = !filters.group || eq.groupId === filters.group;
-    const matchesSubgroup = !filters.subgroup || eq.subgroupId === filters.subgroup;
+    const matchesCategory = !filters.category || eq.category === filters.category;
+    const matchesSupplier = !filters.supplier || eq.supplier === filters.supplier;
+    const matchesGroup = !filters.group || eq.group === filters.group;
+    const matchesSubgroup = !filters.subgroup || eq.subgroup === filters.subgroup;
 
     return matchesSearch && matchesStatus && matchesCategory && matchesSupplier && matchesGroup && matchesSubgroup;
   });
@@ -171,34 +303,83 @@ export default function Equipment() {
   };
 
   const renderEquipmentCard = (eq: EquipmentType) => {
-    const category = categories.find(c => c.id === eq.categoryId);
-    const supplier = suppliers.find(s => s.id === eq.supplierId);
-    const group = equipmentGroups.find(g => g.id === eq.groupId);
-    const subgroup = equipmentSubgroups.find(sg => sg.id === eq.subgroupId);
+    const category = categories.find(c => c.id === eq.category);
+    const supplier = suppliers.find(s => s.id === eq.supplier);
+    const group = equipmentGroups.find(g => g.id === eq.group);
+    const subgroup = equipmentSubgroups.find(sg => sg.id === eq.subgroup);
     const instances = getEquipmentInstances(eq.id);
+    
+    // Calculer la disponibilité
+    const getAvailabilityText = () => {
+      if (eq.qrType === 'batch') {
+        return `${eq.availableQuantity || 0}/${eq.totalQuantity || 1}`;
+      } else if (eq.qrType === 'individual') {
+        const availableInstances = instances.filter(inst => inst.status === 'available' || !inst.status).length;
+        return `${availableInstances}/${instances.length || 1}`;
+      }
+      return eq.status === 'available' ? '1/1' : '0/1';
+    };
+
+    // Calculer la quantité totale et disponible
+    const totalQuantity = eq.totalQuantity || 1;
+    
+    // Forcer la disponibilité à 0 si l'équipement est en maintenance, perdu ou retiré
+    let availableQuantity = 0;
+    if (['maintenance', 'lost', 'retired'].includes(eq.status)) {
+      availableQuantity = 0;
+      
+      if (eq.name.includes('Trepied laser petit')) {
+        console.log('=== BADGE DEBUG ===');
+        console.log('Équipement en maintenance/perdu/retiré, disponibilité forcée à 0');
+        console.log('Status:', eq.status);
+        console.log('=== FIN BADGE DEBUG ===');
+      }
+    } else {
+      availableQuantity = getAvailableQuantity(eq);
+    }
+    
+    if (eq.name.includes('Trepied laser petit')) {
+      console.log('=== BADGE FINAL ===');
+      console.log('Nom:', eq.name);
+      console.log('Status:', eq.status);
+      console.log('Stock total:', totalQuantity);
+      console.log('Disponibilité calculée:', availableQuantity);
+      console.log('=== FIN BADGE FINAL ===');
+    }
 
     return (
-      <Card key={eq.id} className="p-6">
-        <div className="flex justify-between items-start mb-4 gap-4">
-          <div className="flex items-start gap-3">
+      <Card key={eq.id} className="p-6 hover:shadow-lg transition-shadow min-h-[200px]">
+        <div className="flex items-start space-x-4 h-full">
+          {/* Image à gauche */}
+          <div className="relative flex-shrink-0 flex items-center justify-center">
             {eq.imageUrl ? (
               <img 
                 src={eq.imageUrl} 
                 alt={eq.name}
-                className="w-16 h-16 object-cover rounded-lg border-2 border-gray-200 dark:border-gray-700 bg-white shadow-sm"
+                className="w-36 h-36 object-contain rounded-lg border-2 border-gray-200 dark:border-gray-700 shadow-sm bg-white dark:bg-gray-700"
                 onError={(e) => {
                   console.log("Erreur de chargement d'image:", eq.imageUrl);
-                  // Replace broken image with tool icon
+                  
+                  // Stratégie 1: Essayer d'ajouter https:// si l'URL ne commence pas par http ou https
+                  const originalSrc = e.currentTarget.src;
+                  if (!originalSrc.startsWith('http')) {
+                    const newSrc = `https://${originalSrc}`;
+                    console.log("Tentative avec URL corrigée:", newSrc);
+                    e.currentTarget.src = newSrc;
+                    return;
+                  }
+                  
+                  // Si la stratégie 1 ne fonctionne pas, on passe à l'icône de repli
                   e.currentTarget.style.display = 'none';
                   const parent = e.currentTarget.parentElement;
                   if (parent) {
                     // Create a fallback div with the Tool icon
                     const fallbackDiv = document.createElement('div');
-                    fallbackDiv.className = 'w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center border-2 border-gray-200 dark:border-gray-700 shadow-sm';
+                    fallbackDiv.className = 'w-36 h-36 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center border-2 border-gray-200 dark:border-gray-700 shadow-sm';
                     
                     // We can't directly insert a React component, so we'll use a simple SVG
                     fallbackDiv.innerHTML = `
-                      <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-400">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-400 mx-auto">
                         <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path>
                       </svg>
                     `;
@@ -208,195 +389,202 @@ export default function Equipment() {
                 }}
               />
             ) : (
-              <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center border-2 border-gray-200 dark:border-gray-700 shadow-sm">
-                <Tool className="w-8 h-8 text-gray-400" />
-              </div>
-            )}
-            <div className="flex-1">
-              <h3 className="text-lg font-semibold text-gray-900 mb-1">{eq.name}</h3>
-              {eq.shortTitle && (
-                <p className="text-sm text-gray-600 mb-2">{eq.shortTitle}</p>
-              )}
-              <div className="flex flex-wrap gap-2 mb-2">
-                <Badge variant="outline" color={getStatusColor(eq.status)}>
-                  {eq.status}
-                </Badge>
-                {category && (
-                  <Badge variant="outline" style={{ backgroundColor: category.color + '20', color: category.color }}>
-                    {category.name}
-                  </Badge>
-                )}
-                {group && (
-                  <Badge variant="outline" style={{ backgroundColor: group.color + '20', color: group.color }}>
-                    {group.name}
-                  </Badge>
-                )}
-              </div>
-            </div>
-          </div>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handleShowQR(eq.id)}
-            >
-              <QrCode className="w-4 h-4" />
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handleEdit(eq.id)}
-            >
-              <Edit className="w-4 h-4" />
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handleDelete(eq.id)}
-              className="text-red-600 hover:text-red-700"
-            >
-              <Trash2 className="w-4 h-4" />
-            </Button>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-4 text-sm text-gray-600 mb-4">
-          <div>
-            <span className="font-medium">Numéro de série:</span>
-            <p>{eq.serialNumber}</p>
-            {eq.imageUrl && (
-              <div className="mt-2">
-                <span className="font-medium text-xs text-gray-500">Image URL:</span>
-                <p className="text-xs text-gray-500 truncate max-w-[200px]">{eq.imageUrl}</p>
+              <div className="w-36 h-36 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center border-2 border-gray-200 dark:border-gray-700 shadow-sm">
+                <Tool className="w-12 h-12 text-gray-400" />
               </div>
             )}
           </div>
-          {eq.articleNumber && (
-            <div>
-              <span className="font-medium">Numéro d'article:</span>
-              <p>{eq.articleNumber}</p>
-            </div>
-          )}
-          {supplier && (
-            <div>
-              <span className="font-medium">Fournisseur:</span>
-              <p>{supplier.name}</p>
-            </div>
-          )}
-          {eq.location && (
-            <div>
-              <span className="font-medium">Localisation:</span>
-              <p>{eq.location}</p>
-            </div>
-          )}
-          {eq.qrType === 'batch' && (
-            <>
-              <div>
-                <span className="font-medium">Quantité totale:</span>
-                <p>{eq.totalQuantity}</p>
-              </div>
-              <div>
-                <span className="font-medium">Quantité disponible:</span>
-                <p>{eq.availableQuantity}</p>
-              </div>
-            </>
-          )}
-        </div>
 
-        {eq.qrType === 'individual' && instances.length > 0 && (
-          <div className="mb-4">
-            <h4 className="font-medium text-gray-900 mb-2">Instances:</h4>
-            <div className="grid grid-cols-1 gap-2">
-              {instances.map(instance => (
-                <div key={instance.id} className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium">#{instance.instanceNumber}</span>
-                    <Badge variant="outline" color={getStatusColor(instance.status || 'available')}>
-                      {instance.status || 'available'}
-                    </Badge>
-                  </div>
-                  <div className="flex gap-1">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleShowQR(eq.id, instance)}
-                    >
-                      <QrCode className="w-3 h-3" />
-                    </Button>
-                    {(instance.status === 'available' || !instance.status) && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleCheckout(eq.id, instance)}
-                      >
-                        <LogOut className="w-3 h-3" />
-                      </Button>
-                    )}
-                    {instance.status === 'checked-out' && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleReturn(eq.id, instance)}
-                      >
-                        <LogIn className="w-3 h-3" />
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              ))}
+          {/* Informations à droite */}
+          <div className="flex-1 flex flex-col justify-between h-full">
+            <div className="space-y-3">
+              {/* Nom du matériel */}
+              <div>
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white">{eq.name}</h3>
+                {eq.shortTitle && (
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{eq.shortTitle}</p>
+                )}
+              </div>
+
+              {/* Badges simplifiés */}
+              <div className="flex items-center gap-2">
+                {/* Badge Stock */}
+                <span className="px-3 py-1 bg-blue-50 bg-opacity-80 dark:bg-blue-900 dark:bg-opacity-80 text-blue-800 dark:text-blue-100 border border-blue-200 dark:border-blue-700 rounded-full text-sm font-medium backdrop-blur-sm">
+                  Stock: {totalQuantity}
+                </span>
+                
+                {/* Badge Disponible */}
+                <span className={`px-3 py-1 ${availableQuantity > 0 ? 'bg-green-50 bg-opacity-80 dark:bg-green-900 dark:bg-opacity-80 text-green-800 dark:text-green-100 border border-green-200 dark:border-green-700' : 'bg-red-50 bg-opacity-80 dark:bg-red-900 dark:bg-opacity-80 text-red-800 dark:text-red-100 border border-red-200 dark:border-red-700'} rounded-full text-sm font-medium backdrop-blur-sm`}>
+                  Disponible: {availableQuantity}
+                </span>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-2 pt-4 border-t border-gray-200 dark:border-gray-700">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleShowQR(eq.id)}
+              >
+                <QrCode className="w-4 h-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleEdit(eq.id)}
+              >
+                <Edit className="w-4 h-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleMaintenance(eq.id)}
+              >
+                <Wrench className="w-4 h-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleDelete(eq.id)}
+                className="text-red-600 hover:text-red-700"
+              >
+                <Trash2 className="w-4 h-4" />
+              </Button>
             </div>
           </div>
-        )}
-
-        <div className="flex gap-2 pt-4 border-t">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handleMaintenance(eq.id)}
-          >
-            <Wrench className="w-4 h-4 mr-1" />
-            Maintenance
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handleMaintenanceHistory(eq.id)}
-          >
-            <History className="w-4 h-4 mr-1" />
-            Historique
-          </Button>
-          {eq.qrType === 'batch' && eq.availableQuantity > 0 && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handleCheckout(eq.id)}
-            >
-              <LogOut className="w-4 h-4 mr-1" />
-              Sortir
-            </Button>
-          )}
-          {eq.qrType === 'individual' && eq.status === 'available' && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handleCheckout(eq.id)}
-            >
-              <LogOut className="w-4 h-4 mr-1" />
-              Sortir
-            </Button>
-          )}
-          {eq.status === 'checked-out' && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handleReturn(eq.id)}
-            >
-              <LogIn className="w-4 h-4 mr-1" />
-              Retourner
-            </Button>
-          )}
         </div>
       </Card>
+    );
+  };
+
+  const renderEquipmentList = () => {
+    return (
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+            <thead className="bg-gray-50 dark:bg-gray-700">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                  Équipement
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                  N° Série
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                  Statut
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                  Catégorie
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                  Localisation
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                  Stock total
+                </th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+              {filteredEquipment.map((eq) => {
+                const category = categories.find(c => c.id === eq.category);
+                const instances = getEquipmentInstances(eq.id);
+                
+                return (
+                  <tr key={eq.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <div className="flex-shrink-0 h-10 w-10">
+                          {eq.imageUrl ? (
+                            <img
+                              className="h-10 w-10 rounded-lg object-cover"
+                              src={eq.imageUrl}
+                              alt={eq.name}
+                              onError={(e) => {
+                                e.currentTarget.style.display = 'none';
+                                const parent = e.currentTarget.parentElement;
+                                if (parent) {
+                                  parent.innerHTML = `
+                                    <div class="h-10 w-10 bg-gray-100 dark:bg-gray-600 rounded-lg flex items-center justify-center">
+                                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-400">
+                                        <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path>
+                                      </svg>
+                                    </div>
+                                  `;
+                                }
+                              }}
+                            />
+                          ) : (
+                            <div className="h-10 w-10 bg-gray-100 dark:bg-gray-600 rounded-lg flex items-center justify-center">
+                              <Tool className="w-5 h-5 text-gray-400" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="ml-4">
+                          <div className="text-sm font-medium text-gray-900 dark:text-white">
+                            {eq.name}
+                          </div>
+                          {eq.shortTitle && (
+                            <div className="text-sm text-gray-500 dark:text-gray-400">
+                              {eq.shortTitle}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                      {eq.serialNumber}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <Badge variant="outline">
+                        {eq.status}
+                      </Badge>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                      {category?.name || '-'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                      {eq.location || '-'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                      {eq.totalQuantity || 1}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      <div className="flex justify-end gap-1">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleShowQR(eq.id)}
+                        >
+                          <QrCode className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleEdit(eq.id)}
+                        >
+                          <Edit className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDelete(eq.id)}
+                          className="text-red-600 hover:text-red-700"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
     );
   };
 
@@ -437,6 +625,24 @@ export default function Equipment() {
             className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
         </div>
+        <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden">
+          <Button
+            variant={viewMode === 'grid' ? 'default' : 'outline'}
+            onClick={() => setViewMode('grid')}
+            className="flex items-center gap-2 rounded-none border-0"
+          >
+            <Grid3X3 className="w-4 h-4" />
+            Grille
+          </Button>
+          <Button
+            variant={viewMode === 'list' ? 'default' : 'outline'}
+            onClick={() => setViewMode('list')}
+            className="flex items-center gap-2 rounded-none border-0"
+          >
+            <List className="w-4 h-4" />
+            Liste
+          </Button>
+        </div>
         <Button
           variant="outline"
           onClick={() => setShowFilters(!showFilters)}
@@ -464,9 +670,13 @@ export default function Equipment() {
         />
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredEquipment.map(renderEquipmentCard)}
-      </div>
+      {viewMode === 'grid' ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {filteredEquipment.map(renderEquipmentCard)}
+        </div>
+      ) : (
+        renderEquipmentList()
+      )}
 
       {filteredEquipment.length === 0 && (
         <div className="text-center py-12">
@@ -484,12 +694,12 @@ export default function Equipment() {
 
       {showEditModal && selectedEquipment && (
         <EditEquipmentModal
-          equipmentId={selectedEquipment}
+          isOpen={showEditModal}
+          equipment={equipment.find(eq => eq.id === selectedEquipment)!}
           onClose={() => {
             setShowEditModal(false);
             setSelectedEquipment(null);
           }}
-          onUpdate={updateEquipment}
         />
       )}
 
@@ -504,14 +714,18 @@ export default function Equipment() {
           title="Code QR"
         >
           <QRCodeGenerator
-            equipmentId={selectedEquipment}
-            instance={selectedInstance}
+            value={selectedEquipment}
+            title={equipment.find(eq => eq.id === selectedEquipment)?.name || ''}
+            subtitle={selectedInstance ? `Instance #${selectedInstance.instanceNumber}` : equipment.find(eq => eq.id === selectedEquipment)?.articleNumber || ''}
+            size={200}
+            printable={true}
           />
         </Modal>
       )}
 
       {showQRCodesModal && selectedEquipmentForQR && (
         <QRCodesModal
+          isOpen={showQRCodesModal}
           equipment={selectedEquipmentForQR}
           onClose={() => {
             setShowQRCodesModal(false);
@@ -522,7 +736,8 @@ export default function Equipment() {
 
       {showMaintenanceModal && selectedEquipment && (
         <MaintenanceModal
-          equipmentId={selectedEquipment}
+          isOpen={showMaintenanceModal}
+          equipment={equipment.find(eq => eq.id === selectedEquipment)!}
           onClose={() => {
             setShowMaintenanceModal(false);
             setSelectedEquipment(null);

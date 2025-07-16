@@ -1,6 +1,6 @@
 import React, { createContext, useContext, ReactNode, useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Equipment, Category, Supplier, EquipmentGroup, EquipmentSubgroup, EquipmentInstance } from '../types';
+import { Equipment, Category, Supplier, EquipmentGroup, EquipmentSubgroup, EquipmentInstance, StatusConfig } from '../types';
 
 // Define notification type
 interface Notification {
@@ -8,6 +8,19 @@ interface Notification {
   message: string;
   type: 'success' | 'error' | 'warning' | 'info';
   timestamp: Date;
+}
+
+// Define checkout type
+interface Checkout {
+  id: string;
+  equipment_id: string;
+  user_id: string;
+  checkout_date: string;
+  due_date: string;
+  return_date?: string;
+  status: string;
+  notes?: string;
+  created_at: string;
 }
 
 interface AppContextType {
@@ -23,6 +36,8 @@ interface AppContextType {
   equipmentGroups: EquipmentGroup[];
   equipmentSubgroups: EquipmentSubgroup[];
   equipmentInstances: EquipmentInstance[];
+  statusConfigs: StatusConfig[];
+  checkouts: Checkout[];
   
   // Loading states
   loadingAppData: boolean;
@@ -56,6 +71,8 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
   const [equipmentGroups, setEquipmentGroups] = useState<EquipmentGroup[]>([]);
   const [equipmentSubgroups, setEquipmentSubgroups] = useState<EquipmentSubgroup[]>([]);
   const [equipmentInstances, setEquipmentInstances] = useState<EquipmentInstance[]>([]);
+  const [statusConfigs, setStatusConfigs] = useState<StatusConfig[]>([]);
+  const [checkouts, setCheckouts] = useState<Checkout[]>([]);
   const [loadingAppData, setLoadingAppData] = useState(true);
 
   const addNotification = (notification: Omit<Notification, 'id' | 'timestamp'>) => {
@@ -82,14 +99,18 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
         suppliersResult,
         groupsResult,
         subgroupsResult,
-        instancesResult
+        instancesResult,
+        statusConfigsResult,
+        checkoutsResult
       ] = await Promise.all([
         supabase.from('equipment').select('*').order('created_at', { ascending: false }),
         supabase.from('categories').select('*').order('name'),
         supabase.from('suppliers').select('*').order('name'),
         supabase.from('equipment_groups').select('*').order('name'),
         supabase.from('equipment_subgroups').select('*').order('name'),
-        supabase.from('equipment_instances').select('*').order('instance_number')
+        supabase.from('equipment_instances').select('*').order('instance_number'),
+        supabase.from('status_configs').select('*').order('name'),
+        supabase.from('checkouts').select('*').order('created_at', { ascending: false })
       ]);
 
       if (equipmentResult.error) throw equipmentResult.error;
@@ -98,13 +119,45 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
       if (groupsResult.error) throw groupsResult.error;
       if (subgroupsResult.error) throw subgroupsResult.error;
       if (instancesResult.error) throw instancesResult.error;
+      if (statusConfigsResult.error) throw statusConfigsResult.error;
+      if (checkoutsResult.error) throw checkoutsResult.error;
 
-      setEquipment(equipmentResult.data || []);
+      // Transformer les données du snake_case vers le camelCase
+      const transformedEquipment = equipmentResult.data?.map(item => ({
+        id: item.id,
+        name: item.name,
+        description: item.description || '',
+        category: item.category_id,
+        serialNumber: item.serial_number,
+        status: item.status,
+        addedDate: item.created_at,
+        lastMaintenance: item.last_maintenance,
+        imageUrl: item.image_url,
+        supplier: item.supplier_id,
+        location: item.location,
+        articleNumber: item.article_number,
+        qrType: item.qr_type,
+        totalQuantity: item.total_quantity,
+        availableQuantity: item.available_quantity,
+        shortTitle: item.short_title,
+        group: item.group_id,
+        subgroup: item.subgroup_id
+      })) || [];
+
+      // Afficher les URLs d'image pour débogage
+      console.log("URLs des images dans les équipements transformés:");
+      transformedEquipment.forEach(eq => {
+        console.log(`${eq.name}: ${eq.imageUrl}`);
+      });
+
+      setEquipment(transformedEquipment);
       setCategories(categoriesResult.data || []);
       setSuppliers(suppliersResult.data || []);
       setEquipmentGroups(groupsResult.data || []);
       setEquipmentSubgroups(subgroupsResult.data || []);
       setEquipmentInstances(instancesResult.data || []);
+      setStatusConfigs(statusConfigsResult.data || []);
+      setCheckouts(checkoutsResult.data || []);
     } catch (error) {
       console.error('Error fetching app data:', error);
       addNotification({
@@ -117,20 +170,63 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
   };
 
   const refreshData = async () => {
+    console.log('=== REFRESH DATA APPELÉ ===');
     await fetchAppData();
+    console.log('=== REFRESH DATA TERMINÉ ===');
   };
 
   const addEquipment = async (equipmentData: Omit<Equipment, 'id' | 'createdAt'>) => {
     try {
+      // Transformer les données de camelCase vers snake_case pour la base de données
+      const transformedData = {
+        name: equipmentData.name,
+        description: equipmentData.description,
+        category_id: equipmentData.category,
+        serial_number: equipmentData.serialNumber,
+        status: equipmentData.status,
+        supplier_id: equipmentData.supplier,
+        location: equipmentData.location,
+        image_url: equipmentData.imageUrl,
+        article_number: equipmentData.articleNumber,
+        qr_type: equipmentData.qrType,
+        total_quantity: equipmentData.totalQuantity,
+        available_quantity: equipmentData.availableQuantity,
+        short_title: equipmentData.shortTitle,
+        group_id: equipmentData.group,
+        subgroup_id: equipmentData.subgroup
+      };
+
       const { data, error } = await supabase
         .from('equipment')
-        .insert([equipmentData])
+        .insert([transformedData])
         .select()
         .single();
 
       if (error) throw error;
 
-      setEquipment(prev => [data, ...prev]);
+      // Transformer les données reçues de snake_case vers camelCase
+      const newEquipment: Equipment = {
+        id: data.id,
+        name: data.name,
+        description: data.description || '',
+        category: data.category_id,
+        serialNumber: data.serial_number,
+        status: data.status,
+        addedDate: data.created_at,
+        lastMaintenance: data.last_maintenance,
+        imageUrl: data.image_url,
+        supplier: data.supplier_id,
+        location: data.location,
+        articleNumber: data.article_number,
+        qrType: data.qr_type,
+        totalQuantity: data.total_quantity,
+        availableQuantity: data.available_quantity,
+        shortTitle: data.short_title,
+        group: data.group_id,
+        subgroup: data.subgroup_id
+      };
+
+      setEquipment(prev => [newEquipment, ...prev]);
       addNotification({
         type: 'success',
         message: 'Équipement ajouté avec succès'
@@ -147,16 +243,59 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
 
   const updateEquipment = async (id: string, equipmentData: Partial<Equipment>) => {
     try {
+      // Transformer les données de camelCase vers snake_case
+      const transformedData: Record<string, any> = {};
+      
+      if (equipmentData.name !== undefined) transformedData.name = equipmentData.name;
+      if (equipmentData.description !== undefined) transformedData.description = equipmentData.description;
+      if (equipmentData.category !== undefined) transformedData.category_id = equipmentData.category;
+      if (equipmentData.serialNumber !== undefined) transformedData.serial_number = equipmentData.serialNumber;
+      if (equipmentData.status !== undefined) transformedData.status = equipmentData.status;
+      if (equipmentData.supplier !== undefined) transformedData.supplier_id = equipmentData.supplier;
+      if (equipmentData.location !== undefined) transformedData.location = equipmentData.location;
+      if (equipmentData.imageUrl !== undefined) transformedData.image_url = equipmentData.imageUrl;
+      if (equipmentData.articleNumber !== undefined) transformedData.article_number = equipmentData.articleNumber;
+      if (equipmentData.qrType !== undefined) transformedData.qr_type = equipmentData.qrType;
+      if (equipmentData.totalQuantity !== undefined) transformedData.total_quantity = equipmentData.totalQuantity;
+      if (equipmentData.availableQuantity !== undefined) transformedData.available_quantity = equipmentData.availableQuantity;
+      if (equipmentData.shortTitle !== undefined) transformedData.short_title = equipmentData.shortTitle;
+      if (equipmentData.group !== undefined) transformedData.group_id = equipmentData.group;
+      if (equipmentData.subgroup !== undefined) transformedData.subgroup_id = equipmentData.subgroup;
+      
+      console.log('Données transformées pour mise à jour:', transformedData);
+
       const { data, error } = await supabase
         .from('equipment')
-        .update(equipmentData)
+        .update(transformedData)
         .eq('id', id)
         .select()
         .single();
 
       if (error) throw error;
 
-      setEquipment(prev => prev.map(eq => eq.id === id ? data : eq));
+      // Transformer le résultat de snake_case vers camelCase
+      const updatedEquipment: Equipment = {
+        id: data.id,
+        name: data.name,
+        description: data.description || '',
+        category: data.category_id,
+        serialNumber: data.serial_number,
+        status: data.status,
+        addedDate: data.created_at,
+        lastMaintenance: data.last_maintenance,
+        imageUrl: data.image_url,
+        supplier: data.supplier_id,
+        location: data.location,
+        articleNumber: data.article_number,
+        qrType: data.qr_type,
+        totalQuantity: data.total_quantity,
+        availableQuantity: data.available_quantity,
+        shortTitle: data.short_title,
+        group: data.group_id,
+        subgroup: data.subgroup_id
+      };
+
+      setEquipment(prev => prev.map(eq => eq.id === id ? updatedEquipment : eq));
       addNotification({
         type: 'success',
         message: 'Équipement mis à jour avec succès'
@@ -213,6 +352,8 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
       equipmentGroups,
       equipmentSubgroups,
       equipmentInstances,
+      statusConfigs,
+      checkouts,
       
       // Loading states
       loadingAppData,

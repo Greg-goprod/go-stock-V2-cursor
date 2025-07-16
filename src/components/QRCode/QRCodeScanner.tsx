@@ -4,9 +4,10 @@ import { QrCode, Zap } from 'lucide-react';
 interface QRCodeScannerProps {
   onScan: (decodedText: string) => void;
   onError?: (error: string) => void;
+  disableAutoFocus?: boolean;
 }
 
-const QRCodeScanner: React.FC<QRCodeScannerProps> = ({ onScan, onError }) => {
+const QRCodeScanner: React.FC<QRCodeScannerProps> = ({ onScan, onError, disableAutoFocus = false }) => {
   const [scannedValue, setScannedValue] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [lastScanStatus, setLastScanStatus] = useState<'success' | 'error' | 'duplicate' | null>(null);
@@ -17,26 +18,30 @@ const QRCodeScanner: React.FC<QRCodeScannerProps> = ({ onScan, onError }) => {
   // Auto-focus permanent sur le champ
   useEffect(() => {
     const focusInput = () => {
-      if (inputRef.current && !isProcessing) {
+      if (inputRef.current && !isProcessing && !disableAutoFocus) {
         inputRef.current.focus();
       }
     };
 
-    focusInput();
-    
-    // Re-focus si l'utilisateur clique ailleurs
-    const handleFocus = () => {
-      setTimeout(focusInput, 100);
-    };
+    if (!disableAutoFocus) {
+      focusInput();
+      
+      // Re-focus si l'utilisateur clique ailleurs
+      const handleFocus = () => {
+        if (!disableAutoFocus) {
+          setTimeout(focusInput, 100);
+        }
+      };
 
-    window.addEventListener('focus', handleFocus);
-    document.addEventListener('click', handleFocus);
+      window.addEventListener('focus', handleFocus);
+      document.addEventListener('click', handleFocus);
 
-    return () => {
-      window.removeEventListener('focus', handleFocus);
-      document.removeEventListener('click', handleFocus);
-    };
-  }, [isProcessing]);
+      return () => {
+        window.removeEventListener('focus', handleFocus);
+        document.removeEventListener('click', handleFocus);
+      };
+    }
+  }, [isProcessing, disableAutoFocus]);
 
   // Protection anti-doublon
   const canProcessScan = (value: string): boolean => {
@@ -74,11 +79,12 @@ const QRCodeScanner: React.FC<QRCodeScannerProps> = ({ onScan, onError }) => {
       await onScan(cleanValue);
       setLastScanStatus('success');
       setScannedValue('');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Erreur scan:', error);
       setLastScanStatus('error');
       if (onError) {
-        onError(error.message || 'Erreur lors du traitement du scan');
+        const errorMessage = error instanceof Error ? error.message : 'Erreur lors du traitement du scan';
+        onError(errorMessage);
       }
     } finally {
       setIsProcessing(false);
@@ -90,7 +96,7 @@ const QRCodeScanner: React.FC<QRCodeScannerProps> = ({ onScan, onError }) => {
       
       // Re-focus immédiat
       setTimeout(() => {
-        if (inputRef.current) {
+        if (inputRef.current && !disableAutoFocus) {
           inputRef.current.focus();
         }
       }, 100);
@@ -134,11 +140,14 @@ const QRCodeScanner: React.FC<QRCodeScannerProps> = ({ onScan, onError }) => {
         <div className="flex items-center gap-2 mb-2">
           <Zap size={20} className="text-blue-600 dark:text-blue-400" />
           <h3 className="font-black text-blue-800 dark:text-blue-200 uppercase tracking-wide">
-            SCAN DOUCHETTE ACTIF
+            SCAN DOUCHETTE {disableAutoFocus ? 'SUSPENDU' : 'ACTIF'}
           </h3>
         </div>
         <p className="text-sm text-blue-700 dark:text-blue-300 font-medium">
-          Utilisez votre douchette pour scanner en continu ou saisissez manuellement
+          {disableAutoFocus 
+            ? 'Mode recherche manuelle actif. Cliquez ici pour réactiver le scan.'
+            : 'Utilisez votre douchette pour scanner en continu ou saisissez manuellement'
+          }
         </p>
       </div>
 
@@ -150,11 +159,11 @@ const QRCodeScanner: React.FC<QRCodeScannerProps> = ({ onScan, onError }) => {
           value={scannedValue}
           onChange={handleInputChange}
           onKeyDown={handleKeyDown}
-          placeholder="Scannez un code ou saisissez-le manuellement..."
+          placeholder={disableAutoFocus ? "Cliquez pour activer le scan..." : "Scannez un code ou saisissez-le manuellement..."}
           disabled={isProcessing}
-          className={`w-full px-4 py-4 text-center border-2 rounded-lg font-mono text-lg focus:outline-none focus:ring-2 focus:ring-primary-500 transition-all ${getStatusColor()}`}
+          className={`w-full px-4 py-4 text-center border-2 rounded-lg font-mono text-lg focus:outline-none focus:ring-2 focus:ring-primary-500 transition-all ${getStatusColor()} ${disableAutoFocus ? 'opacity-70' : ''}`}
           autoComplete="off"
-          autoFocus
+          autoFocus={!disableAutoFocus}
         />
         
         <div className="absolute inset-y-0 right-0 flex items-center pr-4">
@@ -179,7 +188,7 @@ const QRCodeScanner: React.FC<QRCodeScannerProps> = ({ onScan, onError }) => {
         </p>
         
         <p className="text-xs text-gray-500 dark:text-gray-400 font-medium mt-1">
-          Protection anti-doublon • Auto-focus permanent
+          {disableAutoFocus ? 'Mode recherche manuelle actif' : 'Protection anti-doublon • Auto-focus permanent'}
         </p>
       </div>
     </div>

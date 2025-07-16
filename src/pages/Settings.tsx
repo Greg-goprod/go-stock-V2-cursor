@@ -7,9 +7,10 @@ import SupplierModal from '../components/suppliers/SupplierModal';
 import GroupModal from '../components/groups/GroupModal';
 import SubgroupModal from '../components/subgroups/SubgroupModal';
 import DepartmentModal from '../components/departments/DepartmentModal';
-import StatusModal from '../components/settings/StatusModal';
 import MaintenanceTypeModal from '../components/settings/MaintenanceTypeModal';
 import ExcelImport from '../components/import/ExcelImport';
+import { SystemResetModal } from '../components/admin/SystemResetModal';
+import { useApp } from '../contexts/AppContext';
 import { 
   Plus, 
   Edit, 
@@ -17,18 +18,14 @@ import {
   Settings as SettingsIcon, 
   Tag, 
   Building, 
-  Users, 
   Layers,
-  Palette,
   Wrench,
   Upload,
   Download,
   Globe,
   Moon,
   Sun,
-  Languages,
   Truck,
-  Package,
   Building2
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -41,7 +38,6 @@ import {
   EquipmentGroup, 
   EquipmentSubgroup, 
   Department, 
-  StatusConfig, 
   MaintenanceType,
   SystemSetting 
 } from '../types';
@@ -49,6 +45,7 @@ import {
 const Settings: React.FC = () => {
   const { language, setLanguage, t } = useLanguage();
   const { theme, toggleTheme } = useTheme();
+  const { refreshData } = useApp();
   
   // Data states
   const [categories, setCategories] = useState<Category[]>([]);
@@ -56,7 +53,6 @@ const Settings: React.FC = () => {
   const [groups, setGroups] = useState<EquipmentGroup[]>([]);
   const [subgroups, setSubgroups] = useState<EquipmentSubgroup[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
-  const [statusConfigs, setStatusConfigs] = useState<StatusConfig[]>([]);
   const [maintenanceTypes, setMaintenanceTypes] = useState<MaintenanceType[]>([]);
   const [systemSettings, setSystemSettings] = useState<SystemSetting[]>([]);
   
@@ -66,9 +62,9 @@ const Settings: React.FC = () => {
   const [showGroupModal, setShowGroupModal] = useState(false);
   const [showSubgroupModal, setShowSubgroupModal] = useState(false);
   const [showDepartmentModal, setShowDepartmentModal] = useState(false);
-  const [showStatusModal, setShowStatusModal] = useState(false);
   const [showMaintenanceTypeModal, setShowMaintenanceTypeModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
+  const [showSystemResetModal, setShowSystemResetModal] = useState(false);
   
   // Edit states
   const [editingCategory, setEditingCategory] = useState<Category | undefined>();
@@ -76,7 +72,6 @@ const Settings: React.FC = () => {
   const [editingGroup, setEditingGroup] = useState<EquipmentGroup | undefined>();
   const [editingSubgroup, setEditingSubgroup] = useState<EquipmentSubgroup | undefined>();
   const [editingDepartment, setEditingDepartment] = useState<Department | undefined>();
-  const [editingStatus, setEditingStatus] = useState<StatusConfig | undefined>();
   const [editingMaintenanceType, setEditingMaintenanceType] = useState<MaintenanceType | undefined>();
   
   // Loading states
@@ -97,7 +92,6 @@ const Settings: React.FC = () => {
         fetchGroups(),
         fetchSubgroups(),
         fetchDepartments(),
-        fetchStatusConfigs(),
         fetchMaintenanceTypes(),
         fetchSystemSettings()
       ]);
@@ -169,15 +163,7 @@ const Settings: React.FC = () => {
     setDepartments(data || []);
   };
 
-  const fetchStatusConfigs = async () => {
-    const { data, error } = await supabase
-      .from('status_configs')
-      .select('*')
-      .order('name');
-    
-    if (error) throw error;
-    setStatusConfigs(data || []);
-  };
+
 
   const fetchMaintenanceTypes = async () => {
     const { data, error } = await supabase
@@ -241,6 +227,10 @@ const Settings: React.FC = () => {
       
       toast.success('Élément supprimé avec succès');
       fetchAllData();
+      // Rafraîchir aussi le contexte global si on supprime un statut
+      if (type === 'status_configs') {
+        refreshData();
+      }
     } catch (error: any) {
       console.error('Error deleting item:', error);
       toast.error('Erreur lors de la suppression');
@@ -256,7 +246,6 @@ const Settings: React.FC = () => {
         groups,
         subgroups,
         departments,
-        statusConfigs,
         maintenanceTypes,
         systemSettings,
         exportDate: new Date().toISOString()
@@ -761,66 +750,7 @@ const Settings: React.FC = () => {
         </div>
       </Accordion>
 
-      {/* Statuts */}
-      <Accordion
-        title={`STATUTS (${statusConfigs.length})`}
-        icon={<Palette size={20} className="text-pink-600 dark:text-pink-400" />}
-        defaultOpen={false}
-      >
-        <div className="flex justify-between items-center mb-4">
-          <p className="text-sm text-gray-600 dark:text-gray-400">
-            Personnalisez les statuts et leurs couleurs
-          </p>
-          <Button
-            variant="primary"
-            size="sm"
-            icon={<Plus size={16} />}
-            onClick={() => {
-              setEditingStatus(undefined);
-              setShowStatusModal(true);
-            }}
-          >
-            AJOUTER
-          </Button>
-        </div>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-          {statusConfigs.map(status => (
-            <div key={status.id} className="border rounded-lg p-3 hover:shadow-md transition-shadow">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span 
-                    className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium text-white"
-                    style={{ backgroundColor: status.color }}
-                  >
-                    {status.name}
-                  </span>
-                </div>
-                <div className="flex gap-1">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    icon={<Edit size={14} />}
-                    onClick={() => {
-                      setEditingStatus(status);
-                      setShowStatusModal(true);
-                    }}
-                  />
-                  <Button
-                    variant="danger"
-                    size="sm"
-                    icon={<Trash2 size={14} />}
-                    onClick={() => handleDeleteItem('status_configs', status.id)}
-                  />
-                </div>
-              </div>
-              <p className="text-xs text-gray-500 mt-1 font-mono">
-                ID: {status.id}
-              </p>
-            </div>
-          ))}
-        </div>
-      </Accordion>
+
 
       {/* Types de maintenance */}
       <Accordion
@@ -884,6 +814,38 @@ const Settings: React.FC = () => {
         </div>
       </Accordion>
 
+      {/* Administration */}
+      <Accordion
+        title="ADMINISTRATION"
+        icon={<SettingsIcon size={20} className="text-red-600 dark:text-red-400" />}
+        defaultOpen={false}
+      >
+        <div className="space-y-6">
+          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+            <h4 className="font-semibold text-red-800 dark:text-red-200 mb-3">
+              ⚠️ Zone d'administration - Actions irréversibles
+            </h4>
+            <div className="space-y-4">
+              <div>
+                <h5 className="font-medium text-gray-900 dark:text-white mb-2">Remise à zéro du système</h5>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                  Supprime tous les emprunts, bons de livraison, maintenances et remet tout le matériel en disponible.
+                  Les équipements, utilisateurs et paramètres sont conservés.
+                </p>
+                <Button
+                  variant="danger"
+                  size="sm"
+                  icon={<Trash2 size={16} />}
+                  onClick={() => setShowSystemResetModal(true)}
+                >
+                  REMETTRE À ZÉRO LE SYSTÈME
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </Accordion>
+
       {/* Modals */}
       <CategoryModal
         isOpen={showCategoryModal}
@@ -936,15 +898,7 @@ const Settings: React.FC = () => {
         department={editingDepartment}
       />
 
-      <StatusModal
-        isOpen={showStatusModal}
-        onClose={() => {
-          setShowStatusModal(false);
-          setEditingStatus(undefined);
-          fetchStatusConfigs();
-        }}
-        status={editingStatus}
-      />
+
 
       <MaintenanceTypeModal
         isOpen={showMaintenanceTypeModal}
@@ -963,6 +917,11 @@ const Settings: React.FC = () => {
           setShowImportModal(false);
           fetchAllData();
         }}
+      />
+
+      <SystemResetModal
+        isOpen={showSystemResetModal}
+        onClose={() => setShowSystemResetModal(false)}
       />
     </div>
   );

@@ -284,7 +284,7 @@ const ReturnModal: React.FC<ReturnModalProps> = ({
         };
 
         switch (item.action) {
-          case 'return':
+          case 'return': {
             // Retour complet - marquer comme retourné
             updateData.status = 'returned';
             updateData.return_date = new Date().toISOString();
@@ -301,6 +301,7 @@ const ReturnModal: React.FC<ReturnModalProps> = ({
               })
               .eq('id', item.checkout.equipment.id);
             break;
+          }
           
           case 'extend':
             // Prolongation - mettre à jour la date de retour
@@ -318,19 +319,29 @@ const ReturnModal: React.FC<ReturnModalProps> = ({
               .eq('id', selectedNote?.id);
             break;
           
-          case 'lost':
-            // Matériel perdu - marquer comme perdu
-            updateData.status = 'lost';
-            updateData.notes = `${item.checkout.notes || ''}\nMatériel déclaré perdu le ${new Date().toLocaleDateString('fr-FR')}${item.notes ? ` - ${item.notes}` : ''}`.trim();
+          case 'lost': {
+            // Matériel perdu - utiliser la nouvelle fonction RPC
+            const { error: lostError } = await supabase.rpc('mark_equipment_lost', {
+              checkout_id: item.checkout.id
+            });
             
-            // Mettre à jour le statut de l'équipement
-            await supabase
-              .from('equipment')
-              .update({ status: 'retired' })
-              .eq('id', item.checkout.equipment.id);
-            break;
+            if (lostError) throw lostError;
+            
+            // Ajouter des notes supplémentaires si fournies
+            if (item.notes) {
+              await supabase
+                .from('checkouts')
+                .update({ 
+                  notes: `${item.checkout.notes || ''}\n${item.notes}`.trim()
+                })
+                .eq('id', item.checkout.id);
+            }
+            
+            // Skip the checkout update since it's handled by the function
+            continue;
+          }
 
-          case 'recover':
+          case 'recover': {
             // Matériel retrouvé - utiliser la fonction RPC
             const { error: recoverError } = await supabase.rpc('recover_lost_equipment', {
               checkout_id: item.checkout.id
@@ -340,6 +351,7 @@ const ReturnModal: React.FC<ReturnModalProps> = ({
             
             // Skip the checkout update since it's handled by the function
             continue;
+          }
         }
 
         // Mettre à jour l'enregistrement d'emprunt

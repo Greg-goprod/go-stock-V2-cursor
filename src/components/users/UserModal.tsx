@@ -6,7 +6,7 @@ import { useLanguage } from '../../contexts/LanguageContext';
 import { supabase } from '../../lib/supabase';
 import toast from 'react-hot-toast';
 import { User } from '../../types';
-import { User as UserIcon, Mail, Phone, Building, Shield } from 'lucide-react';
+import { User as UserIcon, Mail, Building } from 'lucide-react';
 
 interface UserModalProps {
   isOpen: boolean;
@@ -97,7 +97,7 @@ const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, user }) => {
         department: '',
         role: 'user'
       });
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error saving user:', error);
       toast.error(error.message || t('errorSavingUser'));
     } finally {
@@ -203,7 +203,6 @@ const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, user }) => {
               <input
                 type="tel"
                 name="phone"
-                required
                 required
                 value={formData.phone}
                 onChange={handleChange}

@@ -2,13 +2,17 @@ import React, { useRef } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import Button from '../common/Button';
 import { Printer } from 'lucide-react';
+import { EquipmentInstance } from '../../types';
 
 interface QRCodeGeneratorProps {
-  value: string;
-  title: string;
+  value?: string;
+  title?: string;
   subtitle?: string;
   size?: number;
   printable?: boolean;
+  // Anciennes props pour compatibilité
+  equipmentId?: string;
+  instance?: EquipmentInstance | null;
 }
 
 const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
@@ -17,8 +21,15 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
   subtitle,
   size = 128,
   printable = true,
+  equipmentId,
+  instance
 }) => {
   const qrCodeRef = useRef<HTMLDivElement>(null);
+
+  // Déterminer la valeur à utiliser pour le QR code
+  const qrValue = value || equipmentId || '';
+  const qrTitle = title || (instance ? `Équipement #${instance.instanceNumber}` : '');
+  const qrSubtitle = subtitle || (instance ? `Instance ${instance.instanceNumber}` : '');
 
   const handlePrint = () => {
     // Créer une image du QR code
@@ -63,7 +74,7 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
         <!DOCTYPE html>
         <html>
           <head>
-            <title>Étiquette QR Code - ${title}</title>
+            <title>Étiquette QR Code - ${qrTitle}</title>
             <meta charset="UTF-8">
             <style>
               @page {
@@ -297,31 +308,31 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
               <div class="label label-40x30" id="label-40x30">
                 <img src="${dataUrl}" class="qr-40x30" alt="QR Code" />
                 <div class="text-40x30">
-                  <div class="title-40x30">${title}</div>
-                  ${subtitle ? `<div class="subtitle-40x30">${subtitle}</div>` : ''}
+                  <div class="title-40x30">${qrTitle}</div>
+                  ${qrSubtitle ? `<div class="subtitle-40x30">${qrSubtitle}</div>` : ''}
                 </div>
               </div>
               
               <!-- Format 40x40mm -->
               <div class="label label-40x40" id="label-40x40" style="display: none;">
                 <img src="${dataUrl}" class="qr-40x40" alt="QR Code" />
-                <div class="title-40x40">${title}</div>
-                ${subtitle ? `<div class="subtitle-40x40">${subtitle}</div>` : ''}
+                <div class="title-40x40">${qrTitle}</div>
+                ${qrSubtitle ? `<div class="subtitle-40x40">${qrSubtitle}</div>` : ''}
               </div>
               
               <!-- Format 30x20mm -->
               <div class="label label-30x20" id="label-30x20" style="display: none;">
                 <img src="${dataUrl}" class="qr-30x20" alt="QR Code" />
                 <div class="text-30x20">
-                  <div class="title-30x20">${title}</div>
-                  ${subtitle ? `<div class="subtitle-30x20">${subtitle}</div>` : ''}
+                  <div class="title-30x20">${qrTitle}</div>
+                  ${qrSubtitle ? `<div class="subtitle-30x20">${qrSubtitle}</div>` : ''}
                 </div>
               </div>
               
               <!-- Format rond 40mm -->
               <div class="label label-round-40" id="label-round-40" style="display: none;">
                 <img src="${dataUrl}" class="qr-round-40" alt="QR Code" />
-                <div class="title-round-40">${title}</div>
+                <div class="title-round-40">${qrTitle}</div>
               </div>
             </div>
             
@@ -374,9 +385,9 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
 
   return (
     <div className="flex flex-col items-center p-4 border rounded-lg bg-white dark:bg-gray-800">
-      <div className="mb-4" ref={qrCodeRef} data-qr-value={value}>
+      <div className="mb-4" ref={qrCodeRef} data-qr-value={qrValue}>
         <QRCodeSVG 
-          value={value} 
+          value={qrValue} 
           size={size}
           bgColor="#ffffff"
           fgColor="#000000"
@@ -385,15 +396,15 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
         />
       </div>
       <h3 className="mt-3 font-black text-gray-800 dark:text-gray-100 text-center uppercase tracking-wide">
-        {title}
+        {qrTitle}
       </h3>
-      {subtitle && (
+      {qrSubtitle && (
         <p className="text-sm text-gray-600 dark:text-gray-400 text-center font-medium">
-          {subtitle}
+          {qrSubtitle}
         </p>
       )}
       <div className="text-xs text-gray-500 dark:text-gray-500 mt-2 font-mono bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">
-        {value}
+        {qrValue}
       </div>
       
       {printable && (

@@ -2,19 +2,18 @@ import React, { useState, useEffect } from 'react';
 import Modal from '../common/Modal';
 import Button from '../common/Button';
 import Accordion from '../common/Accordion';
-import { useLanguage } from '../../contexts/LanguageContext';
 import { supabase } from '../../lib/supabase';
 import toast from 'react-hot-toast';
-import { Category, Supplier, EquipmentGroup, EquipmentSubgroup } from '../../types';
-import { Package, Copy, QrCode, Settings, Info } from 'lucide-react';
+import { Category, Supplier, EquipmentGroup, EquipmentSubgroup, Equipment } from '../../types';
+import { Package, Copy, QrCode, Info } from 'lucide-react';
 
 interface AddEquipmentModalProps {
-  isOpen: boolean;
+  isOpen?: boolean;
   onClose: () => void;
+  onAdd: (equipmentData: Equipment) => void;
 }
 
-const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ isOpen, onClose }) => {
-  const { t } = useLanguage();
+const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ isOpen = true, onClose, onAdd }) => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [groups, setGroups] = useState<EquipmentGroup[]>([]);
@@ -89,6 +88,11 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ isOpen, onClose }
 
   const fetchCategories = async () => {
     try {
+      if (!supabase) {
+        console.error('Supabase client is not initialized');
+        return;
+      }
+      
       const { data, error } = await supabase
         .from('categories')
         .select('*')
@@ -103,6 +107,11 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ isOpen, onClose }
 
   const fetchSuppliers = async () => {
     try {
+      if (!supabase) {
+        console.error('Supabase client is not initialized');
+        return;
+      }
+      
       const { data, error } = await supabase
         .from('suppliers')
         .select('*')
@@ -117,6 +126,11 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ isOpen, onClose }
 
   const fetchGroups = async () => {
     try {
+      if (!supabase) {
+        console.error('Supabase client is not initialized');
+        return;
+      }
+      
       const { data, error } = await supabase
         .from('equipment_groups')
         .select('*')
@@ -131,6 +145,11 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ isOpen, onClose }
 
   const fetchSubgroups = async () => {
     try {
+      if (!supabase) {
+        console.error('Supabase client is not initialized');
+        return;
+      }
+      
       const { data, error } = await supabase
         .from('equipment_subgroups')
         .select('*')
@@ -169,6 +188,10 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ isOpen, onClose }
     setIsGeneratingQRCodes(true);
 
     try {
+      if (!supabase) {
+        throw new Error('Supabase client is not initialized');
+      }
+      
       // Préparer les données de l'équipement
       const equipmentData = {
         ...formData,
@@ -196,28 +219,71 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ isOpen, onClose }
 
       // Si c'est un équipement avec QR individuels, créer les instances
       if (quantityData.qrType === 'individual') {
+        // Utiliser le numéro d'article s'il existe, sinon utiliser le numéro de série
+        const baseCode = equipment.article_number || equipment.serial_number;
+        
+        console.log('Génération de QR codes individuels:', {
+          equipmentId: equipment.id,
+          baseCode,
+          quantity: quantityData.totalQuantity
+        });
+        
         const instances = [];
         for (let i = 1; i <= quantityData.totalQuantity; i++) {
           instances.push({
             equipment_id: equipment.id,
             instance_number: i,
-            qr_code: `${equipment.article_number}-${String(i).padStart(3, '0')}`,
+            qr_code: `${baseCode}-${String(i).padStart(3, '0')}`,
             status: 'available'
           });
         }
 
-        const { error: instancesError } = await supabase
-          .from('equipment_instances')
-          .insert(instances);
+        // Insérer les instances par lots pour éviter les limites de taille de payload
+        const batchSize = 50;
+        for (let i = 0; i < instances.length; i += batchSize) {
+          const batch = instances.slice(i, i + batchSize);
+          const { error: instancesError } = await supabase
+            .from('equipment_instances')
+            .insert(batch);
 
-        if (instancesError) throw instancesError;
+          if (instancesError) {
+            console.error('Erreur lors de l\'insertion des instances:', instancesError);
+            throw instancesError;
+          }
+        }
       }
 
       toast.success(`Matériel ajouté avec succès${quantityData.totalQuantity > 1 ? ` (${quantityData.totalQuantity} pièces)` : ''}`);
+      
+      // Transformer les données pour correspondre à l'interface Equipment
+      const newEquipment: Equipment = {
+        id: equipment.id,
+        name: equipment.name,
+        description: equipment.description || '',
+        category: equipment.category_id,
+        serialNumber: equipment.serial_number,
+        status: equipment.status,
+        addedDate: equipment.created_at,
+        lastMaintenance: equipment.last_maintenance,
+        imageUrl: equipment.image_url,
+        supplier: equipment.supplier_id,
+        location: equipment.location,
+        articleNumber: equipment.article_number,
+        qrType: equipment.qr_type,
+        totalQuantity: equipment.total_quantity,
+        availableQuantity: equipment.available_quantity,
+        shortTitle: equipment.short_title,
+        group: equipment.group_id,
+        subgroup: equipment.subgroup_id
+      };
+      
+      // Appeler la fonction onAdd pour mettre à jour le contexte de l'application
+      onAdd(newEquipment);
       onClose();
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Erreur lors de l\'ajout du matériel';
       console.error('Error adding equipment:', error);
-      toast.error(error.message || 'Erreur lors de l\'ajout du matériel');
+      toast.error(errorMessage);
     } finally {
       setIsGeneratingQRCodes(false);
       setIsLoading(false);
@@ -232,7 +298,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ isOpen, onClose }
     }));
   };
 
-  const handleQuantityChange = (field: string, value: any) => {
+  const handleQuantityChange = (field: string, value: string | number | boolean) => {
     setQuantityData(prev => ({
       ...prev,
       [field]: value
@@ -504,7 +570,7 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ isOpen, onClose }
                    Entrez une URL d'image valide et accessible publiquement. Exemple: https://images.pexels.com/photos/1029243/pexels-photo-1029243.jpeg
                  </p>
                 <p className="text-xs text-gray-500 dark:text-gray-400">
-                  Utilisez des sites comme <a href="https://www.pexels.com" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">Pexels</a> ou <a href="https://unsplash.com" target=\"_blank" rel="noopener noreferrer\" className="text-blue-500 hover:underline">Unsplash</a> pour trouver des images libres de droits.
+                  Utilisez des sites comme <a href="https://www.pexels.com" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">Pexels</a> ou <a href="https://unsplash.com" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">Unsplash</a> pour trouver des images libres de droits.
                 </p>
                  {formData.image_url && (
                    <div className="mt-2 p-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800">

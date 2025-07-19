@@ -351,12 +351,12 @@ export default function Equipment() {
       <Card key={eq.id} className="p-6 hover:shadow-lg transition-shadow min-h-[200px]">
         <div className="flex items-start space-x-4 h-full">
           {/* Image à gauche */}
-          <div className="relative flex-shrink-0 flex items-center justify-center">
+          <div className="relative flex-shrink-0 flex items-center justify-center overflow-visible">
             {eq.imageUrl ? (
               <img 
                 src={eq.imageUrl} 
                 alt={eq.name}
-                className="w-36 h-36 object-contain rounded-lg border-2 border-gray-200 dark:border-gray-700 shadow-sm bg-white dark:bg-gray-700"
+                className="w-24 h-24 object-cover rounded-full border-4 border-gray-200 dark:border-gray-700 shadow-sm bg-white dark:bg-gray-700 p-2 transition-all duration-300 ease-in-out hover:scale-[5] hover:z-50 hover:shadow-2xl cursor-pointer relative"
                 onError={(e) => {
                   console.log("Erreur de chargement d'image:", eq.imageUrl);
                   
@@ -375,11 +375,11 @@ export default function Equipment() {
                   if (parent) {
                     // Create a fallback div with the Tool icon
                     const fallbackDiv = document.createElement('div');
-                    fallbackDiv.className = 'w-36 h-36 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center border-2 border-gray-200 dark:border-gray-700 shadow-sm';
+                    fallbackDiv.className = 'w-24 h-24 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center border-4 border-gray-200 dark:border-gray-700 shadow-sm p-2 transition-all duration-300 ease-in-out hover:scale-[5] hover:z-50 hover:shadow-2xl cursor-pointer relative';
                     
                     // We can't directly insert a React component, so we'll use a simple SVG
                     fallbackDiv.innerHTML = `
-                      <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-400 mx-auto">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-400 mx-auto">
                         <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path>
                       </svg>
                     `;
@@ -389,7 +389,7 @@ export default function Equipment() {
                 }}
               />
             ) : (
-              <div className="w-36 h-36 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center border-2 border-gray-200 dark:border-gray-700 shadow-sm">
+              <div className="w-24 h-24 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center border-4 border-gray-200 dark:border-gray-700 shadow-sm p-2 transition-all duration-300 ease-in-out hover:scale-[5] hover:z-50 hover:shadow-2xl cursor-pointer relative">
                 <Tool className="w-12 h-12 text-gray-400" />
               </div>
             )}
@@ -497,10 +497,10 @@ export default function Equipment() {
                   <tr key={eq.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
-                        <div className="flex-shrink-0 h-10 w-10">
+                        <div className="flex-shrink-0 h-12 w-12">
                           {eq.imageUrl ? (
                             <img
-                              className="h-10 w-10 rounded-lg object-cover"
+                              className="h-12 w-12 rounded-full object-cover border-2 border-gray-200 dark:border-gray-700 shadow-sm bg-white dark:bg-gray-700 p-1 transition-all duration-300 ease-in-out hover:scale-[5] hover:z-50 hover:shadow-2xl cursor-pointer relative"
                               src={eq.imageUrl}
                               alt={eq.name}
                               onError={(e) => {
@@ -508,8 +508,8 @@ export default function Equipment() {
                                 const parent = e.currentTarget.parentElement;
                                 if (parent) {
                                   parent.innerHTML = `
-                                    <div class="h-10 w-10 bg-gray-100 dark:bg-gray-600 rounded-lg flex items-center justify-center">
-                                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-400">
+                                    <div class="h-12 w-12 bg-gray-100 dark:bg-gray-600 rounded-full flex items-center justify-center border-2 border-gray-200 dark:border-gray-700 shadow-sm p-1 transition-all duration-300 ease-in-out hover:scale-[5] hover:z-50 hover:shadow-2xl cursor-pointer relative">
+                                      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-400">
                                         <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path>
                                       </svg>
                                     </div>
@@ -518,8 +518,8 @@ export default function Equipment() {
                               }}
                             />
                           ) : (
-                            <div className="h-10 w-10 bg-gray-100 dark:bg-gray-600 rounded-lg flex items-center justify-center">
-                              <Tool className="w-5 h-5 text-gray-400" />
+                            <div className="h-12 w-12 bg-gray-100 dark:bg-gray-600 rounded-full flex items-center justify-center border-2 border-gray-200 dark:border-gray-700 shadow-sm p-1 transition-all duration-300 ease-in-out hover:scale-[5] hover:z-50 hover:shadow-2xl cursor-pointer relative">
+                              <Tool className="w-6 h-6 text-gray-400" />
                             </div>
                           )}
                         </div>

@@ -395,7 +395,7 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
           includeMargin={true}
         />
       </div>
-      <h3 className="mt-3 font-black text-gray-800 dark:text-gray-100 text-center uppercase tracking-wide">
+      <h3 className="mt-2 font-black text-gray-800 dark:text-gray-100 text-center uppercase tracking-wide text-lg">
         {qrTitle}
       </h3>
       {qrSubtitle && (

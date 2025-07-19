@@ -69,15 +69,17 @@ const QRCodesModal: React.FC<QRCodesModalProps> = ({
             }
             .qr-title {
               font-weight: bold;
-              margin-top: 5px;
-              font-size: 10pt;
+              margin-top: 8px;
+              font-size: 14pt;
+              line-height: 1.2;
             }
             .qr-subtitle {
               font-size: 8pt;
               color: #666;
             }
             .qr-code {
-              margin-bottom: 5px;
+              margin-bottom: 3px;
+              display: block;
             }
             .print-button {
               position: fixed;

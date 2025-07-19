@@ -329,7 +329,7 @@ const ReturnModal: React.FC<ReturnModalProps> = ({
             
             // Ajouter des notes supplémentaires si fournies
             if (item.notes) {
-              await supabase
+            await supabase
                 .from('checkouts')
                 .update({ 
                   notes: `${item.checkout.notes || ''}\n${item.notes}`.trim()

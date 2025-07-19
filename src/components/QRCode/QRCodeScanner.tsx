@@ -21,20 +21,20 @@ const QRCodeScanner: React.FC<QRCodeScannerProps> = ({
   // Focus l'input au chargement du composant
   useEffect(() => {
     if (!disableAutoFocus && inputRef.current) {
-      inputRef.current.focus();
-    }
+        inputRef.current.focus();
+      }
   }, [disableAutoFocus]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setInputValue(e.target.value);
-  };
+    };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (inputValue.trim()) {
       onScan(inputValue.trim());
       setInputValue('');
-      
+
       // Re-focus l'input après soumission
       if (inputRef.current && !disableAutoFocus) {
         setTimeout(() => {
@@ -84,14 +84,14 @@ const QRCodeScanner: React.FC<QRCodeScannerProps> = ({
         </Button>
         
         <form onSubmit={handleSubmit} className="flex-1 flex">
-          <input
-            ref={inputRef}
-            type="text"
+        <input
+          ref={inputRef}
+          type="text"
             value={inputValue}
-            onChange={handleInputChange}
+          onChange={handleInputChange}
             placeholder="Scanner ou saisir un code..."
             className="flex-1 border border-gray-300 rounded-l-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            autoComplete="off"
+          autoComplete="off"
           />
           <Button
             type="submit"
@@ -102,14 +102,14 @@ const QRCodeScanner: React.FC<QRCodeScannerProps> = ({
           </Button>
         </form>
       </div>
-      
+
       {isScanning && (
         <div className="text-sm text-gray-500">
           Scanner actif. Scannez un code QR ou saisissez-le manuellement.
-        </div>
+      </div>
       )}
     </div>
   );
 };
 
-export default QRCodeScanner; 
+export default QRCodeScanner;

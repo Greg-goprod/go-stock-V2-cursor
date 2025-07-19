@@ -59,15 +59,15 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
       const [usersResult, equipmentResult] = await Promise.all([
         supabase.from('users').select('*').order('last_name'),
         supabase
-          .from('equipment')
-          .select(`
-            *,
+        .from('equipment')
+        .select(`
+          *,
             categories(id, name, color),
-            suppliers(id, name),
+          suppliers(id, name),
             equipment_groups(id, name, color)
-          `)
-          .eq('status', 'available')
-          .gt('available_quantity', 0)
+        `)
+        .eq('status', 'available')
+        .gt('available_quantity', 0)
           // Exclure les équipements en maintenance
           .neq('status', 'maintenance')
           .order('name')
@@ -77,7 +77,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
       if (equipmentResult.error) throw equipmentResult.error;
 
       setUsers(usersResult.data || []);
-      
+
       // Transform equipment data from snake_case to camelCase
       const transformedEquipment: Equipment[] = (equipmentResult.data || []).map(eq => ({
         id: eq.id,
@@ -98,7 +98,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
         shortTitle: eq.short_title,
         group: eq.equipment_groups?.name || ''
       }));
-      
+
       setEquipment(transformedEquipment);
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -125,25 +125,49 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
   const handleEquipmentScan = async (scannedId: string) => {
     try {
       setIsLoading(true);
-      const normalizedId = scannedId.trim().toLowerCase();
-      
+      // Normaliser l'ID en remplaçant les apostrophes par des tirets pour les UUID
+      let normalizedId = scannedId.trim().toLowerCase();
+    
+      // Corriger le format UUID si nécessaire (remplacer les apostrophes par des tirets)
+      if (normalizedId.includes("'")) {
+        normalizedId = normalizedId.replace(/'/g, "-");
+        console.log("Format UUID corrigé:", normalizedId);
+      }
+    
       // D'abord chercher dans les équipements déjà chargés
       let foundEquipment = equipment.find(eq => 
         eq.serialNumber.toLowerCase() === normalizedId ||
         eq.articleNumber?.toLowerCase() === normalizedId ||
-        (eq.articleNumber && normalizedId.includes(eq.articleNumber.toLowerCase()))
+        (eq.articleNumber && normalizedId.includes(eq.articleNumber.toLowerCase())) ||
+        eq.id.toLowerCase() === normalizedId
       );
       
       // Si trouvé dans les équipements déjà chargés
       if (foundEquipment) {
         // Vérifier la disponibilité avec la nouvelle fonction SQL
-        const { data: availabilityCheck, error: availabilityError } = await supabase
+        const { data: availabilityCheck, error: availabilityError } = await supabase!
           .rpc('check_equipment_availability', {
             equipment_id: foundEquipment.id,
             requested_quantity: 1
           });
 
-        if (availabilityError) throw availabilityError;
+        if (availabilityError) {
+          console.error("Erreur lors de la vérification de disponibilité:", availabilityError);
+          // Si l'erreur est liée à l'ambiguïté de la colonne, on considère l'équipement comme disponible
+          if (availabilityError.code === '42702') {
+            console.log("Contournement de l'erreur d'ambiguïté, vérification manuelle de la disponibilité");
+            // Vérifier manuellement si l'équipement est disponible
+            if (foundEquipment.availableQuantity && foundEquipment.availableQuantity > 0) {
+              addEquipmentToCheckout(foundEquipment);
+              return;
+            } else {
+              toast.error(`Équipement non disponible: Quantité insuffisante`);
+              return;
+            }
+          } else {
+            throw availabilityError;
+          }
+        }
 
         const availability = availabilityCheck?.[0];
         if (!availability?.is_available) {
@@ -152,67 +176,127 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
         }
 
         addEquipmentToCheckout(foundEquipment);
-        // setScannedCode(''); // This line was removed from the new_code, so it's removed here.
         return;
       }
       
       // Si non trouvé, chercher dans la base de données avec vérification de disponibilité
-      console.log("Équipement non trouvé en mémoire, recherche en base de données...");
-      
-      const { data: equipmentData, error: equipmentError } = await supabase
-        .from('equipment')
-        .select(`
-          *,
-          categories(id, name),
-          suppliers(id, name),
-          equipment_groups(id, name)
-        `)
-        .or(`serial_number.eq.${normalizedId},article_number.eq.${normalizedId},article_number.ilike.%${normalizedId}%`)
-        .neq('status', 'maintenance') // Exclure les équipements en maintenance
-        .neq('status', 'retired')     // Exclure les équipements retirés
-        .gt('available_quantity', 0)
-        .limit(1);
-      
-      if (equipmentError) throw equipmentError;
-      
-      if (equipmentData && equipmentData.length > 0) {
-        const eq = equipmentData[0];
+        console.log("Équipement non trouvé en mémoire, recherche en base de données...");
+        
+        // Utiliser textSearch pour une recherche plus efficace
+        let { data: equipmentData, error: equipmentError } = await supabase!
+          .from('equipment')
+          .select(`
+            *,
+            categories(id, name),
+            suppliers(id, name),
+            equipment_groups(id, name)
+          `);
+        
+        // Filtrer côté client pour éviter les problèmes de syntaxe SQL avec les UUID
+        if (equipmentData) {
+          equipmentData = equipmentData.filter(eq => 
+            (eq.id && eq.id.toLowerCase() === normalizedId) ||
+            (eq.serial_number && eq.serial_number.toLowerCase() === normalizedId) ||
+            (eq.article_number && eq.article_number.toLowerCase() === normalizedId) &&
+            eq.status !== 'maintenance' &&
+            eq.status !== 'retired' &&
+            (eq.available_quantity > 0)
+          );
+        }
+        
+        if (equipmentError) {
+          console.error("Erreur lors de la recherche en base de données:", equipmentError);
+          throw equipmentError;
+        }
+        
+        console.log("Résultat de la recherche en base de données:", equipmentData);
+        
+        if (!equipmentData || equipmentData.length === 0) {
+          // Essayer une recherche plus souple si la recherche exacte n'a pas donné de résultats
+          const { data: allEquipment, error: fuzzyError } = await supabase!
+          .from('equipment')
+          .select(`
+            *,
+            categories(id, name),
+            suppliers(id, name),
+            equipment_groups(id, name)
+            `);
+            
+          if (fuzzyError) {
+            console.error("Erreur lors de la recherche fuzzy:", fuzzyError);
+            throw fuzzyError;
+          }
+          
+          // Filtrer côté client pour la recherche fuzzy
+          const fuzzyData = allEquipment?.filter(eq => 
+            (eq.serial_number && eq.serial_number.toLowerCase().includes(normalizedId)) ||
+            (eq.article_number && eq.article_number.toLowerCase().includes(normalizedId)) ||
+            (eq.name && eq.name.toLowerCase().includes(normalizedId)) &&
+            eq.status !== 'maintenance' &&
+            eq.status !== 'retired' &&
+            (eq.available_quantity > 0)
+          ) || [];
+          
+          console.log("Résultat de la recherche fuzzy:", fuzzyData);
+        
+          if (fuzzyData && fuzzyData.length > 0) {
+            equipmentData = fuzzyData;
+          }
+        }
+        
+        if (equipmentData && equipmentData.length > 0) {
+          const eq = equipmentData[0];
         
         // Double vérification avec la fonction SQL
-        const { data: availabilityCheck, error: availabilityError } = await supabase
+        const { data: availabilityCheck, error: availabilityError } = await supabase!
           .rpc('check_equipment_availability', {
             equipment_id: eq.id,
             requested_quantity: 1
           });
 
-        if (availabilityError) throw availabilityError;
-
-        const availability = availabilityCheck?.[0];
-        if (!availability?.is_available) {
-          toast.error(`Équipement non disponible: ${availability?.message || 'Raison inconnue'}`);
-          return;
+        if (availabilityError) {
+          console.error("Erreur lors de la vérification de disponibilité (DB):", availabilityError);
+          // Si l'erreur est liée à l'ambiguïté de la colonne, on vérifie manuellement
+          if (availabilityError.code === '42702') {
+            console.log("Contournement de l'erreur d'ambiguïté, vérification manuelle de la disponibilité");
+            // Vérifier manuellement si l'équipement est disponible
+            if (eq.available_quantity && eq.available_quantity > 0) {
+              // Continuer avec la transformation et l'ajout
+            } else {
+              toast.error(`Équipement non disponible: Quantité insuffisante`);
+              return;
+            }
+          } else {
+            throw availabilityError;
+          }
+        } else {
+          const availability = availabilityCheck?.[0];
+          if (!availability?.is_available) {
+            toast.error(`Équipement non disponible: ${availability?.message || 'Raison inconnue'}`);
+            return;
+          }
         }
 
-        foundEquipment = {
-          id: eq.id,
-          name: eq.name,
-          description: eq.description || '',
-          category: eq.categories?.name || '',
-          serialNumber: eq.serial_number,
-          status: eq.status as Equipment['status'],
-          addedDate: eq.added_date || eq.created_at,
-          lastMaintenance: eq.last_maintenance,
-          imageUrl: eq.image_url,
-          supplier: eq.suppliers?.name || '',
-          location: eq.location || '',
-          articleNumber: eq.article_number,
-          qrType: eq.qr_type || 'individual',
-          totalQuantity: eq.total_quantity || 1,
-          availableQuantity: eq.available_quantity || 1,
-          shortTitle: eq.short_title,
-          group: eq.equipment_groups?.name || ''
-        };
-        
+          foundEquipment = {
+            id: eq.id,
+            name: eq.name,
+            description: eq.description || '',
+            category: eq.categories?.name || '',
+            serialNumber: eq.serial_number,
+            status: eq.status as Equipment['status'],
+            addedDate: eq.added_date || eq.created_at,
+            lastMaintenance: eq.last_maintenance,
+            imageUrl: eq.image_url,
+            supplier: eq.suppliers?.name || '',
+            location: eq.location || '',
+            articleNumber: eq.article_number,
+            qrType: eq.qr_type || 'individual',
+            totalQuantity: eq.total_quantity || 1,
+            availableQuantity: eq.available_quantity || 1,
+            shortTitle: eq.short_title,
+            group: eq.equipment_groups?.name || ''
+          };
+
         addEquipmentToCheckout(foundEquipment);
         // setScannedCode(''); // This line was removed from the new_code, so it's removed here.
         return;
@@ -426,6 +510,9 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
               }
               .logo-container {
                 width: 40%;
+                display: flex;
+                align-items: flex-start;
+                justify-content: space-between;
               }
               .logo {
                 max-height: 60px;
@@ -586,12 +673,10 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
                 }
               }
               .qr-code-container {
-                position: absolute;
-                top: 10mm;
-                right: 10mm;
-                width: 100px;
-                height: 100px;
+                width: 50px;
+                height: 50px;
                 text-align: center;
+                margin-left: 20px;
               }
               .qr-code {
                 width: 100%;
@@ -603,6 +688,10 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
                 margin-top: 5px;
                 color: #333;
                 font-weight: bold;
+              }
+              .logo-and-qr {
+                display: flex;
+                align-items: flex-start;
               }
             </style>
             <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
@@ -619,7 +708,13 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
             
             <div class="header">
               <div class="logo-container">
+                <div class="logo-and-qr">
                 ${logoUrl ? `<img src="${logoUrl}" alt="Logo" class="logo" />` : `<div class="company-name">GO-Mat</div>`}
+                  <div class="qr-code-container">
+                    <canvas id="qrcode" class="qr-code"></canvas>
+                    <div class="qr-code-label">Bon N° ${deliveryNote.note_number}</div>
+                  </div>
+                </div>
                 <div class="qr-icons">
                   <div>
                     <div class="qr-icon">QR</div>
@@ -637,26 +732,6 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
               </div>
               <div class="company-info">
                 <div class="company-name">GO-Mat</div>
-                <div>Gestion de Matériel</div>
-                <div>123 Rue de l'Équipement</div>
-                <div>75000 Paris</div>
-                <div>Tél: 01 23 45 67 89</div>
-                <div>Email: contact@go-mat.fr</div>
-              </div>
-            </div>
-            
-            <div class="qr-code-container">
-              <div id="qrcode" class="qr-code"></div>
-              <div class="qr-code-label">Bon N° ${deliveryNote.note_number}</div>
-            </div>
-            
-            <div class="date-info">
-              <div>Date d'émission: ${formattedDate}</div>
-              <div>Référence: ${deliveryNote.note_number}</div>
-            </div>
-            
-            <div class="customer-info">
-              <div class="customer-box">
                 <div><strong>Emprunteur:</strong></div>
                 <div>${user.first_name} ${user.last_name}</div>
                 <div>Département: ${user.department}</div>
@@ -664,6 +739,13 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
                 ${user.phone ? `<div>Téléphone: ${user.phone}</div>` : ''}
               </div>
             </div>
+            
+            <div class="date-info">
+              <div>Date d'émission: ${formattedDate}</div>
+              <div>Référence: ${deliveryNote.note_number}</div>
+            </div>
+            
+
             
             <div class="document-title">
               Bon de Sortie <span class="document-number">N° ${deliveryNote.note_number}</span>
@@ -724,7 +806,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
             
             <div class="footer">
               <div class="contact-info">
-                <div>GO-Mat - Système de Gestion de Matériel</div>
+                <div>GO-PROD & GO-MAT, solutions evenementielles</div>
                 <div>Tél: 01 23 45 67 89</div>
                 <div>Email: contact@go-mat.fr</div>
               </div>
@@ -735,8 +817,8 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
               // Générer le QR code
               window.onload = function() {
                 QRCode.toCanvas(document.getElementById('qrcode'), '${noteQrCode}', {
-                  width: 100,
-                  height: 100,
+                  width: 50,
+                  height: 50,
                   margin: 0,
                   color: {
                     dark: '#000000',
@@ -780,12 +862,21 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
     user.department.toLowerCase().includes(userSearchTerm.toLowerCase())
   );
 
-  const filteredEquipment = equipment.filter(eq =>
-    eq.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    eq.serialNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (eq.articleNumber || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-    eq.category.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredEquipment = equipment.filter(eq => {
+    const searchTermLower = searchTerm.toLowerCase().trim();
+    if (searchTermLower === '') return true; // Afficher tous les équipements si aucun terme de recherche
+    
+    // Recherche dans tous les champs pertinents
+    return (
+      eq.name.toLowerCase().includes(searchTermLower) ||
+      eq.serialNumber.toLowerCase().includes(searchTermLower) ||
+      (eq.articleNumber || '').toLowerCase().includes(searchTermLower) ||
+      eq.category.toLowerCase().includes(searchTermLower) ||
+      (eq.description || '').toLowerCase().includes(searchTermLower) ||
+      (eq.group || '').toLowerCase().includes(searchTermLower) ||
+      (eq.shortTitle || '').toLowerCase().includes(searchTermLower)
   );
+  });
 
   const totalItems = checkoutItems.reduce((sum, item) => sum + item.quantity, 0);
 
@@ -832,7 +923,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
                 icon={<Plus size={14} />}
                 onClick={handleAddUser}
               >
-                AJOUTER CONTACT
+                AJOUTER UN CONTACT
               </Button>
             </div>
             <div className="flex items-center gap-4">
@@ -924,7 +1015,7 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
                 />
                 
                 <div className="max-h-64 overflow-y-auto border rounded-lg">
-                  {filteredEquipment.slice(0, 10).map((eq) => (
+                  {filteredEquipment.map((eq) => (
                     <div
                       key={eq.id}
                       className="flex items-center justify-between p-3 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer border-b last:border-b-0"
@@ -935,12 +1026,17 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
                           {eq.name}
                         </h4>
                         <p className="text-xs text-gray-500 dark:text-gray-400">
-                          {eq.serialNumber} • Dispo: {eq.availableQuantity}
+                          {eq.serialNumber} • Dispo: {eq.availableQuantity} {eq.group ? `• ${eq.group}` : ''}
                         </p>
                       </div>
                       <Plus size={16} className="text-primary-600 dark:text-primary-400" />
                     </div>
                   ))}
+                  {filteredEquipment.length === 0 && (
+                    <div className="p-4 text-center text-gray-500">
+                      Aucun équipement trouvé
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

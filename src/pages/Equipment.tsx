@@ -185,7 +185,7 @@ export default function Equipment() {
     console.log('Equipment:', equipmentItem);
     console.log('QR Type:', equipmentItem.qrType);
     console.log('Total Quantity:', equipmentItem.totalQuantity || 1);
-    
+
     // Si c'est un équipement avec QR individuels et plusieurs quantités
     if (equipmentItem.qrType === 'individual' && (equipmentItem.totalQuantity || 1) > 1) {
       console.log('Affichage QRCodesModal (multiple QR codes)');
@@ -401,7 +401,7 @@ export default function Equipment() {
               {/* Nom du matériel */}
               <div>
                 <h3 className="text-lg font-bold text-gray-900 dark:text-white">{eq.name}</h3>
-                {eq.shortTitle && (
+              {eq.shortTitle && (
                   <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{eq.shortTitle}</p>
                 )}
               </div>
@@ -554,29 +554,29 @@ export default function Equipment() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex justify-end gap-1">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleShowQR(eq.id)}
-                        >
-                          <QrCode className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleEdit(eq.id)}
-                        >
-                          <Edit className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleDelete(eq.id)}
-                          className="text-red-600 hover:text-red-700"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleShowQR(eq.id)}
+            >
+              <QrCode className="w-4 h-4" />
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleEdit(eq.id)}
+            >
+              <Edit className="w-4 h-4" />
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleDelete(eq.id)}
+              className="text-red-600 hover:text-red-700"
+            >
+              <Trash2 className="w-4 h-4" />
+            </Button>
+          </div>
                     </td>
                   </tr>
                 );
@@ -584,7 +584,7 @@ export default function Equipment() {
             </tbody>
           </table>
         </div>
-      </div>
+        </div>
     );
   };
 
@@ -672,8 +672,8 @@ export default function Equipment() {
 
       {viewMode === 'grid' ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {filteredEquipment.map(renderEquipmentCard)}
-        </div>
+        {filteredEquipment.map(renderEquipmentCard)}
+      </div>
       ) : (
         renderEquipmentList()
       )}

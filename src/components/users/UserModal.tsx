@@ -31,9 +31,9 @@ const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, user }) => {
       setFormData({
         first_name: user.first_name,
         last_name: user.last_name,
-        email: user.email,
+        email: user.email || '',
         phone: user.phone || '',
-        department: user.department,
+        department: user.department || '',
         role: user.role
       });
     } else {
@@ -52,7 +52,7 @@ const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, user }) => {
     e.preventDefault();
     setIsLoading(true);
     
-    // Validation supplémentaire
+    // Validation uniquement pour nom, prénom et téléphone
     if (!formData.first_name.trim() || !formData.last_name.trim() || !formData.phone.trim()) {
       toast.error('Veuillez remplir tous les champs obligatoires');
       setIsLoading(false);
@@ -63,15 +63,15 @@ const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, user }) => {
       const dataToSubmit = {
         first_name: formData.first_name,
         last_name: formData.last_name,
-        email: formData.email,
+        email: formData.email.trim() || null,
         phone: formData.phone || null,
-        department: formData.department,
+        department: formData.department.trim() || null,
         role: formData.role
       };
 
       if (user) {
         // Update existing user
-        const { error } = await supabase
+        const { error } = await supabase!
           .from('users')
           .update(dataToSubmit)
           .eq('id', user.id);
@@ -80,7 +80,7 @@ const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, user }) => {
         toast.success(t('userUpdated'));
       } else {
         // Create new user
-        const { error } = await supabase
+        const { error } = await supabase!
           .from('users')
           .insert([dataToSubmit]);
 
@@ -97,9 +97,10 @@ const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, user }) => {
         department: '',
         role: 'user'
       });
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Error saving user:', error);
-      toast.error(error.message || t('errorSavingUser'));
+      const errorMessage = error instanceof Error ? error.message : t('errorSavingUser');
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -117,7 +118,7 @@ const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, user }) => {
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={user ? 'MODIFIER L\'UTILISATEUR' : 'AJOUTER UN UTILISATEUR'}
+      title={user ? 'MODIFIER LE CONTACT' : 'AJOUTER UN CONTACT'}
       size="md"
     >
       <div className="space-y-4">
@@ -125,7 +126,7 @@ const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, user }) => {
         <Accordion
           title="INFORMATIONS PERSONNELLES"
           icon={<UserIcon size={18} className="text-blue-600 dark:text-blue-400" />}
-          defaultOpen={false}
+          defaultOpen={true}
         >
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
@@ -180,7 +181,7 @@ const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, user }) => {
         <Accordion
           title="CONTACT"
           icon={<Mail size={18} className="text-green-600 dark:text-green-400" />}
-          defaultOpen={false}
+          defaultOpen={true}
         >
           <div className="space-y-4">
             <div>
@@ -221,12 +222,11 @@ const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, user }) => {
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                {t('department')} *
+                {t('department')}
               </label>
               <input
                 type="text"
                 name="department"
-                required
                 value={formData.department}
                 onChange={handleChange}
                 className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
@@ -235,11 +235,10 @@ const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, user }) => {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                {t('role')} *
+                {t('role')}
               </label>
               <select
                 name="role"
-                required
                 value={formData.role}
                 onChange={handleChange}
                 className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"

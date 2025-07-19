@@ -226,7 +226,7 @@ export default function Settings() {
     delete: (item: any) => {
       setDeleteType(type as any);
       setDeleteItem(item);
-      setShowDeleteModal(true);
+    setShowDeleteModal(true);
     },
     save: (newItem: any) => {
       if (selectedCategory || selectedSupplier || selectedDepartment || selectedGroup || selectedSubgroup || selectedMaintenanceType || selectedStatus) {
@@ -283,7 +283,7 @@ export default function Settings() {
         .eq('id', deleteItem.id);
 
       if (error) throw error;
-
+      
       // Update local state
       const setterMap = {
         category: setCategories,
@@ -399,16 +399,16 @@ export default function Settings() {
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Paramètres</h1>
         <div className="flex gap-2">
-          <Button
-            variant="outline"
+                <Button
+                  variant="outline"
             onClick={() => {
-              fetchData();
-              refreshData();
+            fetchData();
+            refreshData();
             }}
             disabled={isLoading}
           >
             <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-            Actualiser
+          Actualiser
           </Button>
           <Button
             variant="danger"
@@ -418,14 +418,14 @@ export default function Settings() {
             Réinitialiser
           </Button>
         </div>
-      </div>
-
+        </div>
+        
       {/* Loading state */}
       {isLoading && (
-        <div className="flex justify-center items-center h-40">
-          <RefreshCw className="w-8 h-8 animate-spin text-gray-400" />
+          <div className="flex justify-center items-center h-40">
+            <RefreshCw className="w-8 h-8 animate-spin text-gray-400" />
           <span className="ml-2 text-gray-600 dark:text-gray-400">Chargement des paramètres...</span>
-        </div>
+                </div>
       )}
 
       {/* Content in 2 columns */}
@@ -504,8 +504,8 @@ export default function Settings() {
               statusHandlers.edit,
               statusHandlers.delete,
               "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200"
-            )}
-          </div>
+              )}
+            </div>
         </div>
       )}
 
@@ -574,7 +574,7 @@ export default function Settings() {
       {showMaintenanceTypeModal && (
         <MaintenanceTypeModal
           isOpen={showMaintenanceTypeModal}
-          onClose={() => {
+        onClose={() => {
             setShowMaintenanceTypeModal(false);
             setSelectedMaintenanceType(null);
             fetchData(); // Refresh data after modal close
@@ -584,10 +584,10 @@ export default function Settings() {
       )}
 
       {showStatusModal && (
-        <StatusModal
-          isOpen={showStatusModal}
-          onClose={() => {
-            setShowStatusModal(false);
+      <StatusModal
+        isOpen={showStatusModal}
+        onClose={() => {
+          setShowStatusModal(false);
             setSelectedStatus(null);
             fetchData(); // Refresh data after modal close
           }}
@@ -599,17 +599,17 @@ export default function Settings() {
         <SystemResetModal
           isOpen={showSystemResetModal}
           onClose={() => setShowSystemResetModal(false)}
-        />
+      />
       )}
 
       {showDeleteModal && (
         <ConfirmModal
           isOpen={showDeleteModal}
-          onClose={() => {
+        onClose={() => {
             setShowDeleteModal(false);
             setDeleteType(null);
             setDeleteItem(null);
-          }}
+        }}
           onConfirm={confirmDelete}
           title="Supprimer l'élément"
           message={`Êtes-vous sûr de vouloir supprimer "${deleteItem?.name}" ? Cette action est irréversible.`}

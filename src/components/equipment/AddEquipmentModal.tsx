@@ -242,8 +242,8 @@ const AddEquipmentModal: React.FC<AddEquipmentModalProps> = ({ isOpen = true, on
         const batchSize = 50;
         for (let i = 0; i < instances.length; i += batchSize) {
           const batch = instances.slice(i, i + batchSize);
-          const { error: instancesError } = await supabase
-            .from('equipment_instances')
+        const { error: instancesError } = await supabase
+          .from('equipment_instances')
             .insert(batch);
 
           if (instancesError) {

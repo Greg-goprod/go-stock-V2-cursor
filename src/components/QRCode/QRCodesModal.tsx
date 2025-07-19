@@ -36,10 +36,14 @@ const QRCodesModal: React.FC<QRCodesModalProps> = ({
           <title>QR Codes - ${equipment.name}</title>
           <meta charset="UTF-8">
           <style>
+            @page {
+              size: A4;
+              margin: 10mm;
+            }
             body {
               font-family: Arial, sans-serif;
               margin: 0;
-              padding: 20px;
+              padding: 0;
             }
             .print-header {
               text-align: center;
@@ -58,26 +62,42 @@ const QRCodesModal: React.FC<QRCodesModalProps> = ({
             }
             .qr-grid {
               display: grid;
-              grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-              gap: 20px;
+              grid-template-columns: repeat(4, 1fr);
+              gap: 5mm;
               justify-items: center;
+              padding: 5mm;
             }
             .qr-item {
-              text-align: center;
+              width: 40mm;
+              height: 40mm;
+              border-radius: 50%;
+              background-color: white;
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              justify-content: center;
               page-break-inside: avoid;
-              margin-bottom: 20px;
+              margin-bottom: 5mm;
+              overflow: hidden;
+              box-shadow: 0 0 3px rgba(0,0,0,0.2);
             }
             .qr-title {
+              font-size: 6px;
               font-weight: bold;
-              margin-top: 5px;
-              font-size: 10pt;
-            }
-            .qr-subtitle {
-              font-size: 8pt;
-              color: #666;
+              margin-top: 3mm;
+              margin-bottom: 0;
+              text-align: center;
+              width: 90%;
+              overflow: hidden;
+              text-overflow: ellipsis;
+              white-space: nowrap;
             }
             .qr-code {
-              margin-bottom: 5px;
+              width: 25mm;
+              height: 25mm;
+              object-fit: contain;
+              display: block;
+              margin: auto;
             }
             .print-button {
               position: fixed;
@@ -96,6 +116,13 @@ const QRCodesModal: React.FC<QRCodesModalProps> = ({
               .print-button {
                 display: none;
               }
+              .print-header {
+                display: none;
+              }
+              body {
+                padding: 0;
+                margin: 0;
+              }
             }
           </style>
         </head>
@@ -112,23 +139,21 @@ const QRCodesModal: React.FC<QRCodesModalProps> = ({
               ? instances.map(instance => `
                 <div class="qr-item">
                   <img 
-                    src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(instance.qrCode)}" 
+                    src="https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(instance.qrCode)}" 
                     alt="QR Code ${instance.instanceNumber}"
                     class="qr-code"
                   />
                   <div class="qr-title">${equipment.name} #${instance.instanceNumber}</div>
-                  <div class="qr-subtitle">${equipment.articleNumber || equipment.serialNumber}-${String(instance.instanceNumber).padStart(3, '0')}</div>
                 </div>
               `).join('')
               : `
                 <div class="qr-item">
                   <img 
-                    src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(equipment.id)}" 
+                    src="https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(equipment.id)}" 
                     alt="QR Code"
                     class="qr-code"
                   />
                   <div class="qr-title">${equipment.name}</div>
-                  <div class="qr-subtitle">${equipment.articleNumber || equipment.serialNumber}</div>
                 </div>
               `
             }

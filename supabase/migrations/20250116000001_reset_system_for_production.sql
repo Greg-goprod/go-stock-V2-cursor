@@ -1,5 +1,5 @@
 /*
-  # Remise à zéro du système pour mise en production
+  # Remise à zéro du système pour mise en production et modification du champ email
 
   1. Suppression complète des données transactionnelles
     - Tous les emprunts et historique (checkouts)
@@ -17,42 +17,29 @@
     - Équipements de base (nom, description, etc.)
     - Configurations système
 
+a  4. Modification des champs email et department
+    - Rendre les champs email et department nullables dans la table users
+    - Permettre l'ajout de contacts sans email et sans département
+
   ⚠️ ATTENTION: Cette migration supprime définitivement toutes les données d'emprunt et de maintenance !
 */
 
--- Désactiver temporairement les triggers pour éviter les conflits en cascade
-DO $$
-BEGIN
-  -- Désactiver les triggers sur les tables principales
-  EXECUTE 'ALTER TABLE checkouts DISABLE TRIGGER ALL';
-  EXECUTE 'ALTER TABLE delivery_notes DISABLE TRIGGER ALL';
-  EXECUTE 'ALTER TABLE equipment DISABLE TRIGGER ALL';
-  EXECUTE 'ALTER TABLE equipment_instances DISABLE TRIGGER ALL';
-  EXECUTE 'ALTER TABLE equipment_maintenance DISABLE TRIGGER ALL';
-  
-  RAISE NOTICE 'Triggers désactivés temporairement';
-END $$;
-
 -- 1. SUPPRESSION DES DONNÉES TRANSACTIONNELLES
+-- Supprimer les données dans l'ordre pour respecter les contraintes de clés étrangères
 
 -- Supprimer tous les emprunts (checkouts)
 DELETE FROM checkouts;
-RAISE NOTICE 'Tous les emprunts supprimés: % lignes', (SELECT COUNT(*) FROM checkouts);
 
--- Supprimer tous les bons de livraison (delivery_notes) 
+-- Supprimer tous les bons de livraison (delivery_notes)
 DELETE FROM delivery_notes;
-RAISE NOTICE 'Tous les bons de livraison supprimés: % lignes', (SELECT COUNT(*) FROM delivery_notes);
 
 -- Supprimer toutes les maintenances (equipment_maintenance)
 DELETE FROM equipment_maintenance;
-RAISE NOTICE 'Toutes les maintenances supprimées: % lignes', (SELECT COUNT(*) FROM equipment_maintenance);
 
 -- Supprimer toutes les instances d'équipement (equipment_instances)
 DELETE FROM equipment_instances;
-RAISE NOTICE 'Toutes les instances d''équipement supprimées: % lignes', (SELECT COUNT(*) FROM equipment_instances);
 
 -- 2. REMISE EN DISPONIBILITÉ DE TOUT LE MATÉRIEL
-
 -- Remettre tous les équipements disponibles
 UPDATE equipment
 SET 
@@ -60,11 +47,7 @@ SET
   available_quantity = total_quantity,
   last_maintenance = NULL;
 
-RAISE NOTICE 'Tous les équipements remis en disponibilité: % lignes mises à jour', 
-  (SELECT COUNT(*) FROM equipment WHERE status = 'available');
-
 -- 3. RÉINITIALISATION DES COMPTEURS ET SEQUENCES
-
 -- Réinitialiser les séquences si elles existent
 DO $$
 DECLARE
@@ -77,12 +60,10 @@ BEGIN
     WHERE sequence_name LIKE '%delivery_note%' OR sequence_name LIKE '%bon%'
   LOOP
     EXECUTE 'ALTER SEQUENCE ' || seq_name || ' RESTART WITH 1';
-    RAISE NOTICE 'Séquence % réinitialisée', seq_name;
   END LOOP;
 END $$;
 
 -- 4. NETTOYAGE DU CACHE ET NOTIFICATIONS
-
 -- Supprimer les notifications stockées dans system_settings si elles existent
 DELETE FROM system_settings WHERE id LIKE '%notification%' OR id LIKE '%cache%';
 
@@ -95,55 +76,39 @@ SET
   updated_at = NOW(),
   description = 'Date de remise à zéro du système pour la production';
 
--- 5. RÉACTIVATION DES TRIGGERS
-
-DO $$
-BEGIN
-  -- Réactiver les triggers sur les tables principales
-  EXECUTE 'ALTER TABLE checkouts ENABLE TRIGGER ALL';
-  EXECUTE 'ALTER TABLE delivery_notes ENABLE TRIGGER ALL';
-  EXECUTE 'ALTER TABLE equipment ENABLE TRIGGER ALL';
-  EXECUTE 'ALTER TABLE equipment_instances ENABLE TRIGGER ALL';
-  EXECUTE 'ALTER TABLE equipment_maintenance ENABLE TRIGGER ALL';
-  
-  RAISE NOTICE 'Triggers réactivés';
-END $$;
-
--- 6. RAPPORT FINAL
-
-DO $$
-DECLARE
-  equipment_count INT;
-  total_quantity_sum INT;
-  user_count INT;
-  category_count INT;
-BEGIN
-  -- Compter les équipements
-  SELECT COUNT(*), SUM(total_quantity) 
-  INTO equipment_count, total_quantity_sum
-  FROM equipment;
-  
-  -- Compter les utilisateurs
-  SELECT COUNT(*) INTO user_count FROM users;
-  
-  -- Compter les catégories
-  SELECT COUNT(*) INTO category_count FROM categories;
-  
-  RAISE NOTICE '========== RAPPORT DE REMISE À ZÉRO ==========';
-  RAISE NOTICE 'Équipements conservés: % (% unités total)', equipment_count, total_quantity_sum;
-  RAISE NOTICE 'Utilisateurs conservés: %', user_count;
-  RAISE NOTICE 'Catégories conservées: %', category_count;
-  RAISE NOTICE 'Emprunts supprimés: TOUS';
-  RAISE NOTICE 'Bons de livraison supprimés: TOUS';
-  RAISE NOTICE 'Maintenances supprimées: TOUTES';
-  RAISE NOTICE 'Instances d''équipement supprimées: TOUTES';
-  RAISE NOTICE 'Statut: Tous les équipements sont maintenant DISPONIBLES';
-  RAISE NOTICE '=============================================';
-END $$;
-
+-- 5. METTRE À JOUR LES STATISTIQUES
 -- Mettre à jour les statistiques des tables pour optimiser les performances
 ANALYZE equipment;
 ANALYZE checkouts;
 ANALYZE delivery_notes;
 ANALYZE equipment_maintenance;
 ANALYZE equipment_instances; 
+
+-- 6. RENDRE LES CHAMPS EMAIL ET DEPARTMENT NULLABLES DANS LA TABLE USERS
+-- Modification pour permettre l'ajout de contacts sans email et sans département
+ALTER TABLE users ALTER COLUMN email DROP NOT NULL;
+ALTER TABLE users ALTER COLUMN department DROP NOT NULL;
+
+-- Mettre à jour les index si nécessaire
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_indexes 
+    WHERE indexname = 'users_email_idx'
+  ) THEN
+    DROP INDEX IF EXISTS users_email_idx;
+    CREATE INDEX users_email_idx ON users (email) WHERE email IS NOT NULL;
+  END IF;
+  
+  IF EXISTS (
+    SELECT 1 FROM pg_indexes 
+    WHERE indexname = 'users_department_idx' OR indexname = 'idx_users_department'
+  ) THEN
+    DROP INDEX IF EXISTS users_department_idx;
+    DROP INDEX IF EXISTS idx_users_department;
+    CREATE INDEX users_department_idx ON users (department) WHERE department IS NOT NULL;
+  END IF;
+END $$;
+
+COMMENT ON COLUMN users.email IS 'Adresse email du contact (optionnelle)';
+COMMENT ON COLUMN users.department IS 'Département du contact (optionnel)'; 

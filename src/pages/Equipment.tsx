@@ -652,23 +652,57 @@ export default function Equipment() {
         </Button>
       </div>
 
-      {showFilters && (
-        <FilterPanel
-          filters={filters}
-          onFiltersChange={setFilters}
-          categories={categories}
-          suppliers={suppliers}
-          groups={equipmentGroups}
-          subgroups={equipmentSubgroups}
-          statusOptions={[
-            { value: 'available', label: 'Disponible' },
-            { value: 'checked-out', label: 'Sorti' },
-            { value: 'maintenance', label: 'En maintenance' },
-            { value: 'retired', label: 'Retiré' },
-            { value: 'lost', label: 'Perdu' }
-          ]}
-        />
-      )}
+      <FilterPanel
+        isOpen={showFilters}
+        onClose={() => setShowFilters(false)}
+        options={[
+          {
+            id: 'status',
+            label: 'Statut',
+            type: 'select',
+            options: [
+              { value: 'available', label: 'Disponible' },
+              { value: 'checked-out', label: 'Sorti' },
+              { value: 'maintenance', label: 'En maintenance' },
+              { value: 'retired', label: 'Retiré' },
+              { value: 'lost', label: 'Perdu' }
+            ]
+          },
+          {
+            id: 'category',
+            label: 'Catégorie',
+            type: 'select',
+            options: categories.map(cat => ({ value: cat.id, label: cat.name }))
+          },
+          {
+            id: 'supplier',
+            label: 'Fournisseur',
+            type: 'select',
+            options: suppliers.map(sup => ({ value: sup.id, label: sup.name }))
+          },
+          {
+            id: 'group',
+            label: 'Groupe',
+            type: 'select',
+            options: equipmentGroups.map(group => ({ value: group.id, label: group.name }))
+          },
+          {
+            id: 'subgroup',
+            label: 'Sous-groupe',
+            type: 'select',
+            options: equipmentSubgroups.map(subgroup => ({ value: subgroup.id, label: subgroup.name }))
+          }
+        ]}
+        onApplyFilters={(newFilters) => {
+          setFilters({
+            status: newFilters.status || '',
+            category: newFilters.category || '',
+            supplier: newFilters.supplier || '',
+            group: newFilters.group || '',
+            subgroup: newFilters.subgroup || ''
+          });
+        }}
+      />
 
       {viewMode === 'grid' ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">

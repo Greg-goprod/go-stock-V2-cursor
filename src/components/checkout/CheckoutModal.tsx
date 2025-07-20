@@ -455,16 +455,19 @@ const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose }) => {
               }
               .customer-info {
                 margin-bottom: 20px;
+                position: relative;
               }
               .customer-box {
                 border: 1px solid #ddd;
                 padding: 10px;
                 width: 50%;
-                margin-left: auto;
+                float: left;
               }
               .date-info {
                 text-align: right;
                 margin-bottom: 10px;
+                clear: both;
+                margin-top: 10px;
               }
               table {
                 width: 100%;

@@ -75,12 +75,12 @@ const QRCodeScanner: React.FC<QRCodeScannerProps> = ({ onScan, onError, disableA
     setLastScanStatus(null);
 
     try {
-      console.log("Envoi de la valeur scannée:", cleanValue);
+      console.log("🎯 Envoi de la valeur scannée:", cleanValue);
       await onScan(cleanValue);
       setLastScanStatus('success');
       setScannedValue('');
     } catch (error: unknown) {
-      console.error('Erreur scan:', error);
+      console.error('❌ Erreur scan:', error);
       setLastScanStatus('error');
       if (onError) {
         const errorMessage = error instanceof Error ? error.message : 'Erreur lors du traitement du scan';
@@ -121,7 +121,7 @@ const QRCodeScanner: React.FC<QRCodeScannerProps> = ({ onScan, onError, disableA
     if (lastScanStatus === 'success') return 'border-green-400 bg-green-50 dark:bg-green-900/20';
     if (lastScanStatus === 'error') return 'border-red-400 bg-red-50 dark:bg-red-900/20';
     if (lastScanStatus === 'duplicate') return 'border-orange-400 bg-orange-50 dark:bg-orange-900/20';
-    return 'border-primary-300 dark:border-primary-600 bg-white dark:bg-gray-800';
+    return 'border-blue-300 dark:border-blue-600 bg-white dark:bg-gray-800';
   };
 
   const getStatusMessage = () => {
@@ -135,23 +135,23 @@ const QRCodeScanner: React.FC<QRCodeScannerProps> = ({ onScan, onError, disableA
 
   return (
     <div className="w-full max-w-md mx-auto">
-      {/* Header informatif */}
-      <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-4">
-        <div className="flex items-center gap-2 mb-2">
-          <Zap size={20} className="text-blue-600 dark:text-blue-400" />
-          <h3 className="font-black text-blue-800 dark:text-blue-200 uppercase tracking-wide">
-            SCAN DOUCHETTE {disableAutoFocus ? 'SUSPENDU' : 'ACTIF'}
+      {/* HEADER SIMPLIFIE POUR DEBUG */}
+      <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 mb-3">
+        <div className="flex items-center gap-2 mb-1">
+          <Zap size={16} className="text-blue-600 dark:text-blue-400" />
+          <h3 className="font-bold text-blue-800 dark:text-blue-200 text-sm">
+            SCANNER QR - {disableAutoFocus ? 'SUSPENDU' : 'ACTIF'}
           </h3>
         </div>
-        <p className="text-sm text-blue-700 dark:text-blue-300 font-medium">
+        <p className="text-xs text-blue-700 dark:text-blue-300">
           {disableAutoFocus 
-            ? 'Mode recherche manuelle actif. Cliquez ici pour réactiver le scan.'
-            : 'Utilisez votre douchette pour scanner en continu ou saisissez manuellement'
+            ? 'Mode manuel actif'
+            : 'Scan automatique activé'
           }
         </p>
       </div>
 
-      {/* Champ de saisie optimisé */}
+      {/* CHAMP DE SAISIE SIMPLIFIE */}
       <div className="relative">
         <input
           ref={inputRef}
@@ -159,36 +159,32 @@ const QRCodeScanner: React.FC<QRCodeScannerProps> = ({ onScan, onError, disableA
           value={scannedValue}
           onChange={handleInputChange}
           onKeyDown={handleKeyDown}
-          placeholder={disableAutoFocus ? "Cliquez pour activer le scan..." : "Scannez un code ou saisissez-le manuellement..."}
+          placeholder="Scannez ou saisissez un code..."
           disabled={isProcessing}
-          className={`w-full px-4 py-4 text-center border-2 rounded-lg font-mono text-lg focus:outline-none focus:ring-2 focus:ring-primary-500 transition-all ${getStatusColor()} ${disableAutoFocus ? 'opacity-70' : ''}`}
+          className={`w-full px-3 py-3 text-center border-2 rounded-md font-mono text-base focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${getStatusColor()}`}
           autoComplete="off"
           autoFocus={!disableAutoFocus}
         />
         
-        <div className="absolute inset-y-0 right-0 flex items-center pr-4">
+        <div className="absolute inset-y-0 right-0 flex items-center pr-3">
           {isProcessing ? (
-            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary-600"></div>
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
           ) : (
-            <QrCode size={20} className="text-gray-400" />
+            <QrCode size={16} className="text-gray-400" />
           )}
         </div>
       </div>
 
-      {/* Message de statut */}
-      <div className="mt-3 text-center">
-        <p className={`text-sm font-bold transition-colors ${
-          lastScanStatus === 'success' ? 'text-green-600 dark:text-green-400' :
-          lastScanStatus === 'error' ? 'text-red-600 dark:text-red-400' :
-          lastScanStatus === 'duplicate' ? 'text-orange-600 dark:text-orange-400' :
-          isProcessing ? 'text-yellow-600 dark:text-yellow-400' :
-          'text-blue-600 dark:text-blue-400'
+      {/* MESSAGE DE STATUT SIMPLIFIE */}
+      <div className="mt-2 text-center">
+        <p className={`text-sm font-medium ${
+          lastScanStatus === 'success' ? 'text-green-600' :
+          lastScanStatus === 'error' ? 'text-red-600' :
+          lastScanStatus === 'duplicate' ? 'text-orange-600' :
+          isProcessing ? 'text-yellow-600' :
+          'text-blue-600'
         }`}>
           {getStatusMessage()}
-        </p>
-        
-        <p className="text-xs text-gray-500 dark:text-gray-400 font-medium mt-1">
-          {disableAutoFocus ? 'Mode recherche manuelle actif' : 'Protection anti-doublon • Auto-focus permanent'}
         </p>
       </div>
     </div>
